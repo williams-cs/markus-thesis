@@ -1,0 +1,10 @@
+*~
+**/*.aux
+**/*.bbl
+**/*.blg
+**/*.lof
+**/*.log
+**/*thesis.lot
+thesis/thesis.pdf
+**/*.toc
+							
