@@ -36,12 +36,14 @@ void trace(pid_t pid) {
         long syscall = regs.orig_rax;
         switch (syscall) {
             case SYS_open:
+            case SYS_openat:
                 cout << "Open" << endl;
                 break;
             case SYS_close:
                 cout << "Close" << endl;
                 break;
             case SYS_read:
+            case SYS_pread64:
                 cout << "Read" << endl;
                 break;
             case SYS_write:
