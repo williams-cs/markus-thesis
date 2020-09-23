@@ -1,10 +1,10 @@
 all: trace hello
 
-trace: trace.cpp
-	g++ -std=c++17 -Wall -o trace trace.cpp
+trace: trace.cc
+	g++ -std=c++17 -Wall -o trace trace.cc
 
-hello: hello.cpp
-	g++ -std=c++17 -Wall -o hello hello.cpp
+hello: hello.cc
+	g++ -std=c++17 -Wall -o hello hello.cc
 
 clean:
 	@rm -f trace
