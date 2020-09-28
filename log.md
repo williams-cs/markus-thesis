@@ -1,5 +1,10 @@
 # Research Log
 
+## 2020-09-22
+
+- Added argument reading functionality to `extras/trace` program.
+  - Used code from the `dodo` repository.
+
 ## 2020-09-21
 
 - Read papers in `related_work`.
