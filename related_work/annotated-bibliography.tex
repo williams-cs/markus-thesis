@@ -5,12 +5,18 @@
 \usepackage{lipsum} %This package just generates Lorem Ipsum filler text. 
 \usepackage{graphicx}
 \usepackage{fullpage} % changes the margin
+\usepackage{xspace}
 
+\newcommand{\locutus}{\textsc{Locutus}\xspace}
 \newcommand{\rosgig}{R-OSGi Deployment Tool\xspace}
+\newcommand{\rosgi}{R-OSGi\xspace}
 
 \begin{document}
-The \rosgig aims to... ~\cite{10.1145/1328279.1328290}. 
+The \rosgig, a plugin for the Eclipse IDE, builds on top of the \rosgi module system, which is a dynamically-loadable module for Java applications based on the OSGi standard~\cite{10.5555/1785080.1785082, 10.1145/1328279.1328290}.   \rosgig includes a graphical plugin for visualizing deployments as well as a deployment agent that coordinates distribution of software.  The deployment agent performs a static analysis to determine which OSGi bundles need to be deployed to which machines; users graphically interact with the tool to place modules on remote hosts.
 
+\rosgig and \rosgi are limited to Java applications built using \rosgi bundles; futhermore, they are intended to facilitate graphical partitioning of an application to a distributed setting.  By contrast, \locutus has no inherent language limitations, and it is intended to automatically distribute an application wholesale to a remote host without user intervention or manual partitioning.
+
+\bibliographystyle{acm}
 \bibliography{refs}
 
 \end{document}
