@@ -7,14 +7,21 @@
 \usepackage{fullpage} % changes the margin
 \usepackage{xspace}
 
+\newcommand{\ninep}{\textsc{9P}\xspace}
+\newcommand{\amoeba}{\textsc{Amoeba}\xspace}
 \newcommand{\locutus}{\textsc{Locutus}\xspace}
+\newcommand{\plannine}{\textsc{Plan9}\xspace}
 \newcommand{\rosgig}{R-OSGi Deployment Tool\xspace}
 \newcommand{\rosgi}{R-OSGi\xspace}
 
 \begin{document}
 The \rosgig, a plugin for the Eclipse IDE, builds on top of the \rosgi module system, which is a dynamically-loadable module for Java applications based on the OSGi standard~\cite{10.5555/1785080.1785082, 10.1145/1328279.1328290}.   \rosgig includes a graphical plugin for visualizing deployments as well as a deployment agent that coordinates distribution of software.  The deployment agent performs a static analysis to determine which OSGi bundles need to be deployed to which machines; users graphically interact with the tool to place modules on remote hosts.
 
-\rosgig and \rosgi are limited to Java applications built using \rosgi bundles; futhermore, they are intended to facilitate graphical partitioning of an application to a distributed setting.  By contrast, \locutus has no inherent language limitations, and it is intended to automatically distribute an application wholesale to a remote host without user intervention or manual partitioning.
+\rosgig and \rosgi are limited to Java applications built using \rosgi bundles; futhermore, they are intended to facilitate graphical partitioning of an application to a distributed setting.
+
+The \amoeba operating system was a UNIX-like operating system designed to completely erase the distinction between local and remote processes~\cite{10.1109/2.53354}.  However, programs must be written using the \amoeba object system in order to gain distributed capabilities, which severly limited its appeal.  The \plannine operating system, by contrast, approached distributed applications in a more lightweight fashion, by designing a form of distributed IPC modeled to appear like ordinary UNIX files, but were built on top of a distributed network protocol called \ninep~\cite{DBLP:journals/csys/PikePDFTT95}.  \plannine required modest rewrites of applications in the \plannine dialect of C.  Ironically, many of the requirements of \plannine C are now considered good programming practices in modern C.
+
+\locutus has no inherent language limitations, and it is intended to automatically distribute an application wholesale to a remote host without user intervention or manual partitioning.
 
 \bibliographystyle{acm}
 \bibliography{refs}
