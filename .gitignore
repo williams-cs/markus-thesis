@@ -7,4 +7,7 @@
 **/*thesis.lot
 thesis/thesis.pdf
 **/*.toc
+lib/*
+tmp/*
+main
 							
