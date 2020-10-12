@@ -2,6 +2,7 @@
 
 ## 2020-10-11
 - Add ssh file transfer implementation with Boost library
+- Added basic remote execution over ssh
 
 ## 2020-10-06
 - Project Pitch
