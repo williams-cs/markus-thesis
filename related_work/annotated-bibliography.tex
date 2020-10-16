@@ -13,6 +13,7 @@
 \newcommand{\plannine}{\textsc{Plan 9}\xspace}
 \newcommand{\rosgig}{R-OSGi Deployment Tool\xspace}
 \newcommand{\rosgi}{R-OSGi\xspace}
+\newcommand{\cde}{\textsc{CDE}\xspace}
 
 \begin{document}
 The \rosgig, a plugin for the Eclipse IDE, builds on top of the \rosgi module system, which is a dynamically-loadable module for Java applications based on the OSGi standard~\cite{10.5555/1785080.1785082, 10.1145/1328279.1328290}.   \rosgig includes a graphical plugin for visualizing deployments as well as a deployment agent that coordinates distribution of software.  The deployment agent performs a static analysis to determine which OSGi bundles need to be deployed to which machines; users graphically interact with the tool to place modules on remote hosts.
@@ -25,6 +26,8 @@ The \amoeba operating system was a UNIX-like operating system designed to comple
 
 \bibliographystyle{acm}
 \bibliography{refs}
+
+The \cde package is a piece of software used for packing up Linux applications so that they can be run on other machines without having to specify the dependencies needed or copy over the entire system. ~\cite{10.1109/MCSE.2012.36} \cite{10.5555/2002181.2002202}. The design of the \cde package is similar to the original design for \locutus, where the application to be packed is executed on the local machine, system calls detect which files are accessed, and those files are packed up so that the entire bundle, when sent to another machine, can be used to execute the program. Furthermore, \cde has a mode of execution called the \textit{application streaming mode}, to run an application where the required files are fetched on-demand over SSH and cached locally on the user's machine.
 
 \end{document}
 
