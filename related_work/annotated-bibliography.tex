@@ -39,12 +39,7 @@ The \amoeba operating system was a UNIX-like operating system designed to comple
 
 \swift (not to be confused with Apple's language of the same name) is a strongly-typed, functional scripting language with C-like syntax designed for parallel job control~\cite{WILDE2011633}.  \swift is a dataflow language, and is implicitly parallel, relying on \emph{futures} (i.e., asynchronous threads) to minimize latency and maximize parallelism without having to perform program analyses.  \swiftt adds a \emph{distributed future store} and load balancing algorithm called \turbine so that both tasks and control functions (ala \gexec) can also be distributed~\cite{10.1145/2442516.2442559,6546066}.  Both \swift and \swiftt are geared toward scientific computing workloads.  Similarly, \skywriting is a dynamically-typed imperative language that maps to the \ciel distributed scheduling system using futures.  In contrast to \swift and \swiftt, \skywriting is explicitly parallel; however all jobs are asynchronous, meaning that users must manually encode program dependencies.  Notably, \skywriting and \ciel add fault tolerance.  Worker nodes are monitored by master nodes via a heartbeat mechanism; after a non-response timeout, a worker is considered failed and the task is rescheduled.  Since job control is also distributed, master node failure is also handled; master control data is fully recoverable from client state.  When a master is rescheduled, clients coordinate to help the master reconstruct work done.
 
-
-
 %\locutus has no inherent language limitations, and it is intended to automatically distribute an application wholesale to a remote host without user intervention or manual partitioning.
-
-\bibliographystyle{acm}
-\bibliography{refs}
 
 The \cde package is a piece of software used for packing up Linux applications so that they can be run on other machines without having to specify the dependencies needed or copy over the entire system. ~\cite{10.1109/MCSE.2012.36, 10.5555/2002181.2002202}. The design of the \cde package is similar to the original design for \locutus, where the application to be packed is executed on the local machine, system calls detect which files are accessed, and those files are packed up so that the entire bundle, when sent to another machine, can be used to execute the program. Furthermore, \cde has a mode of execution called the \textit{application streaming mode}, to run an application where the required files are fetched on-demand over SSH and cached locally on the user's machine.
 
@@ -58,6 +53,9 @@ There are downsides to using the \cde package to wrap applications. First of all
 
 Potential future areas of study in this topic are going further down the line of streaming dependencies remotely. If there is a way to automatically determine if a requested dependency is already available locally on the machine, that could cut down on the time spent streaming considerably.
 Another future area of study is an attempt to improve the performance on I/O bound applications. Perhaps there is a way to not incur the costs of context switching on every single I/O access.
+
+\bibliographystyle{acm}
+\bibliography{refs}
 
 \end{document}
 
