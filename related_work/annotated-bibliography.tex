@@ -7,6 +7,7 @@
 \usepackage{fullpage} % changes the margin
 \usepackage{xspace}
 
+% PROJECT NAMES
 \newcommand{\ninep}{\textsc{9P}\xspace}
 \newcommand{\amoeba}{\textsc{Amoeba}\xspace}
 \newcommand{\locutus}{\textsc{Locutus}\xspace}
@@ -14,6 +15,18 @@
 \newcommand{\rosgig}{R-OSGi Deployment Tool\xspace}
 \newcommand{\rosgi}{R-OSGi\xspace}
 \newcommand{\cde}{\textsc{CDE}\xspace}
+\newcommand{\gexec}{\texttt{gexec}}
+\newcommand{\ganglia}{\textsc{Ganglia}\xspace}
+\newcommand{\swift}{\textsc{Swift}\xspace}
+\newcommand{\swiftt}{\textsc{Swift/T}\xspace}
+\newcommand{\turbine}{\textsc{Turbine}\xspace}
+\newcommand{\ciel}{\textsc{Ciel}\xspace}
+\newcommand{\skywriting}{\textsc{Skywriting}\xspace}
+
+% HANDY MACROS
+\newcommand{\stdin}{\texttt{stdin}}
+\newcommand{\stdout}{\texttt{stdout}}
+\newcommand{\stderr}{\texttt{stderr}}
 
 \begin{document}
 The \rosgig, a plugin for the Eclipse IDE, builds on top of the \rosgi module system, which is a dynamically-loadable module for Java applications based on the OSGi standard~\cite{10.5555/1785080.1785082, 10.1145/1328279.1328290}.   \rosgig includes a graphical plugin for visualizing deployments as well as a deployment agent that coordinates distribution of software.  The deployment agent performs a static analysis to determine which OSGi bundles need to be deployed to which machines; users graphically interact with the tool to place modules on remote hosts.
@@ -22,7 +35,13 @@ The \rosgig, a plugin for the Eclipse IDE, builds on top of the \rosgi module sy
 
 The \amoeba operating system was a UNIX-like operating system designed to completely erase the distinction between local and remote processes~\cite{10.1109/2.53354}.  However, programs must be written using the \amoeba object system in order to gain distributed capabilities, which severly limited its appeal.  The \plannine operating system, by contrast, approached distributed applications in a more lightweight fashion, by designing a form of distributed IPC modeled to appear like ordinary UNIX files, but were built on top of a distributed network protocol called \ninep~\cite{DBLP:journals/csys/PikePDFTT95}.  \plannine required modest rewrites of applications in the \plannine dialect of C.  Ironically, many of the requirements of \plannine C are now considered good programming practices in modern C.  Since \plannine, most operating systems have gained network capabilities, for example, the secure shell protocol~\cite{10.5555/1267569.1267573}, providing for a similar kind of file- and pipe-based IPC in ordinary operating systems.
 
-\locutus has no inherent language limitations, and it is intended to automatically distribute an application wholesale to a remote host without user intervention or manual partitioning.
+\gexec is a job control tool designed for massively-scalable distributed jobs.  Job control itself is also distributed, hierarchically.  The tool transparently forwards \stdin, \stdout, and \stderr as well as the local environment.  It is currently maintained as a part of the \ganglia project, which is a distributed monitoring system~\cite{MASSIE2004817}.
+
+\swift (not to be confused with Apple's language of the same name) is a strongly-typed, functional scripting language with C-like syntax designed for parallel job control~\cite{WILDE2011633}.  \swift is a dataflow language, and is implicitly parallel, relying on \emph{futures} (i.e., asynchronous threads) to minimize latency and maximize parallelism without having to perform program analyses.  \swiftt adds a \emph{distributed future store} and load balancing algorithm called \turbine so that both tasks and control functions (ala \gexec) can also be distributed~\cite{10.1145/2442516.2442559,6546066}.  Both \swift and \swiftt are geared toward scientific computing workloads.  Similarly, \skywriting is a dynamically-typed imperative language that maps to the \ciel distributed scheduling system using futures.  In contrast to \swift and \swiftt, \skywriting is explicitly parallel; however all jobs are asynchronous, meaning that users must manually encode program dependencies.  Notably, \skywriting and \ciel add fault tolerance.  Worker nodes are monitored by master nodes via a heartbeat mechanism; after a non-response timeout, a worker is considered failed and the task is rescheduled.  Since job control is also distributed, master node failure is also handled; master control data is fully recoverable from client state.  When a master is rescheduled, clients coordinate to help the master reconstruct work done.
+
+
+
+%\locutus has no inherent language limitations, and it is intended to automatically distribute an application wholesale to a remote host without user intervention or manual partitioning.
 
 \bibliographystyle{acm}
 \bibliography{refs}
