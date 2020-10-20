@@ -1,5 +1,12 @@
 # Research Log
 
+## 2020-10-20
+- CDE paper review
+
+## 2020-10-16
+- Disussion of CDE paper
+- Potentially look for new avenues for project
+
 ## 2020-10-11
 - Add ssh file transfer implementation with Boost library
 - Added basic remote execution over ssh
