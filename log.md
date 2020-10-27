@@ -1,7 +1,19 @@
 # Research Log
 
+## 2020-10-26
+- Added `dresh` (Distributed Reliable Easy Shell) example
+
+## 2020-10-23
+- Added error handler example
+- Discussion: shift focus to distributed shell
+  - Problem with distributed system / PL components
+  - Primary goals: Easy to use & reliable
+
 ## 2020-10-20
 - CDE paper review
+- Thought experiment on how the language looks like
+- What would I do in various real world situations
+- Read distributed command line interface paper
 
 ## 2020-10-16
 - Disussion of CDE paper
