@@ -1,5 +1,15 @@
 # Research Log
 
+## 2020-10-30
+- Add thesis one-page description
+
+## 2020-10-27
+- Discussion
+  - Table of semantics
+  - Start to implement `dresh`? Maybe a bit later
+  - Draft of 1 page proposal for thesis (due 2020-11-02)
+  - Read `smoosh` paper
+
 ## 2020-10-26
 - Added `dresh` (Distributed Reliable Easy Shell) example
 
