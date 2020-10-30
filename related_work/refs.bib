@@ -196,3 +196,22 @@ author = "Michael Wilde and Mihael Hategan and Justin M. Wozniak and Ben Cliffor
 keywords = "Swift, Parallel programming, Scripting, Dataflow",
 abstract = "Scientists, engineers, and statisticians must execute domain-specific application programs many times on large collections of file-based data. This activity requires complex orchestration and data management as data is passed to, from, and among application invocations. Distributed and parallel computing resources can accelerate such processing, but their use further increases programming complexity. The Swift parallel scripting language reduces these complexities by making file system structures accessible via language constructs and by allowing ordinary application programs to be composed into powerful parallel scripts that can efficiently utilize parallel and distributed resources. We present Swift’s implicitly parallel and deterministic programming model, which applies external applications to file collections using a functional style that abstracts and simplifies distributed parallel execution."
 }
+
+@article{10.1145/3371111,
+author = {Greenberg, Michael and Blatt, Austin J.},
+title = {Executable Formal Semantics for the POSIX Shell},
+year = {2019},
+issue_date = {January 2020},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {4},
+number = {POPL},
+url = {https://doi.org/10.1145/3371111},
+doi = {10.1145/3371111},
+abstract = {The POSIX shell is a widely deployed, powerful tool for managing computer systems. The shell is the expert’s control panel, a necessary tool for configuring, compiling, installing, maintaining, and deploying systems. Even though it is powerful, critical infrastructure, the POSIX shell is maligned and misunderstood. Its power and its subtlety are a dangerous combination. We define a formal, mechanized, executable small-step semantics for the POSIX shell, which we call Smoosh. We compared Smoosh against seven other shells that aim for some measure of POSIX compliance (bash, dash, zsh, OSH, mksh, ksh93, and yash). Using three test suites—the POSIX test suite, the Modernish test suite and shell diagnostic, and a test suite of our own device—we found Smoosh’s semantics to be the most conformant to the POSIX standard. Modernish judges Smoosh to have the fewest bugs (just one, from using dash’s parser) and no quirks. To show that our semantics is useful beyond yielding a conformant, executable shell, we also implemented a symbolic stepper to illuminate the subtle behavior of the shell. Smoosh will serve as a foundation for formal study of the POSIX shell, supporting research on and development of new shells, new tooling for shells, and new shell designs.},
+journal = {Proc. ACM Program. Lang.},
+month = dec,
+articleno = {43},
+numpages = {30},
+keywords = {small-step semantics, formalization, command line interfaces, POSIX}
+}
