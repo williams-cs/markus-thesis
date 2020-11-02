@@ -91,20 +91,3 @@ Some of types errors that can be simulated to test the `dresh` program include:
 - Random exceptions in code
 
 In the successful scenario, these test programs can serve as examples for building practical, real world distributed scripts. Future work can include expanding on or modifying the error handling semantics as defined here, and investigating ways to improve on the existing areas of focus (including reliability and ease of use) or look into new areas of potential improvement (such as scalability or performance).
-
-
-
-
-TODO:
-- What kinds of failure can happen
-- Why can't an existing shell handle that
-- Example output
-- Sentence or two conclusion
-- Very clear about research question / proposed hypothesis
-- Focus on semantics for handling failures automatically
-- Research question: What are the right abstractions for handling and recovering for failures that occur in distributed programming contexts? (Error handling semantics)
-- 3 parts
-  - Research question
-  - Technical advancements
-  - Validating improvements
-- Shorter sentences
