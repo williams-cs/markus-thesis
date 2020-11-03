@@ -99,7 +99,11 @@ One example is the Distributed Command Line Interface, `distsh` [1]. This work f
 
 Other existing shell programs exist that can be used for distributed computation. The `dsh` [2] unix program allows the user to send a shell command to all machines in a defined cluster, but there does not exist the same emphasis of reliable execution and error recovery compare to this project, and it exists as a program that can be run in a shell, rather than a shell language itself. Similarly, it is possible to use an existing shell combined with the `ssh` [3] unix program to run commands on remote machines, but there remains a similar problem with reliability and error handling.
 
-There are other distributed systems models that are used to run specific types of workloads. One example is `hadoop` [4], an open source distributed program framework that can be used to run MapReduce style computation on large datasets. This framework does have an emphasis on being able to detect and handle failures in a distributed environment. However, compared to `dresh`, `hadoop` is much more heavyweight framework focused on solving a specific type of distributed computation problem, rather than being a utility that is easy to setup and use for ad-hoc scripting. Other distributed computing models include running a program on each machine and using a remote procedure call protocol to communicate between each instance of the program. Like many of the previously mentioned models, this still has the problem of requiring careful manual error handling at each node, while potentially requiring a deep understanding of computer networks to implement.
+There are other distributed systems frameworks that have an emphasis on scalable, reliable computation. Each of these frameworks have some sort of mechanism to be able to detect and handle failures that may occur in a distributed environment.
+One example is `hadoop` [4], an open source distributed program framework that can be used to run MapReduce style computation on large datasets. This framework does have an emphasis on being able to detect and handle failures in a distributed environment.
+Another example is `ganglia` [5] a framework for developing scalable high-performance distributed programs. Within the `ganglia` project, there is a `gexec` utility that allows executing jobs of machines on a cluster, providing data forwarding between the machines and mechanisms to be robust even in unriable environments.
+One more example is `plush` [6], a unified framework for managing various classes of programs to be executed in a wide variety of distributed environments.
+Compared to one of the aforementioned full-fledged frameworks, `dresh` is positioned to be a more lightweight alternative that sacrifices some of the power of managing the distributed application in exchange for being easier to setup and use, making it more suitable as an ad-hoc scripting platform rather than a high-performance computing platform.
 
 ## References
 
@@ -114,3 +118,9 @@ There are other distributed systems models that are used to run specific types o
 
 [4]
 : https://hadoop.apache.org/
+
+[5]
+: https://github.com/simplegeo/ganglia
+
+[6]
+: https://static.usenix.org/event/lisa07/tech/full_papers/albrecht/albrecht_html/
