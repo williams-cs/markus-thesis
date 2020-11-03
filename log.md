@@ -1,7 +1,16 @@
 # Research Log
 
+## 2020-11-02
+- Submitted one-page description
+- Set up machine
+
 ## 2020-10-30
 - Add thesis one-page description
+- Discussion
+  - Start implementing lab
+    - Potentially use OCaml
+  - Focus on error semantics
+  - Finish one-page description
 
 ## 2020-10-27
 - Discussion
