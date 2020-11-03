@@ -101,7 +101,7 @@ Other existing shell programs exist that can be used for distributed computation
 
 There are other distributed systems frameworks that have an emphasis on scalable, reliable computation. Each of these frameworks have some sort of mechanism to be able to detect and handle failures that may occur in a distributed environment.
 One example is `hadoop` [4], an open source distributed program framework that can be used to run MapReduce style computation on large datasets. This framework does have an emphasis on being able to detect and handle failures in a distributed environment.
-Another example is `ganglia` [5] a framework for developing scalable high-performance distributed programs. Within the `ganglia` project, there is a `gexec` utility that allows executing jobs of machines on a cluster, providing data forwarding between the machines and mechanisms to be robust even in unriable environments.
+Another example is `ganglia` [5] a framework for developing scalable high-performance distributed programs. Within the `ganglia` project, there is a `gexec` utility that allows executing jobs of machines on a cluster, providing data forwarding between the machines and mechanisms to be robust even in unreliable environments.
 One more example is `plush` [6], a unified framework for managing various classes of programs to be executed in a wide variety of distributed environments.
 Compared to one of the aforementioned full-fledged frameworks, `dresh` is positioned to be a more lightweight alternative that sacrifices some of the power of managing the distributed application in exchange for being easier to setup and use, making it more suitable as an ad-hoc scripting platform rather than a high-performance computing platform.
 
