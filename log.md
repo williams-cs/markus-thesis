@@ -1,5 +1,13 @@
 # Research Log
 
+## 2020-11-05
+- Started working on OCaml lab
+  - Installation instructions:
+    - Install `opam`
+    - Use `opam` to install `base utop core async yojson core_extended core_bench cohttp-async async_graphics cryptokit menhir merlin ocamlformat ocaml-lsp-server`
+      - Install any necessary dependencies in the shell
+    - Install VSCode with the `OCaml Platform` extension by `OCamlLabs`
+
 ## 2020-11-02
 - Submitted one-page description
 - Set up machine

@@ -1,0 +1,3 @@
+(executable
+ (name dresh)
+ (libraries async core dresh_shell))

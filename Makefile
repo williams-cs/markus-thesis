@@ -1,9 +1,11 @@
-all: main
+all: build
 
-main: src/*.cc src/*.hh
-	g++ -g -std=c++17 -Ilib/boost -Llib/boost/stage/lib -Wall -o main src/*.cc -lboost_program_options -lboost_filesystem
+build:
+	dune build
+	ln -s -f ./_build/default/bin/dresh.exe ./dresh.exe
 
 clean:
-	@rm -f main
+	@rm -f dresh.exe
+	@rm -rf _build
 
-.PHONY: clean
+.PHONY: build clean
