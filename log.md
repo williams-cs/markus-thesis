@@ -1,5 +1,13 @@
 # Research Log
 
+## 2020-11-06
+- Discussion
+  - Existing progress
+  - Making low level system calls
+  - Interative mode/`curses`
+  - Building an AST
+  - Using a parser (parser combinators)
+
 ## 2020-11-05
 - Started working on OCaml lab
   - Installation instructions:
