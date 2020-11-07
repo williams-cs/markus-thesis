@@ -1,7 +1,32 @@
 # Research Log
 
+## 2020-11-06
+- Discussion
+  - Existing progress
+  - Making low level system calls
+  - Interative mode/`curses`
+  - Building an AST
+  - Using a parser (parser combinators)
+
+## 2020-11-05
+- Started working on OCaml lab
+  - Installation instructions:
+    - Install `opam`
+    - Use `opam` to install `base utop core async yojson core_extended core_bench cohttp-async async_graphics cryptokit menhir merlin ocamlformat ocaml-lsp-server`
+      - Install any necessary dependencies in the shell
+    - Install VSCode with the `OCaml Platform` extension by `OCamlLabs`
+
+## 2020-11-02
+- Submitted one-page description
+- Set up machine
+
 ## 2020-10-30
 - Add thesis one-page description
+- Discussion
+  - Start implementing lab
+    - Potentially use OCaml
+  - Focus on error semantics
+  - Finish one-page description
 
 ## 2020-10-27
 - Discussion

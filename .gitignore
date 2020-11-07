@@ -12,4 +12,8 @@ tmp/*
 main
 
 .vscode/settings.json
+
+# OCaml
+_build
+*.exe
 							
