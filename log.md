@@ -1,5 +1,8 @@
 # Research Log
 
+## 2020-11-08
+- Converted language implementation to using the `Angstrom` parser combinator library
+
 ## 2020-11-06
 - Discussion
   - Existing progress

@@ -1,5 +1,5 @@
-open! Core
-open! Async
+open Core
+open Async
 
 let print_all readers =
   let rec print_remaining_output readers =
@@ -26,47 +26,33 @@ let rec wait_until_exit process =
   | Ok () -> return 0
 ;;
 
-let eval_command command =
-  let parts =
-    String.split ~on:' ' command
-    |> List.filter ~f:(fun x -> not (String.is_empty x))
-    |> List.map ~f:String.strip
-  in
-  match parts with
-  | [] -> return ()
-  | prog :: args ->
-    let builtin = Map.find Builtin.builtins prog in
-    (match builtin with
-    | Some fn -> fn args
-    | None ->
-      let%bind process = Process.create ~prog ~args () in
-      (match process with
-      | Error err ->
-        print_endline (Error.to_string_hum err);
-        return ()
-      | Ok process ->
-        let pid = Pid.to_int (Process.pid process) in
-        let child_stdout = Process.stdout process in
-        let child_stderr = Process.stderr process in
-        let%bind () = print_all [ child_stdout; child_stderr ] in
-        let%map exit_code = wait_until_exit process in
-        printf "Child process %i exited with status %i\n" pid exit_code))
+let eval_command prog args =
+  let builtin = Map.find Builtin.builtins prog in
+  match builtin with
+  | Some fn -> fn args
+  | None ->
+    let%bind process = Process.create ~prog ~args () in
+    (match process with
+    | Error err ->
+      print_endline (Error.to_string_hum err);
+      return ()
+    | Ok process ->
+      let pid = Pid.to_int (Process.pid process) in
+      let child_stdout = Process.stdout process in
+      let child_stderr = Process.stderr process in
+      let%bind () = print_all [ child_stdout; child_stderr ] in
+      let%map exit_code = wait_until_exit process in
+      printf "Child process %i exited with status %i\n" pid exit_code)
 ;;
 
-let deferred_iter f l =
-  let rec deferred_iter_helper l acc =
-    match l with
-    | [] -> return (List.rev acc)
-    | x :: xs ->
-      let%bind v = f x in
-      deferred_iter_helper xs (v :: acc)
-  in
-  deferred_iter_helper l []
-;;
-
-let eval line =
-  let commands = String.split ~on:';' line in
-  deferred_iter eval_command commands
+let rec eval ast =
+  let open Ast in
+  match ast with
+  | Noop -> return ()
+  | Command (name, args) -> eval_command name args
+  | Series (ast1, ast2) ->
+    let%bind _ = eval ast1 in
+    eval ast2
 ;;
 
 let run () =
@@ -78,7 +64,14 @@ let run () =
     match maybe_line with
     | `Eof -> return ()
     | `Ok line ->
-      let%bind _ = eval line in
+      let maybe_ast = Ast.parse line in
+      let%bind _ =
+        match maybe_ast with
+        | Error err ->
+          printf "Parse error %s\n" (Error.to_string_hum err);
+          return ()
+        | Ok ast -> eval ast
+      in
       repl ()
   in
   let%map _ = repl () in

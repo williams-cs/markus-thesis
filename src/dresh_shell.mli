@@ -1,3 +1,3 @@
-open! Core
+open Async
 
-val run : unit -> unit Async.Deferred.t
+val run : unit -> unit Deferred.t

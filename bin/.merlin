@@ -1,4 +1,5 @@
 EXCLUDE_QUERY_DIR
+B /home/mfeng/.opam/4.10.0/lib/angstrom
 B /home/mfeng/.opam/4.10.0/lib/async
 B /home/mfeng/.opam/4.10.0/lib/async/async_command
 B /home/mfeng/.opam/4.10.0/lib/async/async_quickcheck
@@ -16,6 +17,8 @@ B /home/mfeng/.opam/4.10.0/lib/base/md5
 B /home/mfeng/.opam/4.10.0/lib/base/shadow_stdlib
 B /home/mfeng/.opam/4.10.0/lib/base_bigstring
 B /home/mfeng/.opam/4.10.0/lib/base_quickcheck
+B /home/mfeng/.opam/4.10.0/lib/bigarray-compat
+B /home/mfeng/.opam/4.10.0/lib/bigstringaf
 B /home/mfeng/.opam/4.10.0/lib/bin_prot
 B /home/mfeng/.opam/4.10.0/lib/bin_prot/shape
 B /home/mfeng/.opam/4.10.0/lib/core
@@ -89,6 +92,7 @@ B /home/mfeng/.opam/4.10.0/lib/typerep
 B /home/mfeng/.opam/4.10.0/lib/variantslib
 B ../_build/default/bin/.dresh.eobjs/byte
 B ../_build/default/src/.dresh_shell.objs/byte
+S /home/mfeng/.opam/4.10.0/lib/angstrom
 S /home/mfeng/.opam/4.10.0/lib/async
 S /home/mfeng/.opam/4.10.0/lib/async/async_command
 S /home/mfeng/.opam/4.10.0/lib/async/async_quickcheck
@@ -106,6 +110,8 @@ S /home/mfeng/.opam/4.10.0/lib/base/md5
 S /home/mfeng/.opam/4.10.0/lib/base/shadow_stdlib
 S /home/mfeng/.opam/4.10.0/lib/base_bigstring
 S /home/mfeng/.opam/4.10.0/lib/base_quickcheck
+S /home/mfeng/.opam/4.10.0/lib/bigarray-compat
+S /home/mfeng/.opam/4.10.0/lib/bigstringaf
 S /home/mfeng/.opam/4.10.0/lib/bin_prot
 S /home/mfeng/.opam/4.10.0/lib/bin_prot/shape
 S /home/mfeng/.opam/4.10.0/lib/core
