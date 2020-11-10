@@ -1,5 +1,23 @@
 # Research Log
 
+## 2020-11-10
+- Discussion
+  - Unique niche in error handling / good frontend
+  - Thesis chapters
+    - Intro
+    - Related work
+    - Semantics
+    - Types of errors
+    - How the semantics handle each type of error
+    - Implementation
+    - Validation of implementation
+    - Conclusion
+  - Presentation over 
+  - Implementation
+    - To do list
+    - Unit testing
+  - Classes of applications and faults that can happen
+
 ## 2020-11-09
 - Read papers on data-flow graphs and DAG pipelines in shell
 - Shell implementation: Added support for subshells, updated parser
