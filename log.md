@@ -1,7 +1,11 @@
 # Research Log
 
+## 2020-11-09
+- Read papers on data-flow graphs and DAG pipelines in shell
+- Shell implementation: Added support for subshells, updated parser
+
 ## 2020-11-08
-- Converted language implementation to using the `Angstrom` parser combinator library
+- Shell implementation: Converted language implementation to using the `Angstrom` parser combinator library
 
 ## 2020-11-06
 - Discussion
