@@ -3,8 +3,15 @@ open Core
 
 type t =
   | Noop
-  | Command of string * string list
+  | Command of token * token list
   | Series of t * t
+
+and token_part =
+  | Literal of string
+  | Variable of string
+  | Subshell of t
+
+and token = token_part list
 
 let is_whitespace_within_line = function
   | ' ' | '\t' -> true
@@ -58,37 +65,65 @@ let _whitespace = skip_while is_whitespace
 
 let character_in_single_quotes =
   satisfy (function
-      | '\\' | '\'' -> false
+      | '\\' | '$' | '\'' -> false
       | _ -> true)
   <|> char '\\' *> any_char
 ;;
 
 let character_in_double_quotes =
   satisfy (function
-      | '\\' | '\"' -> false
+      | '\\' | '$' | '\"' -> false
       | _ -> true)
   <|> char '\\' *> any_char
 ;;
 
-let character_out_of_quotes =
-  satisfy (fun x -> not (is_special x)) <|> char '\\' *> any_char
+let ast =
+  fix (fun inner ->
+      let chars_to_literal cl = cl |> String.of_char_list |> fun l -> Literal l in
+      let character_out_of_quotes =
+        satisfy (fun x -> not (is_special x)) <|> char '\\' *> any_char
+      in
+      let variable =
+        char '$' *> many1 character_out_of_quotes
+        >>| fun cl -> cl |> String.of_char_list |> fun v -> Variable v
+      in
+      let subshell =
+        char '$' *> char '(' *> (inner >>| fun ss -> Subshell ss) <* char ')'
+      in
+      let token_part_in_single_quotes =
+        variable <|> subshell <|> (many1 character_in_single_quotes >>| chars_to_literal)
+      in
+      let token_part_in_double_quotes =
+        variable <|> subshell <|> (many1 character_in_double_quotes >>| chars_to_literal)
+      in
+      let token_part_unquoted =
+        variable <|> subshell <|> (many1 character_out_of_quotes >>| chars_to_literal)
+      in
+      let single_quoted_str =
+        single_quote *> many token_part_in_single_quotes <* single_quote
+      in
+      let double_quoted_str =
+        double_quote *> many token_part_in_double_quotes <* double_quote
+      in
+      let unquoted_string = many1 token_part_unquoted in
+      let token =
+        many1 (unquoted_string <|> single_quoted_str <|> double_quoted_str)
+        >>| List.concat
+      in
+      let token_with_whitespace =
+        whitespace_within_line *> token <* whitespace_within_line
+      in
+      let command =
+        map
+          (both token_with_whitespace (many token_with_whitespace))
+          ~f:(fun (name, args) -> Command (name, args))
+      in
+      let noop = whitespace_within_line *> return Noop in
+      command <|> noop)
 ;;
-
-let single_quoted_str = single_quote *> many character_in_single_quotes <* single_quote
-let double_quoted_str = double_quote *> many character_in_double_quotes <* double_quote
-let unquoted_string = many1 character_out_of_quotes
-
-let str =
-  map
-    (many1 (unquoted_string <|> single_quoted_str <|> double_quoted_str))
-    ~f:(fun cll -> cll |> List.map ~f:String.of_char_list |> String.concat)
-;;
-
-let token = whitespace_within_line *> str <* whitespace_within_line
-let command = map (both token (many token)) ~f:(fun (name, args) -> Command (name, args))
 
 let parse text : t Or_error.t =
-  match parse_string ~consume:All command text with
+  match parse_string ~consume:All ast text with
   | Ok ast -> Ok ast
   | Error err -> Error (Error.of_string err)
 ;;
