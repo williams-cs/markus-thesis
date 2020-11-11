@@ -1,7 +1,8 @@
 open Core
 open Async
+module Ast = Ast
 
-let print_all readers writer to_close =
+let print_all readers ~writer ~to_close =
   let rec print_remaining_output readers =
     match readers with
     | [] -> return ()
@@ -27,7 +28,7 @@ let rec wait_until_exit process =
   | Ok () -> return 0
 ;;
 
-let eval_command prog args writer to_close =
+let eval_command prog args ~writer ~to_close ~verbose =
   let builtin = Map.find Builtin.builtins prog in
   match builtin with
   | Some fn -> fn args
@@ -41,9 +42,12 @@ let eval_command prog args writer to_close =
       let pid = Pid.to_int (Process.pid process) in
       let child_stdout = Process.stdout process in
       let child_stderr = Process.stderr process in
-      let%bind () = print_all [ child_stdout; child_stderr ] writer to_close in
-      let%map exit_code = wait_until_exit process in
-      printf "Child process %i exited with status %i\n" pid exit_code)
+      let%bind () = print_all [ child_stdout; child_stderr ] ~writer ~to_close in
+      if verbose
+      then (
+        let%map exit_code = wait_until_exit process in
+        printf "Child process %i exited with status %i\n" pid exit_code)
+      else return ())
 ;;
 
 let deferred_iter l =
@@ -58,21 +62,21 @@ let deferred_iter l =
   List.rev res
 ;;
 
-let rec eval ast writer to_close =
+let rec eval ast ~writer ~to_close ~verbose =
   let open Ast in
   match ast with
   | Noop -> return ()
   | Command (name, args) ->
-    let%bind name = eval_token name in
+    let%bind name = eval_token name ~verbose in
     let%bind args =
-      List.map ~f:(fun token () -> eval_token token) args |> deferred_iter
+      List.map ~f:(fun token () -> eval_token token ~verbose) args |> deferred_iter
     in
-    eval_command name args writer to_close
+    eval_command name args ~writer ~to_close ~verbose
   | Series (ast1, ast2) ->
-    let%bind _ = eval ast1 writer to_close in
-    eval ast2 writer to_close
+    let%bind _ = eval ast1 ~writer ~to_close ~verbose in
+    eval ast2 ~writer ~to_close ~verbose
 
-and eval_token_part =
+and eval_token_part ~verbose =
   let open Ast in
   function
   | Subshell ss ->
@@ -90,14 +94,15 @@ and eval_token_part =
           Ivar.fill ivar clean_res)
     in
     let%bind writer, _ = Writer.of_pipe (Info.of_string "eval pipe writer") pipe in
-    let%bind () = eval ss writer true in
+    let%bind () = eval ss ~writer ~to_close:true ~verbose in
     Ivar.read ivar
   | Variable _v -> return ""
   | Literal s -> return s
 
-and eval_token token_parts =
+and eval_token token_parts ~verbose =
   let%map res =
-    List.map ~f:(fun part () -> eval_token_part part) token_parts |> deferred_iter
+    List.map ~f:(fun part () -> eval_token_part part ~verbose) token_parts
+    |> deferred_iter
   in
   String.concat res
 ;;
@@ -118,7 +123,7 @@ let run () =
         | Error err ->
           printf "Parse error %s\n" (Error.to_string_hum err);
           return ()
-        | Ok ast -> eval ast stdout false
+        | Ok ast -> eval ast ~writer:stdout ~to_close:false ~verbose:true
       in
       repl ()
   in

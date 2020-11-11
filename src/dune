@@ -1,5 +1,5 @@
 (library
  (name dresh_shell)
- (libraries angstrom async core ppx_let)
+ (libraries angstrom async core)
  (preprocess
   (pps ppx_let)))

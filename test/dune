@@ -1,0 +1,6 @@
+(library
+ (name dresh_test)
+ (libraries async core dresh_shell)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect ppx_let)))
