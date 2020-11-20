@@ -1,5 +1,9 @@
 # Research Log
 
+## 2020-11-19
+- Work on implementation of shell to conform to specs
+  - Link to specs: https://pubs.opengroup.org/onlinepubs/009604499/utilities/xcu_chap02.html
+
 ## 2020-11-10
 - Discussion
   - Unique niche in error handling / good frontend
