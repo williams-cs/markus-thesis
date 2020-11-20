@@ -1,0 +1,5 @@
+(library
+ (name angstrom_extended)
+ (libraries bigstringaf)
+ (flags :standard -safe-string)
+ (preprocess future_syntax))

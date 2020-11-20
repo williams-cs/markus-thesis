@@ -15,5 +15,6 @@ main
 
 # OCaml
 _build
-*.exe
+**/*.exe
+**/.merlin
 							

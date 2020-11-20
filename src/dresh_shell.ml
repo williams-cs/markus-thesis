@@ -2,7 +2,7 @@ open Core
 open Async
 module Ast = Ast
 
-let print_all readers ~writer ~to_close =
+let print_all readers ~writer =
   let rec print_remaining_output readers =
     match readers with
     | [] -> return ()
@@ -14,8 +14,7 @@ let print_all readers ~writer ~to_close =
         Writer.write writer line;
         print_remaining_output (tail @ [ head ]))
   in
-  let%bind () = print_remaining_output readers in
-  if to_close then Writer.close writer else return ()
+  print_remaining_output readers
 ;;
 
 let rec wait_until_exit process =
@@ -28,7 +27,7 @@ let rec wait_until_exit process =
   | Ok () -> return 0
 ;;
 
-let eval_command prog args ~writer ~to_close ~verbose =
+let eval_command prog args ~writer ~verbose =
   let builtin = Map.find Builtin.builtins prog in
   match builtin with
   | Some fn -> fn args
@@ -37,12 +36,12 @@ let eval_command prog args ~writer ~to_close ~verbose =
     (match process with
     | Error err ->
       print_endline (Error.to_string_hum err);
-      if to_close then Writer.close writer else return ()
+      return ()
     | Ok process ->
       let pid = Pid.to_int (Process.pid process) in
       let child_stdout = Process.stdout process in
       let child_stderr = Process.stderr process in
-      let%bind () = print_all [ child_stdout; child_stderr ] ~writer ~to_close in
+      let%bind () = print_all [ child_stdout; child_stderr ] ~writer in
       if verbose
       then (
         let%map exit_code = wait_until_exit process in
@@ -62,19 +61,20 @@ let deferred_iter l =
   List.rev res
 ;;
 
-let rec eval ast ~writer ~to_close ~verbose =
+let rec eval ast ~writer ~verbose =
   let open Ast in
   match ast with
-  | Noop -> return ()
-  | Command (name, args) ->
-    let%bind name = eval_token name ~verbose in
+  | Command args ->
     let%bind args =
       List.map ~f:(fun token () -> eval_token token ~verbose) args |> deferred_iter
     in
-    eval_command name args ~writer ~to_close ~verbose
+    let args = List.concat args in
+    (match args with
+    | [] -> return ()
+    | name :: args -> eval_command name args ~writer ~verbose)
   | Series (ast1, ast2) ->
-    let%bind _ = eval ast1 ~writer ~to_close ~verbose in
-    eval ast2 ~writer ~to_close ~verbose
+    let%bind _ = eval ast1 ~writer ~verbose in
+    eval ast2 ~writer ~verbose
 
 and eval_token_part ~verbose =
   let open Ast in
@@ -94,17 +94,39 @@ and eval_token_part ~verbose =
           Ivar.fill ivar clean_res)
     in
     let%bind writer, _ = Writer.of_pipe (Info.of_string "eval pipe writer") pipe in
-    let%bind () = eval ss ~writer ~to_close:true ~verbose in
-    Ivar.read ivar
-  | Variable _v -> return ""
-  | Literal s -> return s
+    let%bind () = eval ss ~writer ~verbose in
+    let%bind () = Writer.close writer in
+    let%bind s = Ivar.read ivar in
+    let insert_splits sl =
+      let sl_mod = List.bind sl ~f:(fun x -> [ None; Some x ]) in
+      match sl_mod with
+      | _x :: xs -> xs
+      | [] -> []
+    in
+    return (s |> parse_field_split |> insert_splits)
+  | Variable _v -> return [ Some "" ]
+  | Literal s -> return [ Some s ]
 
-and eval_token token_parts ~verbose =
+and eval_token token_parts ~verbose : string list Deferred.t =
   let%map res =
     List.map ~f:(fun part () -> eval_token_part part ~verbose) token_parts
     |> deferred_iter
   in
-  String.concat res
+  let strings_with_splits = List.concat res in
+  let z =
+    List.fold strings_with_splits ~init:[] ~f:(fun accum x ->
+        match accum with
+        | [] ->
+          (match x with
+          | Some s -> [ s ]
+          | None -> [])
+        | y :: ys ->
+          (match x with
+          | Some s -> (y ^ s) :: ys
+          | None -> "" :: accum))
+    |> List.rev
+  in
+  z
 ;;
 
 let run () =
@@ -123,7 +145,7 @@ let run () =
         | Error err ->
           printf "Parse error %s\n" (Error.to_string_hum err);
           return ()
-        | Ok ast -> eval ast ~writer:stdout ~to_close:false ~verbose:true
+        | Ok ast -> eval ast ~writer:stdout ~verbose:true
       in
       repl ()
   in

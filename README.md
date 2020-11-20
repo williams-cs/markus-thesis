@@ -24,3 +24,8 @@ Running `make` on the top level directory builds an executable (using `dune buil
 Running `dune runtest` runs the tests in the `/test` directory, with any failing tests being indicated in the output.
 
 Running `dune promote` accepts the program as being correct, and adjusts the output of the test cases to the program's output.
+
+
+## License
+
+This repository uses code modified from [Angstrom](https://github.com/inhabitedtype/angstrom/) parser-combinator library, which is licensed under the [3-clause BSD license](https://github.com/inhabitedtype/angstrom/blob/master/LICENSE).

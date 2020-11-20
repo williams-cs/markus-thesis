@@ -1,8 +1,7 @@
 open Core
 
 type t =
-  | Noop
-  | Command of token * token list
+  | Command of token list
   | Series of t * t
 
 and token_part =
@@ -13,3 +12,4 @@ and token_part =
 and token = token_part list
 
 val parse : string -> t Or_error.t
+val parse_field_split : string -> string list
