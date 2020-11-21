@@ -1,5 +1,17 @@
 # Research Log
 
+## 2020-11-20
+- Discussion
+  - Next steps
+    - Indirection
+    - Start on the network stuff once indirection works
+    - Similar SSH mechanism as previous work
+      - Look into SSH library for OCaml
+    - Thought: multiple instances on one machine?
+  - PAXOS
+  - The problem with distributed shells is reliability
+  - Idea: google scholar alerts
+
 ## 2020-11-19
 - Work on implementation of shell to conform to specs
   - Link to specs: https://pubs.opengroup.org/onlinepubs/009604499/utilities/xcu_chap02.html
