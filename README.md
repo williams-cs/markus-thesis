@@ -11,9 +11,16 @@ This will greatly aid in increasing the accessibility and simplifying the proces
 
 Follow the [setup guide](https://dev.realworldocaml.org/install.html) from [Real World OCaml](https://dev.realworldocaml.org/) to set up the following:
 - The Ocaml package manager `opam`
+  - `sudo apt install opam`
+  - `opam init`
 - OCaml version `4.10.0`
-- Make sure at least the following `opam` packages are installed with `opam install <package_name>`
-  - `dune base core async core_bench merlin angstrom utop ocamlformat ocaml-lsp-server`
+  - `opam switch create 4.10.0`
+  - `eval $(opam env)`
+  - Make sure `eval $(opam env)` is in your `.bashrc` file so it gets automatically ran
+- Make sure at least the following `opam` packages are installed with the following installation command
+  - `opam install dune base core async core_bench merlin angstrom utop ocamlformat ocaml-lsp-server`
+  - The package `pkg-config` may need to be installed as a dependency
+    - `sudo apt install pkg-config`
 - If using VSCode, install the extension `OCaml Platform` from `OCaml Labs`
   - For other editors, check on the Real World OCaml setup guide linked above
 
