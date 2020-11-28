@@ -92,3 +92,36 @@ let%expect_test "echo_subshell_space" =
   let%bind () = run_test "echo $(echo \"a  b\")" in
   [%expect {|a b|}]
 ;;
+
+let%expect_test "or" =
+  let%bind () = run_test "echo \"a\" || echo \"b\"" in
+  [%expect {|a|}]
+;;
+
+let%expect_test "not_or" =
+  let%bind () = run_test "! echo \"a\" || ! echo \"b\"" in
+  [%expect {|
+    a
+    b|}]
+;;
+
+let%expect_test "and" =
+  let%bind () = run_test "echo \"a\" && echo \"b\"" in
+  [%expect {|
+    a
+    b|}]
+;;
+
+let%expect_test "parallel_execution" =
+  let%bind () = run_test "echo $(sleep 0.02s; echo a) & echo $(sleep 0.01s; echo b)" in
+  [%expect {|
+    b 
+    a|}]
+;;
+
+let%expect_test "serial_execution" =
+  let%bind () = run_test "echo $(sleep 0.02s; echo a) ; echo $(sleep 0.01s; echo b)" in
+  [%expect {|
+    a 
+    b|}]
+;;

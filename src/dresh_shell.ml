@@ -36,17 +36,15 @@ let eval_command prog args ~writer ~verbose =
     (match process with
     | Error err ->
       print_endline (Error.to_string_hum err);
-      return ()
+      return (-1)
     | Ok process ->
       let pid = Pid.to_int (Process.pid process) in
       let child_stdout = Process.stdout process in
       let child_stderr = Process.stderr process in
       let%bind () = print_all [ child_stdout; child_stderr ] ~writer in
-      if verbose
-      then (
-        let%map exit_code = wait_until_exit process in
-        printf "Child process %i exited with status %i\n" pid exit_code)
-      else return ())
+      let%bind exit_code = wait_until_exit process in
+      if verbose then printf "Child process %i exited with status %i\n" pid exit_code;
+      return exit_code)
 ;;
 
 let deferred_iter l =
@@ -61,20 +59,60 @@ let deferred_iter l =
   List.rev res
 ;;
 
-let rec eval ast ~writer ~verbose =
+let rec eval (ast : Ast.t) ~writer ~verbose =
   let open Ast in
   match ast with
-  | Command args ->
-    let%bind args =
-      List.map ~f:(fun token () -> eval_token token ~verbose) args |> deferred_iter
-    in
-    let args = List.concat args in
-    (match args with
-    | [] -> return ()
-    | name :: args -> eval_command name args ~writer ~verbose)
-  | Series (ast1, ast2) ->
-    let%bind _ = eval ast1 ~writer ~verbose in
-    eval ast2 ~writer ~verbose
+  | [] -> return ()
+  | ((h, t), sep) :: ast ->
+    (match sep with
+    | Semicolon ->
+      let%bind () = eval_and_or_list h t ~writer ~verbose |> Deferred.ignore_m in
+      eval ast ~writer ~verbose
+    | Ampersand ->
+      Deferred.all
+        [ eval_and_or_list h t ~writer ~verbose |> Deferred.ignore_m
+        ; eval ast ~writer ~verbose
+        ]
+      |> Deferred.ignore_m)
+
+and eval_and_or_list h t ~writer ~verbose =
+  (* In shell, && and || have the same precendence *)
+  let open Ast in
+  let%bind b = eval_boolean_part h ~writer ~verbose in
+  match t with
+  | [] -> return b
+  | (and_or, x) :: ls ->
+    (match and_or with
+    | Or -> if b then return true else eval_and_or_list x ls ~writer ~verbose
+    | And -> if not b then return false else eval_and_or_list x ls ~writer ~verbose)
+
+and eval_boolean_part part ~writer ~verbose =
+  let maybe_bang, pipline = part in
+  let has_bang = Option.is_some maybe_bang in
+  let%map code = eval_pipeline pipline ~writer ~verbose in
+  match code with
+  | 0 -> not has_bang
+  | _ -> has_bang
+
+and eval_pipeline pipeline ~writer ~verbose =
+  match pipeline with
+  | [] -> return 0
+  | x :: _xs ->
+    let%bind code = eval_pipeline_part x ~writer ~verbose in
+    return code
+
+(* TODO: Support pipes *)
+(* match xs with
+      | [] -> return code
+      | y::ys -> *)
+and eval_pipeline_part part ~writer ~verbose =
+  let%bind args =
+    List.map ~f:(fun token () -> eval_token token ~verbose) part |> deferred_iter
+  in
+  let args = List.concat args in
+  match args with
+  | [] -> return 0
+  | name :: args -> eval_command name args ~writer ~verbose
 
 and eval_token_part ~verbose =
   let open Ast in

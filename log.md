@@ -1,5 +1,14 @@
 # Research Log
 
+## 2020-11-27
+- Progress towards implementing shell
+  - Added `&&` and `||`
+  - Added syntax for `|` but functionality does not work
+    - Need to investigate indirection (joining inputs and outputs)
+  - Added `&` and `;`
+  - Commands now return codes
+  - Test cases for new features
+
 ## 2020-11-20
 - Discussion
   - Next steps
