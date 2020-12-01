@@ -129,18 +129,33 @@ let unshift a l b =
   List.rev ((a_end, b) :: l_end)
 ;;
 
+module Subshell_state = struct
+  type t =
+    { within_backtick : int
+    ; allow_empty : bool
+    }
+  [@@deriving fields]
+end
+
 let ast : t Angstrom_extended.t =
   (* Grammar from: https://pubs.opengroup.org/onlinepubs/009604499/utilities/xcu_chap02.html#tag_02_10 *)
   (* Definitions starting with the prefix "g_" are part of the predefined grammar*)
-  fix_state ~init:0 (fun inner within_backtick ->
-      let g_newline = char '\r' <|> char '\n' in
+  (* let g_compound_list = *)
+  fix_state_2
+    ~init:{ within_backtick = 0; allow_empty = true }
+    (fun inner subshell_state ->
+      let comment = char '#' *> skip_while (fun x -> not (is_newline x)) in
+      let delimiter = skip_while is_whitespace_within_line <* option () comment in
+      let token s = string s <* delimiter in
+      let optional_token s = option false (token s >>| fun _s -> true) in
+      let g_newline = token "\r" <|> token "\n" in
       let g_newline_list = many1 g_newline *> return None in
       let g_linebreak = many g_newline in
       let g_separator_op =
-        char '&' *> return Ampersand <|> char ';' *> return Semicolon
+        token "&" *> return Ampersand <|> token ";" *> return Semicolon
       in
       let g_separator = g_separator_op >>| some <* g_linebreak <|> g_newline_list in
-      let _g_sequential_sep = char ';' >>| some <|> g_newline_list in
+      let _g_sequential_sep = token ";" >>| some <|> g_newline_list in
       (* Quoting *)
       let chars_to_literal cl = cl |> String.of_char_list |> fun l -> Literal l in
       let maybe_chars_to_literal mcl = mcl |> List.filter_opt |> chars_to_literal in
@@ -156,24 +171,32 @@ let ast : t Angstrom_extended.t =
                >>| some)
       in
       let variable =
+        let within_backtick = Subshell_state.within_backtick subshell_state in
         char '$' *> many1 (character_out_of_quotes ~within_backtick)
         >>| fun mcl ->
         mcl |> List.filter_opt |> String.of_char_list |> fun v -> Variable v
       in
       let backtick_command_substitution =
-        match within_backtick with
+        match Subshell_state.within_backtick subshell_state with
         | 1 ->
-          char '\\' *> char '`' *> (inner 2 >>| fun ss -> Command_substitution ss)
+          char '\\'
+          *> char '`'
+          *> (inner { within_backtick = 2; allow_empty = true }
+             >>| fun ss -> Command_substitution ss)
           <* char '\\'
           <* char '`'
-        | 0 -> char '`' *> (inner 1 >>| fun ss -> Command_substitution ss) <* char '`'
+        | 0 ->
+          char '`'
+          *> (inner { within_backtick = 1; allow_empty = true }
+             >>| fun ss -> Command_substitution ss)
+          <* char '`'
         | _ -> fail "Cannot have more than two nested backtick escapes!"
       in
       let dollar_command_substitution =
-        char '$'
-        *> char '('
-        *> (inner within_backtick >>| fun ss -> Command_substitution ss)
-        <* char ')'
+        token "$("
+        *> (inner { subshell_state with allow_empty = true }
+           >>| fun ss -> Command_substitution ss)
+        <* token ")"
       in
       let command_substitution =
         backtick_command_substitution <|> dollar_command_substitution
@@ -187,6 +210,7 @@ let ast : t Angstrom_extended.t =
         <|> (many1 character_in_double_quotes >>| chars_to_literal)
       in
       let token_part_unquoted =
+        let within_backtick = Subshell_state.within_backtick subshell_state in
         variable
         <|> command_substitution
         <|> (many1 (character_out_of_quotes ~within_backtick) >>| maybe_chars_to_literal)
@@ -202,47 +226,43 @@ let ast : t Angstrom_extended.t =
         many1 (unquoted_string <|> single_quoted_str <|> double_quoted_str)
         >>| List.concat
       in
-      let comment = char '#' *> skip_while (fun x -> not (is_newline x)) in
-      let delimiter = skip_while is_whitespace_within_line <* option () comment in
       let delimited_word = word <* delimiter in
       let g_simple_command : command Angstrom_extended.t =
         delimiter *> many1 delimited_word >>| fun x -> Simple_command x
       in
-      let token s = string s <* delimiter in
-      let optional_token s = option false (token s >>| fun _s -> true) in
       let and_or_if = token "||" *> return Or <|> token "&&" *> return And in
+      let g_subshell : command Angstrom_extended.t =
+        token "(" *> inner { subshell_state with allow_empty = false }
+        <* token ")"
+        >>| fun x -> Subshell x
+      in
+      let g_command = g_simple_command <|> g_subshell in
+      let g_pipe_sequence : command list Angstrom_extended.t =
+        both g_command (many (token "|" *> g_linebreak *> g_command))
+        >>| fun (c, cl) -> c :: cl
+      in
+      let g_pipeline : pipeline Angstrom_extended.t =
+        both
+          (optional_token "!" >>| fun x -> if x then Some Bang else None)
+          g_pipe_sequence
+      in
       let g_and_or : and_or_list Angstrom_extended.t =
-        fix (fun inner_and_or ->
-            let g_term =
-              both
-                inner_and_or
-                (many
-                   (both
-                      (g_separator
-                      >>| fun maybe_sep -> Option.value ~default:Semicolon maybe_sep)
-                      inner_and_or))
-            in
-            let g_compound_list : command Angstrom_extended.t =
-              many g_newline_list *> both g_term (option None g_separator)
-              >>| (fun ((first, later), maybe_sep) ->
-                    let sep = maybe_sep |> Option.value ~default:Semicolon in
-                    unshift first later sep)
-              >>| fun x -> Subshell x
-            in
-            let g_subshell : command Angstrom_extended.t =
-              token "(" *> g_compound_list <* token ")"
-            in
-            let g_command = g_simple_command <|> g_subshell in
-            let g_pipe_sequence : command list Angstrom_extended.t =
-              both g_command (many (token "|" *> g_linebreak *> g_command))
-              >>| fun (c, cl) -> c :: cl
-            in
-            let g_pipeline : pipeline Angstrom_extended.t =
-              both
-                (optional_token "!" >>| fun x -> if x then Some Bang else None)
-                g_pipe_sequence
-            in
-            both g_pipeline (many (both (and_or_if <* g_linebreak) g_pipeline)))
+        both g_pipeline (many (both (and_or_if <* g_linebreak) g_pipeline))
+      in
+      let g_term =
+        both
+          g_and_or
+          (many
+             (both
+                (g_separator
+                >>| fun maybe_sep -> Option.value ~default:Semicolon maybe_sep)
+                g_and_or))
+      in
+      let g_compound_list =
+        many g_newline_list *> both g_term (option None g_separator)
+        >>| fun ((first, later), maybe_sep) ->
+        let sep = maybe_sep |> Option.value ~default:Semicolon in
+        unshift first later sep
       in
       let g_list = both g_and_or (many (both g_separator_op g_and_or)) in
       let g_complete_command =
@@ -251,7 +271,24 @@ let ast : t Angstrom_extended.t =
         let sep = maybe_sep |> Option.value ~default:Semicolon in
         unshift first later sep
       in
-      g_complete_command <|> delimiter *> return [])
+      let empty = delimiter *> return [] in
+      ( (if Subshell_state.allow_empty subshell_state
+        then g_compound_list <|> empty
+        else g_compound_list)
+      , g_complete_command <|> empty ))
+;;
+
+let parse_partial ?state text =
+  let text =
+    match text with
+    | "" | "\n" -> `Eof
+    | s -> `String s
+  in
+  match state with
+  | None ->
+    let state = Buffered.parse ast in
+    Buffered.feed state text
+  | Some state -> Buffered.feed state text
 ;;
 
 let parse text : t Or_error.t =

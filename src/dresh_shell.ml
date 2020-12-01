@@ -243,25 +243,42 @@ and eval_token token_parts ~eval_args : string list Deferred.t =
 let run () =
   let stdin = force Reader.stdin in
   let stdout = force Writer.stdout in
-  let rec repl () =
-    let prompt = "$ " in
-    print_string prompt;
+  let eval_run ast =
+    eval ast ~eval_args:(Eval_args.create ~stdin:None ~stdout ~verbose:false)
+  in
+  let rec repl ?state prior_input =
+    if Option.is_none state
+    then (
+      let prompt = "$ " in
+      print_string prompt);
     let%bind maybe_line = Reader.read_line stdin in
     match maybe_line with
     | `Eof -> return ()
     | `Ok line ->
-      let maybe_ast = Ast.parse line in
-      let%bind _ =
-        match maybe_ast with
-        | Error err ->
-          printf "Parse error %s\n" (Error.to_string_hum err);
-          return ()
-        | Ok ast ->
-          eval ast ~eval_args:(Eval_args.create ~stdin:None ~stdout ~verbose:false)
-          |> Deferred.ignore_m
-      in
-      repl ()
+      let line = line ^ "\n" in
+      let input = prior_input ^ line in
+      (match Ast.parse input with
+      | Ok complete ->
+        let%bind () = eval_run complete |> Deferred.ignore_m in
+        repl ""
+      | Error _err ->
+        let new_state = Ast.parse_partial ?state line in
+        (match new_state with
+        | Partial p -> repl ~state:(Partial p) input
+        | Done (unconsumed, ast) ->
+          let%bind () =
+            if unconsumed.len > 0
+            then (
+              let msg = "Unconsumed input remaining!" in
+              printf "Parse error: %s\n" msg;
+              return ())
+            else eval_run ast |> Deferred.ignore_m
+          in
+          repl ""
+        | Fail (_unconsumed, _marks, msg) ->
+          printf "Parse error: %s\n" msg;
+          repl ""))
   in
-  let%map _ = repl () in
+  let%map _ = repl "" in
   shutdown 0
 ;;

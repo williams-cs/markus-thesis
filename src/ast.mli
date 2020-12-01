@@ -32,4 +32,10 @@ and separator =
   | Semicolon
 
 val parse : string -> t Or_error.t
+
+val parse_partial
+  :  ?state:t Angstrom_extended.Buffered.state
+  -> string
+  -> t Angstrom_extended.Buffered.state
+
 val parse_field_split : string -> string list

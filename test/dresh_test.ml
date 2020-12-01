@@ -114,14 +114,28 @@ let%expect_test "and" =
     b|}]
 ;;
 
+let%expect_test "parens" =
+  let%bind () = run_test "(echo hi)" in
+  [%expect {| hi |}]
+;;
+
 let%expect_test "parens_or" =
   let%bind () = run_test "(echo \"a\" || echo \"b\") || (echo \"c\" || echo \"d\")" in
-  [%expect {||}]
+  [%expect {| a |}]
 ;;
 
 let%expect_test "parens_and" =
   let%bind () = run_test "(echo \"a\" && echo \"b\") && (echo \"c\" && echo \"d\")" in
-  [%expect {||}]
+  [%expect {|
+    a
+    b
+    c
+    d |}]
+;;
+
+let%expect_test "parens_inside_subshell" =
+  let%bind () = run_test "echo $( (echo \"hello\") )" in
+  [%expect {| hello |}]
 ;;
 
 let%expect_test "parallel_execution" =
@@ -141,4 +155,27 @@ let%expect_test "serial_execution" =
 let%expect_test "pipeline" =
   let%bind () = run_test "echo \"abcdefghij\" | cat" in
   [%expect {|abcdefghij|}]
+;;
+
+let%expect_test "newlines" =
+  let%bind () = run_test {|echo $(
+echo hello
+echo world
+)|} in
+  [%expect {| hello world |}]
+;;
+
+let%expect_test "error_empty_parens" =
+  let%bind () = run_test "()" in
+  [%expect {| : end_of_input |}]
+;;
+
+let%expect_test "empty_backticks" =
+  let%bind () = run_test "``" in
+  [%expect {||}]
+;;
+
+let%expect_test "empty_command_substitution" =
+  let%bind () = run_test "$()" in
+  [%expect {||}]
 ;;

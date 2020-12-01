@@ -849,3 +849,14 @@ let fix_state f ~init =
   in
   r init
 ;;
+
+let fix_state_2 f ~init =
+  let rec p = lazy (f r)
+  and r state =
+    { run =
+        (fun buf pos more fail succ ->
+          (fst ((Lazy.force p) state)).run buf pos more fail succ)
+    }
+  in
+  snd ((Lazy.force p) init)
+;;

@@ -679,3 +679,7 @@ val available : int t
 
 (* Same as [fix], but with a bit of state that can change as the recurive parsing proceeds. *)
 val fix_state : (('a -> 'b t) -> 'a -> 'b t) -> init:'a -> 'b t
+
+(* Same as [fix_state], but with a bit of state that can change as the recurive parsing proceeds, and a custom
+output that can depend on the parser. *)
+val fix_state_2 : (('a -> 'b t) -> 'a -> 'b t * 'c) -> init:'a -> 'c

@@ -17,4 +17,6 @@ main
 _build
 **/*.exe
 **/.merlin
+
+src/angstrom_extended_async
 							

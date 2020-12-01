@@ -1,5 +1,11 @@
 # Research Log
 
+## 2020-11-30
+- Progress towards implementing shell
+  - Added `|` to pipe I/O between programs
+  - Added `(` and `)`
+  - Added partial inputs
+
 ## 2020-11-27
 - Progress towards implementing shell
   - Added `&&` and `||`
