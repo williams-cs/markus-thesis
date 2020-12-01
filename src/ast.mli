@@ -5,11 +5,17 @@ type t = (and_or_list * separator) list
 and token_part =
   | Literal of string
   | Variable of string
-  | Subshell of t
+  | Command_substitution of t
 
 and token = token_part list
 
-and command = token list
+and simple_command = token list
+
+and case_item = string list * t
+
+and command =
+  | Simple_command of simple_command
+  | Subshell of t
 
 and pipeline = bang option * command list
 

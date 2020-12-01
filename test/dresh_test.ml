@@ -8,7 +8,9 @@ let run_test_no_timeout input =
   | Error err ->
     print_endline (Error.to_string_hum err);
     return ()
-  | Ok ast -> eval ast ~writer:stdout ~verbose:false
+  | Ok ast ->
+    eval ast ~eval_args:(Dresh_shell.Eval_args.create ~stdin:None ~stdout ~verbose:false)
+    |> Deferred.ignore_m
 ;;
 
 let run_test input =
@@ -17,7 +19,7 @@ let run_test input =
     print_endline "Test case exceeded timeout!";
     exit 1
   in
-  Deferred.any [ timeout 1.0; run_test_no_timeout input ]
+  Deferred.any [ timeout 5.0; run_test_no_timeout input ]
 ;;
 
 let%expect_test "echo" =
@@ -112,16 +114,31 @@ let%expect_test "and" =
     b|}]
 ;;
 
+let%expect_test "parens_or" =
+  let%bind () = run_test "(echo \"a\" || echo \"b\") || (echo \"c\" || echo \"d\")" in
+  [%expect {||}]
+;;
+
+let%expect_test "parens_and" =
+  let%bind () = run_test "(echo \"a\" && echo \"b\") && (echo \"c\" && echo \"d\")" in
+  [%expect {||}]
+;;
+
 let%expect_test "parallel_execution" =
-  let%bind () = run_test "echo $(sleep 0.02s; echo a) & echo $(sleep 0.01s; echo b)" in
+  let%bind () = run_test "echo $(sleep 0.2s; echo a) & echo $(sleep 0.1s; echo b)" in
   [%expect {|
     b 
     a|}]
 ;;
 
 let%expect_test "serial_execution" =
-  let%bind () = run_test "echo $(sleep 0.02s; echo a) ; echo $(sleep 0.01s; echo b)" in
+  let%bind () = run_test "echo $(sleep 0.2s; echo a) ; echo $(sleep 0.1s; echo b)" in
   [%expect {|
     a 
     b|}]
+;;
+
+let%expect_test "pipeline" =
+  let%bind () = run_test "echo \"abcdefghij\" | cat" in
+  [%expect {|abcdefghij|}]
 ;;

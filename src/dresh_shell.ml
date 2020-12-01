@@ -2,19 +2,44 @@ open Core
 open Async
 module Ast = Ast
 
-let print_all readers ~writer =
-  let rec print_remaining_output readers =
-    match readers with
-    | [] -> return ()
-    | head :: tail ->
-      let%bind maybe_line = Reader.read_until head (`Char '\n') ~keep_delim:true in
-      (match maybe_line with
-      | `Eof -> print_remaining_output tail
-      | `Ok line | `Eof_without_delim line ->
-        Writer.write writer line;
-        print_remaining_output (tail @ [ head ]))
+module Eval_args = struct
+  module Stdin = struct
+    type t =
+      | Stdin_none
+      | Stdin_reader of Reader.t Deferred.t
+      | Stdin_pipe of (Writer.t -> unit Deferred.t)
+
+    let create ~stdin =
+      match stdin with
+      | None -> Stdin_none
+      | Some reader -> Stdin_reader (return reader)
+    ;;
+  end
+
+  type t =
+    { stdin : Stdin.t
+    ; stdout : Writer.t Deferred.t
+    ; verbose : bool
+    }
+  [@@deriving fields]
+
+  let create ~stdin ~stdout ~verbose =
+    { stdin = Stdin.create ~stdin; stdout = return stdout; verbose }
+  ;;
+end
+
+let glue ~reader ~writer =
+  let%bind reader = reader in
+  let%bind writer = writer in
+  let rec print_until_done () =
+    let%bind maybe_line = Reader.read_until reader (`Char '\n') ~keep_delim:true in
+    match maybe_line with
+    | `Eof -> return ()
+    | `Ok line | `Eof_without_delim line ->
+      Writer.write writer line;
+      print_until_done ()
   in
-  print_remaining_output readers
+  print_until_done ()
 ;;
 
 let rec wait_until_exit process =
@@ -27,7 +52,7 @@ let rec wait_until_exit process =
   | Ok () -> return 0
 ;;
 
-let eval_command prog args ~writer ~verbose =
+let eval_command prog args ~eval_args =
   let builtin = Map.find Builtin.builtins prog in
   match builtin with
   | Some fn -> fn args
@@ -39,11 +64,27 @@ let eval_command prog args ~writer ~verbose =
       return (-1)
     | Ok process ->
       let pid = Pid.to_int (Process.pid process) in
+      let child_stdin = Process.stdin process in
       let child_stdout = Process.stdout process in
       let child_stderr = Process.stderr process in
-      let%bind () = print_all [ child_stdout; child_stderr ] ~writer in
+      let in_deferred =
+        match Eval_args.stdin eval_args with
+        | Stdin_none -> return ()
+        | Stdin_reader reader -> glue ~reader ~writer:(return child_stdin)
+        | Stdin_pipe pipe -> pipe child_stdin
+      in
+      let out_deferred =
+        glue ~reader:(return child_stdout) ~writer:(Eval_args.stdout eval_args)
+      in
+      let err_deferred =
+        glue ~reader:(return child_stderr) ~writer:(return (force Writer.stderr))
+      in
       let%bind exit_code = wait_until_exit process in
-      if verbose then printf "Child process %i exited with status %i\n" pid exit_code;
+      let%bind () = in_deferred in
+      let%bind () = out_deferred in
+      let%bind () = err_deferred in
+      if Eval_args.verbose eval_args
+      then printf "Child process %i exited with status %i\n" pid exit_code;
       return exit_code)
 ;;
 
@@ -59,65 +100,95 @@ let deferred_iter l =
   List.rev res
 ;;
 
-let rec eval (ast : Ast.t) ~writer ~verbose =
+let rec eval (ast : Ast.t) ~eval_args =
   let open Ast in
   match ast with
-  | [] -> return ()
+  | [] -> return 0
   | ((h, t), sep) :: ast ->
     (match sep with
     | Semicolon ->
-      let%bind () = eval_and_or_list h t ~writer ~verbose |> Deferred.ignore_m in
-      eval ast ~writer ~verbose
+      let%bind () = eval_and_or_list h t ~eval_args |> Deferred.ignore_m in
+      eval ast ~eval_args
     | Ampersand ->
-      Deferred.all
-        [ eval_and_or_list h t ~writer ~verbose |> Deferred.ignore_m
-        ; eval ast ~writer ~verbose
-        ]
-      |> Deferred.ignore_m)
+      let%bind (), v =
+        Deferred.both
+          (eval_and_or_list h t ~eval_args |> Deferred.ignore_m)
+          (eval ast ~eval_args)
+      in
+      return v)
 
-and eval_and_or_list h t ~writer ~verbose =
+and eval_and_or_list h t ~eval_args =
   (* In shell, && and || have the same precendence *)
   let open Ast in
-  let%bind b = eval_boolean_part h ~writer ~verbose in
+  let%bind b = eval_boolean_part h ~eval_args in
   match t with
   | [] -> return b
   | (and_or, x) :: ls ->
     (match and_or with
-    | Or -> if b then return true else eval_and_or_list x ls ~writer ~verbose
-    | And -> if not b then return false else eval_and_or_list x ls ~writer ~verbose)
+    | Or -> if b then return true else eval_and_or_list x ls ~eval_args
+    | And -> if not b then return false else eval_and_or_list x ls ~eval_args)
 
-and eval_boolean_part part ~writer ~verbose =
+and eval_boolean_part part ~eval_args =
   let maybe_bang, pipline = part in
   let has_bang = Option.is_some maybe_bang in
-  let%map code = eval_pipeline pipline ~writer ~verbose in
+  let%map code = eval_pipeline pipline ~eval_args in
   match code with
   | 0 -> not has_bang
   | _ -> has_bang
 
-and eval_pipeline pipeline ~writer ~verbose =
+and eval_pipeline pipeline ~eval_args =
   match pipeline with
   | [] -> return 0
-  | x :: _xs ->
-    let%bind code = eval_pipeline_part x ~writer ~verbose in
-    return code
+  | x :: xs ->
+    let next_stdin = Ivar.create () in
+    let deferred_code =
+      eval_pipeline_part
+        x
+        ~eval_args:{ eval_args with Eval_args.stdout = Ivar.read next_stdin }
+    in
+    (* Currently do not support pipe status code; returns the final command's code. *)
+    (match xs with
+    | [] ->
+      let%bind stdout = Eval_args.stdout eval_args in
+      Ivar.fill next_stdin stdout;
+      deferred_code
+    | _ ->
+      let new_deferred_code =
+        eval_pipeline
+          xs
+          ~eval_args:
+            { eval_args with
+              Eval_args.stdin =
+                Stdin_pipe
+                  (fun stdin ->
+                    Ivar.fill next_stdin stdin;
+                    return ())
+            }
+      in
+      let%bind _code = deferred_code in
+      let%bind stdout = Ivar.read next_stdin in
+      let%bind () = Writer.close stdout in
+      new_deferred_code)
 
-(* TODO: Support pipes *)
-(* match xs with
-      | [] -> return code
-      | y::ys -> *)
-and eval_pipeline_part part ~writer ~verbose =
+and eval_pipeline_part ~eval_args =
+  let open Ast in
+  function
+  | Subshell t -> eval t ~eval_args
+  | Simple_command part -> eval_simple_command part ~eval_args
+
+and eval_simple_command part ~eval_args =
   let%bind args =
-    List.map ~f:(fun token () -> eval_token token ~verbose) part |> deferred_iter
+    List.map ~f:(fun token () -> eval_token token ~eval_args) part |> deferred_iter
   in
   let args = List.concat args in
   match args with
   | [] -> return 0
-  | name :: args -> eval_command name args ~writer ~verbose
+  | name :: args -> eval_command name args ~eval_args
 
-and eval_token_part ~verbose =
+and eval_token_part ~eval_args =
   let open Ast in
   function
-  | Subshell ss ->
+  | Command_substitution ss ->
     let ivar = Ivar.create () in
     let pipe =
       Pipe.create_writer (fun reader ->
@@ -132,7 +203,9 @@ and eval_token_part ~verbose =
           Ivar.fill ivar clean_res)
     in
     let%bind writer, _ = Writer.of_pipe (Info.of_string "eval pipe writer") pipe in
-    let%bind () = eval ss ~writer ~verbose in
+    let%bind () =
+      eval ss ~eval_args:{ eval_args with stdout = return writer } |> Deferred.ignore_m
+    in
     let%bind () = Writer.close writer in
     let%bind s = Ivar.read ivar in
     let insert_splits sl =
@@ -145,9 +218,9 @@ and eval_token_part ~verbose =
   | Variable _v -> return [ Some "" ]
   | Literal s -> return [ Some s ]
 
-and eval_token token_parts ~verbose : string list Deferred.t =
+and eval_token token_parts ~eval_args : string list Deferred.t =
   let%map res =
-    List.map ~f:(fun part () -> eval_token_part part ~verbose) token_parts
+    List.map ~f:(fun part () -> eval_token_part part ~eval_args) token_parts
     |> deferred_iter
   in
   let strings_with_splits = List.concat res in
@@ -183,7 +256,9 @@ let run () =
         | Error err ->
           printf "Parse error %s\n" (Error.to_string_hum err);
           return ()
-        | Ok ast -> eval ast ~writer:stdout ~verbose:true
+        | Ok ast ->
+          eval ast ~eval_args:(Eval_args.create ~stdin:None ~stdout ~verbose:false)
+          |> Deferred.ignore_m
       in
       repl ()
   in

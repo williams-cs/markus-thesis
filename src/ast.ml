@@ -6,12 +6,23 @@ type t = (and_or_list * separator) list
 and token_part =
   | Literal of string
   | Variable of string
-  | Subshell of t
+  | Command_substitution of t
 
 and token = token_part list
 
-and command = token list
+and simple_command = token list
 
+and case_item = string list * t
+
+and command =
+  | Simple_command of simple_command
+  | Subshell of t
+
+(* | For_clause of string * string list * t
+| Case_clause of string * case_item list
+| If_clause of (t * t) list * t option
+| While_clause of t * t
+| Until_clause of t * t *)
 and pipeline = bang option * command list
 
 and and_or_list = pipeline * (and_or * pipeline) list
@@ -152,14 +163,16 @@ let ast : t Angstrom_extended.t =
       let backtick_command_substitution =
         match within_backtick with
         | 1 ->
-          char '\\' *> char '`' *> (inner 2 >>| fun ss -> Subshell ss)
+          char '\\' *> char '`' *> (inner 2 >>| fun ss -> Command_substitution ss)
           <* char '\\'
           <* char '`'
-        | 0 -> char '`' *> (inner 1 >>| fun ss -> Subshell ss) <* char '`'
+        | 0 -> char '`' *> (inner 1 >>| fun ss -> Command_substitution ss) <* char '`'
         | _ -> fail "Cannot have more than two nested backtick escapes!"
       in
       let dollar_command_substitution =
-        char '$' *> char '(' *> (inner within_backtick >>| fun ss -> Subshell ss)
+        char '$'
+        *> char '('
+        *> (inner within_backtick >>| fun ss -> Command_substitution ss)
         <* char ')'
       in
       let command_substitution =
@@ -192,21 +205,44 @@ let ast : t Angstrom_extended.t =
       let comment = char '#' *> skip_while (fun x -> not (is_newline x)) in
       let delimiter = skip_while is_whitespace_within_line <* option () comment in
       let delimited_word = word <* delimiter in
-      let g_command : command Angstrom_extended.t = delimiter *> many1 delimited_word in
+      let g_simple_command : command Angstrom_extended.t =
+        delimiter *> many1 delimited_word >>| fun x -> Simple_command x
+      in
       let token s = string s <* delimiter in
       let optional_token s = option false (token s >>| fun _s -> true) in
       let and_or_if = token "||" *> return Or <|> token "&&" *> return And in
-      let g_pipe_sequence : command list Angstrom_extended.t =
-        both g_command (many (token "|" *> g_linebreak *> g_command))
-        >>| fun (c, cl) -> c :: cl
-      in
-      let g_pipeline : pipeline Angstrom_extended.t =
-        both
-          (optional_token "!" >>| fun x -> if x then Some Bang else None)
-          g_pipe_sequence
-      in
       let g_and_or : and_or_list Angstrom_extended.t =
-        both g_pipeline (many (both (and_or_if <* g_linebreak) g_pipeline))
+        fix (fun inner_and_or ->
+            let g_term =
+              both
+                inner_and_or
+                (many
+                   (both
+                      (g_separator
+                      >>| fun maybe_sep -> Option.value ~default:Semicolon maybe_sep)
+                      inner_and_or))
+            in
+            let g_compound_list : command Angstrom_extended.t =
+              many g_newline_list *> both g_term (option None g_separator)
+              >>| (fun ((first, later), maybe_sep) ->
+                    let sep = maybe_sep |> Option.value ~default:Semicolon in
+                    unshift first later sep)
+              >>| fun x -> Subshell x
+            in
+            let g_subshell : command Angstrom_extended.t =
+              token "(" *> g_compound_list <* token ")"
+            in
+            let g_command = g_simple_command <|> g_subshell in
+            let g_pipe_sequence : command list Angstrom_extended.t =
+              both g_command (many (token "|" *> g_linebreak *> g_command))
+              >>| fun (c, cl) -> c :: cl
+            in
+            let g_pipeline : pipeline Angstrom_extended.t =
+              both
+                (optional_token "!" >>| fun x -> if x then Some Bang else None)
+                g_pipe_sequence
+            in
+            both g_pipeline (many (both (and_or_if <* g_linebreak) g_pipeline)))
       in
       let g_list = both g_and_or (many (both g_separator_op g_and_or)) in
       let g_complete_command =
