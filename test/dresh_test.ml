@@ -179,3 +179,8 @@ let%expect_test "empty_command_substitution" =
   let%bind () = run_test "$()" in
   [%expect {||}]
 ;;
+
+let%expect_test "echo_pipe_to_echo" =
+  let%bind () = run_test "echo $(sleep 0.1; echo test) | echo" in
+  [%expect {||}]
+;;

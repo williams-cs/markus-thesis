@@ -57,7 +57,7 @@ let eval_command prog args ~eval_args =
   match builtin with
   | Some fn -> fn args
   | None ->
-    let%bind process = Process.create ~prog ~args () in
+    let%bind process = Process.create ~prog ~args ~stdin:"" () in
     (match process with
     | Error err ->
       print_endline (Error.to_string_hum err);
