@@ -2,8 +2,14 @@
 **/*.aux
 **/*.bbl
 **/*.blg
+**/*.fdb_latexmk
+**/*.fls
 **/*.lof
 **/*.log
+**/*.out
+**/*.synctex(busy)
+**/*.synctex.gz
+**/*.xdv
 **/*thesis.lot
 thesis/thesis.pdf
 **/*.toc

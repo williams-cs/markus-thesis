@@ -1,5 +1,11 @@
 # Research Log
 
+## 2020-12-13
+- Progress on writing the background chapter of the thesis
+
+## 2020-12-12
+- Progress on writing the background chapter of the thesis
+
 ## 2020-11-30
 - Progress towards implementing shell
   - Added `|` to pipe I/O between programs
