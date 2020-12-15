@@ -99,7 +99,7 @@ This will greatly aid in increasing the accessibility and simplifying the proces
 
 \chapter*{Acknowledgments}
 
-I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbadical leaves, during a time heavily affected by the COVID-19 pandemic.
+I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbadical leaves, during a difficult time in the world, as we work through the COVID-19 pandemic in all facets of our lives.
 
 % TODO expand
 
@@ -112,8 +112,17 @@ I could not have written this thesis without the help of my advisors, Dan Barowy
 %% Background
 \chapter{Background}
 
+This thesis describes a set of error handling semantics for a distributed command-line shell, along with Dresh, an implementation of a distributed shell with those semantics.
+This chapter starts with describing the background behind command-line shells, focusing in particular on their relationship with the UNIX operating system and the specification of the POSIX shell.
+After that, this chapter moves on providing an overview of distributed computing, with a deeper look at their fault tolerance properties that will guide the error handling semantics in this thesis, and several examples of distributed systems, including Hadoop, Ganglia, and Plush.
+Next, this chapter will talk about existing examples of distributed command line shells, including their features, implementations, and weaknesses.
+Finally, this chapter closes out with a summary of existing shells, distributed systems, and distributed shells, along with how the Dresh shell builds upon these existing systems.
+
 \section{Command-line Shells}
-% \subsection{Basic Operation}
+\subsection{UNIX Shell}
+UNIX is an operating system designed at Bell Labs, with the first versions appearing around 1969-1970 \cite{10.1145/361011.361061}.
+UNIX was an influence in many operating systems in use today, with its original form evolving into various BSD distributions (NetBSD, FreeBSD, OpenBSD), and the GNU operating system, which is the basis of Linux distributions today, was designed to be UNIX compatible \cite{bretthauer2001open}.
+
 One of the standard ways of interacting with the UNIX operating system is through a command-line shell \cite{10.1145/361011.361061}.
 The operation of the shell involves reading in lines of text typed by the user, and performing a command based on the input text.
 The most basic command consists of a space-separated list of strings, with the first string being the name of the command, and the remaining strings being the arguments for the command.
@@ -121,26 +130,45 @@ The shell searches the file system for the appropriate program to run, based on 
 By default, the standard output of the program is displayed back to the user by the visual interface of the shell program, but indirections can modify this by transferring the output to a file or another program.
 When execution completes, control is given back to the user, who can run another command line command on the shell.
 Because the command line is a program itself, the shell can run itself as a program with the input being a file containing shell commands.
-% TODO %
+The command-line shell is useful in a wide variety of contexts, in being one of the easiest ways to programmatically interface with the operating system itself, and many operations on computers are able to be performed or even require using shell \cite{10.1145/3371111}.
 
-\subsection{Examples}
-\subsubsection{POSIX Shell}
-% TODO %
-
-\subsubsection{Bash}
-% TODO %
+\subsection{POSIX Shell}
+POSIX is a family of IEEE standards originating in the early 1980s that specify a portable operating system interface based on UNIX \cite{10.1145/210308.210315}.
+Contained within the POSIX specification is a specification of the POSIX shell, which describes the interface that the shell command language should conform to \cite{posix2017}.
+Because each operating system that conform to the POSIX interface must implement a POSIX shell, there have been a wide variety implementations of POSIX shells on numerous platforms, many of which have additional features that extend the capabilities of the shell.
+The POSIX shell is popular across computing platforms, including even platforms that are not designed to be POSIX compatible, though notably a majority of POSIX shells do not fully conform to the POSIX specification \cite{10.1145/3371111}.
 
 \section{Distributed Computing}
 
 A distributed computing system, or a distributed system, is a computer system that consists of multiple processors one one or more machines that work together but do not directly share memory \cite{10.1145/72551.72552}.
-This project in particular focuses on multicomputer distributed systems that communicate over a network that is not guaranteed to be reliable. 
+This thesis in particular focuses on multicomputer distributed systems that communicate over a network that is not guaranteed to be reliable. 
 As such, there may be errors or faults that occur during the operation of the system.
 
 \subsection{Fault Tolerance in Distributed Systems}
-There has been significant work in the field of fault-tolerant distributed systems, as one important goal in computer systems is to be dependable, which comes with significant challenges when in a distributed environment, compared to a program running a single process or machine \cite{10.1145/311531.311532}.
-% TODO %
+There has been significant work in the field of fault tolerant distributed systems, as one important goal in computer systems is to be dependable, which comes with significant challenges when in a distributed environment, compared to a program running a single process or machine \cite{10.1145/311531.311532}.
+
+% Safety/Liveliness
+The two classes of fault tolertance properties in distributed programs are properties of safety and liveliness \cite{1702415}.
+Safety properties ensure that the state of the distributed system must not be some state, while liveliness properties ensure that the state of the distributed system must eventually be in some state.
+For example, a safety property of a distributed system may be that one part of a distributed program is not executed until a different part is complete, while a liveliness property of a distributed system may be that the program eventually provides a result, even if one or more machines are stuck in a loop during execution.
+
+% Masking/Fail-safe/Nonmasking
+When designating a system to be fault tolerant, it is important to specify which types of faults that the system is tolerant against, and what types of fault tolerant properties are satisfied by the system \cite{10.1145/311531.311532}.
+In the strongest form, a system with masking fault tolerence is able to satisfy both safety and liveliness properties against a given set of faults.
+Slightly weaker is fail-safe fault tolerance, which ensures safety but does not make liveliness guarantees, capturing the notion that certain illegal states will never appear.
+Safety is important in many situations, such as making sure that a missile does not launch in case of individual component failures.
+On the other hand, nonmasking fault tolerence, which ensures liveliness but does not make safety guarantees, captures the notion of a system always making progress towards completion, despite the possibility of some amount of incorrect behavior with the program.
+Traditionally less focus has been placed on systems in ensuring liveliness compared to ensuring safety, as liveliness issues can be resolved in many cases by manually stopping the system, whereas safety issues can lead to large amounts of damage.
+
+% Potential sections:
+% Crash/Fail-stop/Byzantine
+% Redundancy
+% Error detection and correction
 
 \subsection{Examples}
+Fault tolerant distributed systems exist in many forms, with widespread practical usage.
+Typically, these systems target solving a specific type of distributed problem, with differences based on the priorities and goals of the individual system.
+
 \subsubsection{MapReduce/Hadoop}
 MapReduce is a distributed computation framework developed by Google to handle and process large amounts of data \cite{dean2004mapreduce}.
 The data processing is done by splitting up the input into key-value pairs, applying a function in a distributed fashion on each of those value pairs, using a reduce function to combine the pairs that share a key.
@@ -151,7 +179,7 @@ Because the data is stored on a particular machine, that same machine can be in 
 Apache Hadoop is an open source distributed programming framework that can be used to run MapReduce-style computation on large datasets \cite{Hadoop}.
 Hadoop is designed to target the use case of data processing with extremely large data sets that cannot be handled with ordinary programming techniques that depend on all of the data to be available on one machine and the work being done on a single process.
 Hadoop uses a distributed filesystem in a similar manner to Google's MapReduce implementation, with explicit goals of being able to handle faults such as hardware failure, using techniques including replication to make sure that the data is stored reliably across the cluster \cite{borthakur2007hadoop}.
-The fault-tolerant properties of Hadoop makes it useful in production usage, where errors are to be expected to occur when dealing with large clusters of machines.
+The fault tolerant properties of Hadoop makes it useful in production usage, where errors are to be expected to occur when dealing with large clusters of machines.
 
 \subsubsection{Ganglia/GEXEC}
 Ganglia is a monitoring system for scalable high-performance distributed programs \cite{MASSIE2004817}.
@@ -187,7 +215,7 @@ Notably, this method is that it does not handle error recovery well, or guarante
 The DSH (Dancer's Shell) Unix program allows the user to send a shell command to all machines in a cluster defined by the user \cite{dshdancer}.
 DSH uses an underlying remote execution protocol, such as SSH, for executing shell programs on remote hosts.
 The command invocation occurs in a hierarchial fashion, with each node sending the command to some amount of child nodes until the program is executed on all nodes in the cluster.
-For the DSH program, there does not exist the same emphasis of reliable execution and error recovery compare to this project, and it exists as a program that can be run in a shell, rather than a shell language itself.
+Notably, for the DSH program, there does not exist an emphasis of reliable execution and error recovery from failures that may arise from the distributed nature of the program.
 Other similar implementations of the DSH program exist in various forms, some of them implemented with a different language or work on different platforms.
 
 \subsubsection{Distsh}
@@ -197,7 +225,11 @@ Similar to DSH, there does not exist error handling semantics to allow reliable 
 The paper specifies that the implementation currently only works when the machine to access is localhost, and there does not appear to have been visible progress on the project since the paper was made public.
 
 \section{Summary}
-% TODO %
+Command-line shells are an important and useful interface for interacting with a computer.
+Therefore, it makes sense to be able to use the command-line shell to interact with many computers simultaneously in a distributed manner.
+However, distributed systems come with existing challenges, particularly because failures are much more likely when there are more avenues of failure and more machines that can fail.
+While many existing distributed systems have built-in error handling and recovery mechanims, prior solutions for extending the shell to a cluster of distributed systems do not sufficiently take into account these same errors.
+This thesis aims improve upon existing solutions by unifying the reliability built in to distributed systems with simplicity and ease of use of the command-line shell interface.
 
 %%%%%%%% References %%%%%%%%%%
 \bibliographystyle{acm}

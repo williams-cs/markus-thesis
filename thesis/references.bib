@@ -87,6 +87,54 @@
   series    = {LISA'07}
 }
 
+@article{10.1145/210308.210315,
+  author     = {Walli, Stephen R.},
+  title      = {The POSIX Family of Standards},
+  year       = {1995},
+  issue_date = {March 1995},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  volume     = {3},
+  number     = {1},
+  issn       = {1067-9936},
+  url        = {https://doi.org/10.1145/210308.210315},
+  doi        = {10.1145/210308.210315},
+  journal    = {StandardView},
+  month      = mar,
+  pages      = {11–17},
+  numpages   = {7}
+}
+
+@article{10.1145/3371111,
+  author     = {Greenberg, Michael and Blatt, Austin J.},
+  title      = {Executable Formal Semantics for the POSIX Shell},
+  year       = {2019},
+  issue_date = {January 2020},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  volume     = {4},
+  number     = {POPL},
+  url        = {https://doi.org/10.1145/3371111},
+  doi        = {10.1145/3371111},
+  abstract   = {The POSIX shell is a widely deployed, powerful tool for managing computer systems. The shell is the expert’s control panel, a necessary tool for configuring, compiling, installing, maintaining, and deploying systems. Even though it is powerful, critical infrastructure, the POSIX shell is maligned and misunderstood. Its power and its subtlety are a dangerous combination. We define a formal, mechanized, executable small-step semantics for the POSIX shell, which we call Smoosh. We compared Smoosh against seven other shells that aim for some measure of POSIX compliance (bash, dash, zsh, OSH, mksh, ksh93, and yash). Using three test suites—the POSIX test suite, the Modernish test suite and shell diagnostic, and a test suite of our own device—we found Smoosh’s semantics to be the most conformant to the POSIX standard. Modernish judges Smoosh to have the fewest bugs (just one, from using dash’s parser) and no quirks. To show that our semantics is useful beyond yielding a conformant, executable shell, we also implemented a symbolic stepper to illuminate the subtle behavior of the shell. Smoosh will serve as a foundation for formal study of the POSIX shell, supporting research on and development of new shells, new tooling for shells, and new shell designs.},
+  journal    = {Proc. ACM Program. Lang.},
+  month      = dec,
+  articleno  = {43},
+  numpages   = {30},
+  keywords   = {small-step semantics, formalization, command line interfaces, POSIX}
+}
+
+@article{1702415,
+  author  = {Leslie Lamport},
+  journal = {IEEE Transactions on Software Engineering},
+  title   = {Proving the Correctness of Multiprocess Programs},
+  year    = {1977},
+  volume  = {SE-3},
+  number  = {2},
+  pages   = {125-143},
+  doi     = {10.1109/TSE.1977.229904}
+}
+
 @inproceedings{dean2004mapreduce,
   title     = {MapReduce: Simplified Data Processing on Large Clusters},
   author    = {Jeffrey Dean and Sanjay Ghemawat},
@@ -109,12 +157,28 @@
   month        = {Jan.},
   abstract     = {The Secure Shell (SSH) Protocol is a protocol for secure remote login and other secure network services over an insecure network.  This document describes the architecture of the SSH protocol, as well as the notation and terminology used in SSH protocol documents.  It also discusses the SSH algorithm naming system that allows local extensions.  The SSH protocol consists of three major components: The Transport Layer Protocol provides server authentication, confidentiality, and integrity with perfect forward secrecy.  The User Authentication Protocol authenticates the client to the server. The Connection Protocol multiplexes the encrypted tunnel into several logical channels.  Details of these protocols are described in separate documents.}
 }
+
+@misc{posix2017,
+  title        = {POSIX.1 2017},
+  author       = {The Open Group},
+  howpublished = {\url{https://pubs.opengroup.org/onlinepubs/9699919799/mindex.html}},
+  year         = {2018},
+  note         = {Accessed: 2020-12-14}
+}
   
 @misc{borthakur2007hadoop,
   title        = {The hadoop distributed file system: Architecture and design},
   author       = {Borthakur, Dhruba},
   howpublished = {\url{http://svn.apache.org/repos/asf/hadoop/common/tags/release-0.16.1/docs/hdfs_design.pdf}},
   year         = {2007},
+  note         = {Accessed: 2020-12-14}
+}
+
+@misc{bretthauer2001open,
+  title        = {Open source software: A history},
+  author       = {Bretthauer, David},
+  howpublished = {\url{https://opencommons.uconn.edu/libr_pubs/7}},
+  year         = {2001},
   note         = {Accessed: 2020-12-14}
 }
 
@@ -139,10 +203,9 @@
 }
 
 @misc{distsh,
-  author = {Fried, Limor and Tibbetts, Richard},
-  title  = {Distributed Command Line Interface},
-  year   = {2001},
+  author       = {Fried, Limor and Tibbetts, Richard},
+  title        = {Distributed Command Line Interface},
+  year         = {2001},
   howpublished = {\url{https://pdos.csail.mit.edu/archive/6.824-2001/projects/paper-3.ps}},
-  note   = {Accessed: 2020-12-14}
+  note         = {Accessed: 2020-12-14}
 }
-

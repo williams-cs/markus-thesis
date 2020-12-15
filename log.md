@@ -1,10 +1,21 @@
 # Research Log
 
 ## 2020-12-13
+- Draft for background chapter of the thesis
+
+## 2020-12-13
 - Progress on writing the background chapter of the thesis
 
 ## 2020-12-12
 - Progress on writing the background chapter of the thesis
+
+## 2020-12-01
+- Discussion
+  - Work on remote pipes, file indrection
+  - Write background due 12-11
+    - Also write abstract
+    - Minimum 3 pages? Very loose requirement
+    - Show that my work is original work by looking at related work
 
 ## 2020-11-30
 - Progress towards implementing shell
