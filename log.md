@@ -1,5 +1,17 @@
 # Research Log
 
+## 2020-12-18
+- Added roadmap/implementation to do list
+
+## 2020-12-15
+- Discussion
+  - Implementation to do list for Friday 
+  - Background chapter: contrast stuff with my own work
+  - Compare at the end of each section / on each featuby re
+  - LaTeX todonotes
+  - Flesh out on the distributed systems section / deeper
+  - Make a table of problems and recovery mechanism
+
 ## 2020-12-13
 - Draft for background chapter of the thesis
 
