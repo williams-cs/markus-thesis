@@ -47,16 +47,16 @@
 | Built-in functions     |        |       |        |         |
 
 ## Distributed failure modes
-| Failure kind | Recovery mechanism |
-|--------------|--------------------|
-| stragglers   |                    |
-| node crash   |                    |
-| node nonresponse |                |
-| communication failure |           |
-| program failure (crash) |         |
-| program hang |                    |
-| program killed by OS (e.g., segfault, OOM) | |
-| ... |                             |
+| Failure kind | Recovery mechanism |Citation|
+|--------------|--------------------|--------|
+| stragglers   |                    |        |
+| node crash   |                    |        |
+| node nonresponse |                |        |
+| communication failure |           |        |
+| program failure (crash) |         |        |
+| program hang |                    |        |
+| program killed by OS (e.g., segfault, OOM) | | |
+| ... |                             |        |
 
 ## Shell feature dump
 
