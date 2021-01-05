@@ -17,14 +17,15 @@ module Eval_args = struct
   end
 
   type t =
-    { stdin : Stdin.t
+    { env : Env.t
+    ; stdin : Stdin.t
     ; stdout : Writer.t Deferred.t
     ; verbose : bool
     }
   [@@deriving fields]
 
   let create ~stdin ~stdout ~verbose =
-    { stdin = Stdin.create ~stdin; stdout = return stdout; verbose }
+    { env = Env.create (); stdin = Stdin.create ~stdin; stdout = return stdout; verbose }
   ;;
 end
 
@@ -176,14 +177,36 @@ and eval_pipeline_part ~eval_args =
   | Subshell t -> eval t ~eval_args
   | Simple_command part -> eval_simple_command part ~eval_args
 
-and eval_simple_command part ~eval_args =
+and eval_assigment assignment ~eval_args =
+  let name, token = assignment in
+  let%bind res_list = eval_token token ~eval_args in
+  let res = String.concat res_list in
+  let env = Eval_args.env eval_args in
+  let old = Env.assign_set env ~key:name ~data:res in
+  return (name, old)
+
+and unassign assignment_cache ~eval_args =
+  let env = Eval_args.env eval_args in
+  List.iter
+    ~f:(fun (key, data) -> Env.assign_set env ~key ~data |> ignore)
+    assignment_cache
+
+and eval_simple_command (tokens, assignments, _io_redirects) ~eval_args =
+  let%bind cache =
+    List.map ~f:(fun assignment () -> eval_assigment assignment ~eval_args) assignments
+    |> deferred_iter
+  in
   let%bind args =
-    List.map ~f:(fun token () -> eval_token token ~eval_args) part |> deferred_iter
+    List.map ~f:(fun token () -> eval_token token ~eval_args) tokens |> deferred_iter
   in
   let args = List.concat args in
-  match args with
-  | [] -> return 0
-  | name :: args -> eval_command name args ~eval_args
+  let res =
+    match args with
+    | [] -> return 0
+    | name :: args -> eval_command name args ~eval_args
+  in
+  if List.length tokens > 0 then unassign cache ~eval_args;
+  res
 
 and eval_token_part ~eval_args =
   let open Ast in
@@ -215,7 +238,9 @@ and eval_token_part ~eval_args =
       | [] -> []
     in
     return (s |> parse_field_split |> insert_splits)
-  | Variable _v -> return [ Some "" ]
+  | Variable v ->
+    let env = Eval_args.env eval_args in
+    return [ Some (Env.assign_get env ~key:v) ]
   | Literal s -> return [ Some s ]
 
 and eval_token token_parts ~eval_args : string list Deferred.t =

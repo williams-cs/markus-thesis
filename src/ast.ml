@@ -10,7 +10,37 @@ and token_part =
 
 and token = token_part list
 
-and simple_command = token list
+and io_file_op =
+  (* < *)
+  | Less
+  (* <& *)
+  | Lessand
+  (* > *)
+  | Great
+  (* >& *)
+  | Greatand
+  (* >> *)
+  | Dgreat
+  (* <> *)
+  | Lessgreat
+  (* >| *)
+  | Clobber
+
+and io_here_op =
+  (* << *)
+  | Dless
+  (* <<- *)
+  | Dlessdash
+
+and io_redirect_part =
+  | Io_file of io_file_op * token
+  | Io_here of io_here_op * string
+
+and io_redirect = int option * io_redirect_part
+
+and assignment = string * token
+
+and simple_command = token list * assignment list * io_redirect list
 
 and case_item = string list * t
 
@@ -159,8 +189,9 @@ let ast : t Angstrom_extended.t =
       (* Quoting *)
       let chars_to_literal cl = cl |> String.of_char_list |> fun l -> Literal l in
       let maybe_chars_to_literal mcl = mcl |> List.filter_opt |> chars_to_literal in
+      let non_special_character = satisfy (fun x -> not (is_special x)) in
       let character_out_of_quotes ~within_backtick =
-        satisfy (fun x -> not (is_special x))
+        non_special_character
         >>| some
         <|> char '\\' *> g_newline *> return None
         <|> char '\\'
@@ -193,10 +224,12 @@ let ast : t Angstrom_extended.t =
         | _ -> fail "Cannot have more than two nested backtick escapes!"
       in
       let dollar_command_substitution =
-        token "$("
+        string "$("
+        *> delimiter
         *> (inner { subshell_state with allow_empty = true }
            >>| fun ss -> Command_substitution ss)
-        <* token ")"
+        <* delimiter
+        <* string ")"
       in
       let command_substitution =
         backtick_command_substitution <|> dollar_command_substitution
@@ -222,13 +255,76 @@ let ast : t Angstrom_extended.t =
         double_quote *> many token_part_in_double_quotes <* double_quote
       in
       let unquoted_string = many1 token_part_unquoted in
+      let name = many1 non_special_character >>| String.of_char_list in
       let word =
         many1 (unquoted_string <|> single_quoted_str <|> double_quoted_str)
         >>| List.concat
       in
-      let delimited_word = word <* delimiter in
+      let delimited_word = delimiter *> word <* delimiter in
+      let assignment = both (name <* string "=") word in
+      let assignment_word = delimiter *> assignment <* delimiter in
+      let g_filename = unquoted_string in
+      let io_less = token "<" *> return Less in
+      let io_lessand = token "<&" *> return Lessand in
+      let io_great = token ">" *> return Great in
+      let io_greatand = token ">&" *> return Greatand in
+      let io_dgreat = token ">>" *> return Dgreat in
+      let io_lessgreat = token "<>" *> return Lessgreat in
+      let io_clobber = token ">|" *> return Clobber in
+      let g_io_file =
+        both
+          (io_less
+          <|> io_lessand
+          <|> io_great
+          <|> io_greatand
+          <|> io_dgreat
+          <|> io_lessgreat
+          <|> io_clobber)
+          g_filename
+        >>| fun (file_op, filename) -> Io_file (file_op, filename)
+      in
+      let io_dless = token "<<" *> return Dless in
+      let io_dlessdash = token "<<-" *> return Dlessdash in
+      (* TODO *)
+      let g_here_end = token "TODO" in
+      let g_io_here =
+        both (io_dless <|> io_dlessdash) g_here_end
+        >>| fun (here_op, here_end) -> Io_here (here_op, here_end)
+      in
+      let integer =
+        take_while1 (function
+            | '0' .. '9' -> true
+            | _ -> false)
+        >>| Int.of_string
+        >>| some
+      in
+      let g_io_number = integer in
+      let g_io_redirect = both (option None g_io_number) (g_io_file <|> g_io_here) in
+      let cmd_prefix_part =
+        g_io_redirect
+        >>| (fun r -> `Redirect r)
+        <|> (assignment_word >>| fun w -> `Assignment w)
+      in
+      let g_cmd_prefix = many cmd_prefix_part in
+      let g_cmd_prefix_1 = many1 cmd_prefix_part in
+      let g_cmd_suffix_1 =
+        many1
+          (g_io_redirect
+          >>| (fun r -> `Redirect r)
+          <|> (delimited_word >>| fun w -> `Token w))
+      in
       let g_simple_command : command Angstrom_extended.t =
-        delimiter *> many1 delimited_word >>| fun x -> Simple_command x
+        let merge_fold (tokens, assignments, io_redirects) = function
+          | `Token t -> t :: tokens, assignments, io_redirects
+          | `Assignment a -> tokens, a :: assignments, io_redirects
+          | `Redirect r -> tokens, assignments, r :: io_redirects
+        in
+        let merge_simple_command (l1, l2) =
+          let trev, arev, rrev = List.fold ~init:([], [], []) ~f:merge_fold (l1 @ l2) in
+          Simple_command (List.rev trev, List.rev arev, List.rev rrev)
+        in
+        delimiter *> (both g_cmd_prefix g_cmd_suffix_1 <|> both g_cmd_prefix_1 (return []))
+        >>| merge_simple_command
       in
       let and_or_if = token "||" *> return Or <|> token "&&" *> return And in
       let g_subshell : command Angstrom_extended.t =
@@ -236,7 +332,8 @@ let ast : t Angstrom_extended.t =
         <* token ")"
         >>| fun x -> Subshell x
       in
-      let g_command = g_simple_command <|> g_subshell in
+      let g_compound_command = g_subshell in
+      let g_command = g_simple_command <|> g_compound_command in
       let g_pipe_sequence : command list Angstrom_extended.t =
         both g_command (many (token "|" *> g_linebreak *> g_command))
         >>| fun (c, cl) -> c :: cl

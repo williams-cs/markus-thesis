@@ -9,7 +9,37 @@ and token_part =
 
 and token = token_part list
 
-and simple_command = token list
+and io_file_op =
+  (* < *)
+  | Less
+  (* <& *)
+  | Lessand
+  (* > *)
+  | Great
+  (* >& *)
+  | Greatand
+  (* >> *)
+  | Dgreat
+  (* <> *)
+  | Lessgreat
+  (* >| *)
+  | Clobber
+
+and io_here_op =
+  (* << *)
+  | Dless
+  (* <<- *)
+  | Dlessdash
+
+and io_redirect_part =
+  | Io_file of io_file_op * token
+  | Io_here of io_here_op * string
+
+and io_redirect = int option * io_redirect_part
+
+and assignment = string * token
+
+and simple_command = token list * assignment list * io_redirect list
 
 and case_item = string list * t
 
@@ -30,6 +60,7 @@ and and_or =
 and separator =
   | Ampersand
   | Semicolon
+[@@deriving sexp]
 
 val parse : string -> t Or_error.t
 

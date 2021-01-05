@@ -1,5 +1,21 @@
 # Research Log
 
+## 2020-01-05
+- "Break" over, back to daily progress on thesis
+- Back to work on implementation
+  - File redirection working (only default stream)
+  - Variable assignments (no scope)
+
+## 2020-12-26
+- Progress towards implementing I/O redirection
+  - Syntax for I/O redirection complete
+  - Currently empty semantics
+  - Research on method of implementation
+    - Fork/open file descriptors/exec
+    - May need to rewrite "new process" library to support this specific workflow
+    - Future integration with remote files
+    - Probably will be qutie difficult, may need to compromise on features such as "here redirection"
+
 ## 2020-12-13
 - Draft for background chapter of the thesis
 

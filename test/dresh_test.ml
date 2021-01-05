@@ -57,6 +57,11 @@ let%expect_test "subshell_name" =
   [%expect {|abcd|}]
 ;;
 
+let%expect_test "subshell_multi" =
+  let%bind () = run_test "echo $(echo \"first message\") $(echo \"second message\")" in
+  [%expect {|first message second message|}]
+;;
+
 let%expect_test "escape" =
   let%bind () =
     run_test
@@ -184,3 +189,31 @@ let%expect_test "echo_pipe_to_echo" =
   let%bind () = run_test "echo $(sleep 0.1; echo test) | echo" in
   [%expect {||}]
 ;;
+
+let%expect_test "variable_assign_command" =
+  let%bind () = run_test "a=hi echo $a" in
+  [%expect {|hi|}]
+;;
+
+let%expect_test "unassigned_variable" =
+  let%bind () = run_test "echo $a" in
+  [%expect {||}]
+;;
+
+let%expect_test "variable_assign_noop" =
+  let%bind () = run_test "test=test" in
+  [%expect {||}]
+;;
+
+let%expect_test "variable_assign_local" =
+  let%bind () = run_test "v=abcd; echo $v" in
+  [%expect {|abcd|}]
+;;
+
+(* Note: Not consistent with bash shell due to numbers in variable names and command substitution in assignment *)
+let%expect_test "variable_assign_multi" =
+  let%bind () = run_test "v1=\"ha\" v2=$(echo $v1$v1) echo haha'$v2'\"$v2\"\\$v2" in
+  [%expect {|haha$v2haha$v2|}]
+;;
+
+(* TODO redirection tests; potentially figure out how to mock file system *)
