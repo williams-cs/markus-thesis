@@ -1,4 +1,4 @@
-# Distributed, Reliable, Easy Shell
+# Accessible, Reliable, Distributed Shell
 
 Performing tasks that are distributed among many systems currently fail to achieve each of the goals of being reliable, easy to set up, closely resembling an existing technology, and friendly to users without distributed systems knowledge.
 Because distributed systems are inherently unreliable, succeeding in these goals require the system to provide an abstraction for error handling and recovery that account for the many failure cases that may arise.
@@ -36,16 +36,16 @@ The specifics of each execution mode will be investigated as a part of this proj
 
 ## Implementation
 
-The `dresh` shell, standing for "Distributed, Reliable, Easy, SHell", is a modification of the `sh` shell that adds features specifically to make distributed operations easy and reliable.
-The `dresh` shell uses the error handling semantics as previously defined to provide a simple interface for distributed programming in a shell.
+The `shard` shell, standing for "SHell that is Accessible, Reliable, and Distributed" is a modification of the `sh` shell that adds features specifically to make distributed operations easy and reliable.
+The `shard` shell uses the error handling semantics as previously defined to provide a simple interface for distributed programming in a shell.
 
-The rest of this document describes an incomplete overview of the tentatively planned semantics for the language, with the goal of showing some examples of how `dresh` can be easy to pick up and use for users that know the basics of shell.
+The rest of this document describes an incomplete overview of the tentatively planned semantics for the language, with the goal of showing some examples of how `shard` can be easy to pick up and use for users that know the basics of shell.
 
-As a prerequisite to using the distributed features of `dresh`, the user defines a "cluster" of machines that can then be used as a target for running commands, the basic building block of distributed computation. Commands can then be composed with redirections, with updated semantics to support intuitive usage for distributed commands.
+As a prerequisite to using the distributed features of `shard`, the user defines a "cluster" of machines that can then be used as a target for running commands, the basic building block of distributed computation. Commands can then be composed with redirections, with updated semantics to support intuitive usage for distributed commands.
 
 ## Commands
 
-In `dresh`, commands fall under one of the following categories: user-defined functions in the same script, script files on the local machine (to be copied to the target machine), shell commands, or programs on the target machine. The user can choose to execute the command in "reliable mode", which attempts to reliably run the command on every machine in a cluster, or "jobs mode", which completes a fixed number of jobs among the machines in a cluster. These functionality will be implemented as syntax extensions on top of the `sh` language, with the tentative syntax looking like the following:
+In `shard`, commands fall under one of the following categories: user-defined functions in the same script, script files on the local machine (to be copied to the target machine), shell commands, or programs on the target machine. The user can choose to execute the command in "reliable mode", which attempts to reliably run the command on every machine in a cluster, or "jobs mode", which completes a fixed number of jobs among the machines in a cluster. These functionality will be implemented as syntax extensions on top of the `sh` language, with the tentative syntax looking like the following:
 
 ### Run a command in "reliable mode"
 ```
@@ -57,16 +57,16 @@ test@users
 ### Run a program in "jobs mode"
 ```
 # syntax cluster#num_jobs@command
-# example: run "compute.dresh" on four remote machines in the cluster "cs"
-cs#4@compute.dresh
+# example: run "compute.shard" on four remote machines in the cluster "cs"
+cs#4@compute.shard
 
 # example: do the same as above but perform a number of jobs equal to the "$jobs" variable
-cs#$jobs@compute.dresh
+cs#$jobs@compute.shard
 ```
 
 ## Redirections
 
-In `dresh`, redirections are updated to intuitively support usage with distributed commands. The pipe operator `|` can be used to pass values between various stages of distributed commands, while the file redirection operator `>` can be used to collect values into a local file. When piping values to `dresh` functions and scripts, the value is stored in a shell variable `$v` so that it can be accessed in the scope of the function or script. The redirection operators work asynchronously to increase efficiency, but coordination works in a simple and intuitive way, with the `dresh` command completing when all distributed computation is complete.
+In `shard`, redirections are updated to intuitively support usage with distributed commands. The pipe operator `|` can be used to pass values between various stages of distributed commands, while the file redirection operator `>` can be used to collect values into a local file. When piping values to `shard` functions and scripts, the value is stored in a shell variable `$v` so that it can be accessed in the scope of the function or script. The redirection operators work asynchronously to increase efficiency, but coordination works in a simple and intuitive way, with the `shard` command completing when all distributed computation is complete.
 
 ### Example of using pipes
 ```
@@ -82,9 +82,9 @@ $@ | cloud#@(fetchbyid > result.txt)
 
 ## Validation
 
-The plan for validating the error handling semantics is to use the `dresh` shell to write a suite of test programs to demonstrate that the `dresh` language is easy to use, while evaluating how the programs react to different types of failures.
+The plan for validating the error handling semantics is to use the `shard` shell to write a suite of test programs to demonstrate that the `shard` language is easy to use, while evaluating how the programs react to different types of failures.
 
-Some of types errors that can be simulated to test the `dresh` program include:
+Some of types errors that can be simulated to test the `shard` program include:
 - Network failures (individual/widespread, temporary/permanent)
 - Abnormally slow execution
 - Misconfiguration of cluster
@@ -103,7 +103,7 @@ There are other distributed systems frameworks that have an emphasis on scalable
 One example is `hadoop` [4], an open source distributed program framework that can be used to run MapReduce style computation on large datasets. This framework does have an emphasis on being able to detect and handle failures in a distributed environment.
 Another example is `ganglia` [5] a framework for developing scalable high-performance distributed programs. Within the `ganglia` project, there is a `gexec` utility that allows executing jobs of machines on a cluster, providing data forwarding between the machines and mechanisms to be robust even in unreliable environments.
 One more example is `plush` [6], a unified framework for managing various classes of programs to be executed in a wide variety of distributed environments.
-Compared to one of the aforementioned full-fledged frameworks, `dresh` is positioned to be a more lightweight alternative that sacrifices some of the power of managing the distributed application in exchange for being easier to setup and use, making it more suitable as an ad-hoc scripting platform rather than a high-performance computing platform.
+Compared to one of the aforementioned full-fledged frameworks, `shard` is positioned to be a more lightweight alternative that sacrifices some of the power of managing the distributed application in exchange for being easier to setup and use, making it more suitable as an ad-hoc scripting platform rather than a high-performance computing platform.
 
 ## References
 

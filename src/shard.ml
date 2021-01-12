@@ -176,6 +176,17 @@ and eval_pipeline_part ~eval_args =
   function
   | Subshell t -> eval t ~eval_args
   | Simple_command part -> eval_simple_command part ~eval_args
+  (* TODO: remake string from AST instead of keeping string? *)
+  | Remote_command (t, host) ->
+    let%bind stdout = Eval_args.stdout eval_args in
+    let ivar = Ivar.create () in
+    Remote.remote_run
+      ~host
+      ~program:t
+      ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
+      ~close_callback:(fun () -> Ivar.fill ivar ());
+    let%bind () = Ivar.read ivar in
+    return 0
 
 and eval_assigment assignment ~eval_args =
   let name, token = assignment in
@@ -271,8 +282,9 @@ let run () =
   let eval_run ast =
     eval ast ~eval_args:(Eval_args.create ~stdin:None ~stdout ~verbose:false)
   in
+  let%bind isatty = Unix.isatty (Fd.stdin ()) in
   let rec repl ?state prior_input =
-    if Option.is_none state
+    if isatty && Option.is_none state
     then (
       let prompt = "$ " in
       print_string prompt);

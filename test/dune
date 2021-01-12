@@ -1,6 +1,6 @@
 (library
- (name dresh_test)
- (libraries async core dresh_shell)
+ (name shard_test)
+ (libraries async core shard)
  (inline_tests)
  (preprocess
   (pps ppx_expect ppx_let)))

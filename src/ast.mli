@@ -46,6 +46,9 @@ and case_item = string list * t
 and command =
   | Simple_command of simple_command
   | Subshell of t
+  (* Remote extension *)
+  (* | Remote_command of t * string *)
+  | Remote_command of string * string
 
 and pipeline = bang option * command list
 

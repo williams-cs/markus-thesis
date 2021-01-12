@@ -2,10 +2,10 @@ all: build
 
 build:
 	dune build
-	ln -s -f ./_build/default/bin/dresh.exe ./dresh.exe
+	ln -s -f ./_build/default/bin/shard_runner.exe ./shard.exe
 
 clean:
-	@rm -f dresh.exe
+	@rm -f shard.exe
 	@rm -rf _build
 
 .PHONY: build clean

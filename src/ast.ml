@@ -1,6 +1,9 @@
 open Angstrom_extended
 open Core
 
+(* Set to true to turn on remote extensions *)
+let remote_extensions = true
+
 type t = (and_or_list * separator) list
 
 and token_part =
@@ -47,6 +50,9 @@ and case_item = string list * t
 and command =
   | Simple_command of simple_command
   | Subshell of t
+  (* Remote extension *)
+  (* | Remote_command of t * string *)
+  | Remote_command of string * string
 
 (* | For_clause of string * string list * t
 | Case_clause of string * case_item list
@@ -116,6 +122,7 @@ let is_special = function
   | '?'
   | '~'
   | '&' -> true
+  | '@' -> remote_extensions
   | _ -> false
 ;;
 
@@ -333,7 +340,16 @@ let ast : t Angstrom_extended.t =
         >>| fun x -> Subshell x
       in
       let g_compound_command = g_subshell in
-      let g_command = g_simple_command <|> g_compound_command in
+      let re_remote_command =
+        if remote_extensions
+        then
+          (* TODO: hack to parse a single word to avoid having to convert AST to string *)
+          both (name <* token "@@") name
+          (* both (inner subshell_state <* token "@@") name *)
+          >>| fun (x, n) -> Remote_command (x, n)
+        else fail "Remote extensions required"
+      in
+      let g_command = re_remote_command <|> g_simple_command <|> g_compound_command in
       let g_pipe_sequence : command list Angstrom_extended.t =
         both g_command (many (token "|" *> g_linebreak *> g_command))
         >>| fun (c, cl) -> c :: cl

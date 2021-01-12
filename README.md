@@ -1,4 +1,4 @@
-# Distributed, Reliable, Easy Shell
+# Accessible, Reliable, Distributed Shell (Shard)
 
 Performing tasks that are distributed among many systems currently fail to achieve each of the goals of being reliable, easy to set up, closely resembling an existing technology, and friendly to users without distributed systems knowledge.
 Because distributed systems are inherently unreliable, succeeding in these goals require the system to provide an abstraction for error handling and recovery that account for the many failure cases that may arise.
@@ -26,7 +26,7 @@ Follow the [setup guide](https://dev.realworldocaml.org/install.html) from [Real
 
 ## Building
 
-Running `make` on the top level directory builds an executable (using `dune build`) and symbolic links the executable to `dresh.exe`.
+Running `make` on the top level directory builds an executable (using `dune build`) and symbolic links the executable to `shard.exe`.
 
 Running `dune runtest` runs the tests in the `/test` directory, with any failing tests being indicated in the output.
 

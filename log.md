@@ -1,10 +1,62 @@
 # Research Log
 
+## 2020-01-11
+- Current network implementation
+  - Using `libssh` binding `mllibssh`
+    - Bindings are kinda buggy, looking for better ones and/or fix it myself
+    - GNU LGPL, any issues?
+  - Hacky on various levels
+    - AST to string needed for execution (or send AST as Sexp + Sexp execution support)
+    - Right now only automatic auth supported
+    - Need good error messages - including instructions to set up automatic auth
+    - Relies on ssh config
+    - Name parsing fixes (specifically for special characters)
+  - Issue with executable size (~20MB currently)
+    - Caching is a must, based on hashing by version?
+    - OCaml uses static linking
+  - Features such as piping, connection restoration, etc down the line
+  - Need to have data transmission rather than only command execution, probably using ssh channel/messaging features
+- Network implementation plan
+  - Example program flow
+  - Command run
+    - `hostname@@cs`
+    - Figure out destination
+      - Check cluster definitions
+      - Check ssh config for single-machine cluster
+      - Resolve hostname/address
+    - Add a command send to queue, with a prepared I/O stream for the program itself
+  - Command send
+    - Check for existing connection with destination
+      - If none exist, establish connection with destination
+        - Check for running instances of `shard` with the same environment ID
+          - If none exist, ensure installation of `shard`
+            - Check for `shard` installation of correct version on destination
+            - If none exist, copy over `shard` installation from local machine
+          - Spin up instance of `shard`
+        - Establish connection with said instance of `shard`
+      - Set existing connection as active
+    - Send over command with connection, forwarding streams
+    - Streams should be on same connection as "packets" of data?
+    - If fail, notify parent to resend command as needed
+
 ## 2020-01-05
 - "Break" over, back to daily progress on thesis
 - Back to work on implementation
   - File redirection working (only default stream)
   - Variable assignments (no scope)
+- Weekly meeting
+  - Thesis writing
+    - Semantics section: table
+    - Local: effect
+    - Mathematical formulation of error handling / progress
+    - Probabilistic progress
+      - Random variable for every host of that host failing
+      - Job: "minimize latency"
+      - Compute an expectation
+      - Bernoulli model
+    - Monte Carlo simulation
+    - Bayesian system
+    - Propose a mathematical model on how well it handles failures
 
 ## 2020-12-26
 - Progress towards implementing I/O redirection

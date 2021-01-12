@@ -1,6 +1,6 @@
 open Core
 open Async
-open Dresh_shell
+open Shard
 
 let run_test_no_timeout input =
   let stdout = force Writer.stdout in
@@ -9,7 +9,7 @@ let run_test_no_timeout input =
     print_endline (Error.to_string_hum err);
     return ()
   | Ok ast ->
-    eval ast ~eval_args:(Dresh_shell.Eval_args.create ~stdin:None ~stdout ~verbose:false)
+    eval ast ~eval_args:(Eval_args.create ~stdin:None ~stdout ~verbose:false)
     |> Deferred.ignore_m
 ;;
 
