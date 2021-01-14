@@ -93,10 +93,8 @@ let read_fixed (channel : Libssh.channel) ~buf =
 ;;
 
 let debug_println str = ignore str
-
-(* let verbose_println str = print_endline str *)
-
-let verbose_println str = ignore str
+let verbose = true
+let verbose_println str = if verbose then print_endline str
 
 let local_command str =
   let env = Array.create ~len:0 "" in
@@ -196,7 +194,12 @@ let remote_run ~host ~program ~write_callback ~close_callback =
     remote_command ssh (sprintf "chmod 744 %s" dest));
   (* Run command on remote Shard *)
   verbose_println "Running command on remote Shard...";
-  remote_command_output ssh (sprintf "echo '%s' | %s" program dest) ~write_callback;
+  let command =
+    match program with
+    | `Sexp sexp -> sprintf "echo '%s' | %s -s" (Sexp.to_string sexp) dest
+    | `Name name -> sprintf "echo '%s' | %s" name dest
+  in
+  remote_command_output ssh command ~write_callback;
   close_callback ();
   verbose_println "Complete!"
 ;;

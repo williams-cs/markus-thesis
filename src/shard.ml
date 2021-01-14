@@ -85,7 +85,12 @@ let eval_command prog args ~eval_args =
       let%bind () = out_deferred in
       let%bind () = err_deferred in
       if Eval_args.verbose eval_args
-      then printf "Child process %i exited with status %i\n" pid exit_code;
+      then
+        fprintf
+          (force Writer.stderr)
+          "Child process %i exited with status %i\n"
+          pid
+          exit_code;
       return exit_code)
 ;;
 
@@ -178,11 +183,16 @@ and eval_pipeline_part ~eval_args =
   | Simple_command part -> eval_simple_command part ~eval_args
   (* TODO: remake string from AST instead of keeping string? *)
   | Remote_command (t, host) ->
+    let program =
+      match t with
+      | Remote_subshell sexp -> `Sexp (sexp |> Ast.sexp_of_t)
+      | Remote_name name -> `Name name
+    in
     let%bind stdout = Eval_args.stdout eval_args in
     let ivar = Ivar.create () in
     Remote.remote_run
       ~host
-      ~program:t
+      ~program
       ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
       ~close_callback:(fun () -> Ivar.fill ivar ());
     let%bind () = Ivar.read ivar in
@@ -279,6 +289,7 @@ and eval_token token_parts ~eval_args : string list Deferred.t =
 let run ?sexp_mode () =
   let stdin = force Reader.stdin in
   let stdout = force Writer.stdout in
+  let stderr = force Writer.stderr in
   let eval_run ast =
     eval ast ~eval_args:(Eval_args.create ~stdin:None ~stdout ~verbose:false)
   in
@@ -295,22 +306,22 @@ let run ?sexp_mode () =
     in
     if sexp_mode
     then (
-      try
-        let%bind res =
-          Async.try_with (fun () ->
-              let%bind sexp = Reader.read_sexp stdin in
-              match sexp with
-              | `Ok sexp -> Ast.t_of_sexp sexp |> eval_run |> Deferred.ignore_m
-              | `Eof -> return ())
-        in
-        match res with
-        | Ok () -> repl ""
-        | Error err ->
-          printf "Sexp parse error: %s\n" (err |> Error.of_exn |> Error.to_string_hum);
-          repl ""
-      with
-      | _ ->
-        printf "abc\n";
+      let%bind res =
+        Async.try_with (fun () ->
+            let%bind sexp = Reader.read_sexp stdin in
+            match sexp with
+            | `Ok sexp ->
+              let%bind () = Ast.t_of_sexp sexp |> eval_run |> Deferred.ignore_m in
+              return true
+            | `Eof -> return false)
+      in
+      match res with
+      | Ok cont -> if cont then repl "" else return ()
+      | Error err ->
+        fprintf
+          stderr
+          "Sexp parse error: %s\n"
+          (err |> Error.of_exn |> Error.to_string_hum);
         return ())
     else (
       let%bind maybe_line = Reader.read_line stdin in
@@ -332,13 +343,13 @@ let run ?sexp_mode () =
               if unconsumed.len > 0
               then (
                 let msg = "Unconsumed input remaining!" in
-                printf "Parse error: %s\n" msg;
+                fprintf stderr "Parse error: %s\n" msg;
                 return ())
               else eval_run ast |> Deferred.ignore_m
             in
             repl ""
           | Fail (_unconsumed, _marks, msg) ->
-            printf "Parse error: %s\n" msg;
+            fprintf stderr "Parse error: %s\n" msg;
             repl "")))
   in
   let%map _ = repl "" in

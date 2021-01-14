@@ -47,12 +47,15 @@ and simple_command = token list * assignment list * io_redirect list
 
 and case_item = string list * t
 
+and remote_command =
+  | Remote_subshell of t
+  | Remote_name of string
+
 and command =
   | Simple_command of simple_command
   | Subshell of t
   (* Remote extension *)
-  (* | Remote_command of t * string *)
-  | Remote_command of string * string
+  | Remote_command of remote_command * string
 
 (* | For_clause of string * string list * t
 | Case_clause of string * case_item list
@@ -334,18 +337,17 @@ let ast : t Angstrom_extended.t =
         >>| merge_simple_command
       in
       let and_or_if = token "||" *> return Or <|> token "&&" *> return And in
-      let g_subshell : command Angstrom_extended.t =
-        token "(" *> inner { subshell_state with allow_empty = false }
-        <* token ")"
-        >>| fun x -> Subshell x
+      let subshell =
+        token "(" *> inner { subshell_state with allow_empty = false } <* token ")"
       in
+      let g_subshell : command Angstrom_extended.t = subshell >>| fun x -> Subshell x in
       let g_compound_command = g_subshell in
+      let re_subshell = subshell >>| fun x -> Remote_subshell x in
+      let re_name = name >>| fun x -> Remote_name x in
       let re_remote_command =
         if remote_extensions
         then
-          (* TODO: hack to parse a single word to avoid having to convert AST to string *)
-          both (name <* token "@@") name
-          (* both (inner subshell_state <* token "@@") name *)
+          both (re_subshell <|> re_name <* token "@@") name
           >>| fun (x, n) -> Remote_command (x, n)
         else fail "Remote extensions required"
       in
