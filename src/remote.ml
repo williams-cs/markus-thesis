@@ -50,6 +50,7 @@ let authenticate ssh =
 let connect host =
   let ssh = new Libssh.ssh () in
   ssh#options_set (Libssh.SSH_OPTIONS_HOST host);
+  (* SSH debug mode *)
   (* ssh#options_set (Libssh.SSH_OPTIONS_LOG_VERBOSITY Libssh.SSH_LOG_DEBUG); *)
   ssh#options_parse_config None;
   (* verify_known_hosts ssh; *)
@@ -68,12 +69,11 @@ let connect host =
 
 let version_string = "v0001"
 
-let send_copy ssh dir =
-  let file = Unix.openfile ~mode:[ Unix.O_RDONLY ] "./shard.exe" in
+let send_copy ssh ~dir ~src ~dest =
+  let file = Unix.openfile ~mode:[ Unix.O_RDONLY ] src in
   let stat = Unix.fstat file in
   let fsize = stat.st_size in
-  let perms = 0700 in
-  let dest = sprintf "%s/shard.exe" dir in
+  let perms = 0744 in
   let scp = new Libssh.scp ssh Libssh.SSH_SCP_WRITE dir in
   scp#push_file dest fsize perms;
   let bufsize = 1024 in
@@ -84,39 +84,70 @@ let send_copy ssh dir =
     if amt <> bufsize then () else loop ()
   in
   loop ();
-  scp#close ();
-  dest
+  scp#close ()
 ;;
 
-(* workaround for bug for libssh bindings *)
-let dummy channels = List.iter channels ~f:(fun channel -> channel#send_eof ())
+let read_fixed (channel : Libssh.channel) ~buf =
+  try channel#read buf 0 (Bytes.length buf) with
+  | End_of_file | Libssh.LibsshError _ -> 0
+;;
 
-let remote_run ~host ~program ~write_callback ~close_callback =
-  (* let args = Sys.get_argv () in
-  let host =
-    match Array.length args with
-    | 0 | 1 -> "localhost"
-    | _ -> args.(1)
-  in *)
-  let ssh = connect host in
-  let channels = [] in
-  let channel = new Libssh.channel ssh in
-  channel#open_session ();
+let debug_println str = ignore str
+
+(* let verbose_println str = print_endline str *)
+
+let verbose_println str = ignore str
+
+let local_command str =
+  let env = Array.create ~len:0 "" in
+  let channels = Unix.open_process_full str ~env in
+  let { Unix.Process_channels.stdout; _ } = channels in
+  Stdio.In_channel.input_all stdout
+;;
+
+let hash_command str = sprintf "md5sum %s| cut -d ' ' -f 1" str
+
+let local_copy () =
+  verbose_println "Looking for local copy of Shard...";
   let dir = sprintf "/tmp/shard/%s" version_string in
-  let command = sprintf "mkdir -p %s" dir in
-  channel#request_exec command;
-  channel#send_eof ();
-  let dest = send_copy ssh dir in
-  let channels = channel :: channels in
+  let dest = sprintf "%s/shard.exe" dir in
+  let dest_hash = local_command (hash_command dest) in
+  let src = Unix.readlink "/proc/self/exe" in
+  let src_hash = local_command (hash_command src) in
+  if not (String.equal dest_hash src_hash)
+  then (
+    verbose_println "Local copy not found.";
+    verbose_println "Installing local copy of Shard...";
+    Unix.mkdir_p dir;
+    Gc.compact ();
+    local_command (sprintf "cp %s %s" src dest) |> ignore;
+    Unix.chmod dest ~perm:0744);
+  src_hash
+;;
+
+let remote_command ssh command =
   let channel = new Libssh.channel ssh in
   channel#open_session ();
-  let command = sprintf "chmod 744 %s" dest in
   channel#request_exec command;
   channel#send_eof ();
-  let channels = channel :: channels in
+  channel#close ()
+;;
+
+let remote_command_fixed ssh command ~size =
   let channel = new Libssh.channel ssh in
   channel#open_session ();
-  let command = sprintf "echo '%s' | %s" program dest in
+  channel#request_exec command;
+  let buf = Bytes.make size Char.min_value in
+  let amt = read_fixed channel ~buf in
+  let res = String.slice (Bytes.to_string buf) 0 amt in
+  channel#send_eof ();
+  channel#close ();
+  res
+;;
+
+let remote_command_output ssh command ~write_callback =
+  let channel = new Libssh.channel ssh in
+  channel#open_session ();
   channel#request_exec command;
   let bufsize = 1024 in
   let buf = Bytes.make bufsize Char.min_value in
@@ -128,7 +159,44 @@ let remote_run ~host ~program ~write_callback ~close_callback =
      done
    with
   | End_of_file | Libssh.LibsshError _ -> ());
-  close_callback ();
   channel#send_eof ();
-  dummy channels
+  channel#close ()
+;;
+
+let remote_run ~host ~program ~write_callback ~close_callback =
+  (* let args = Sys.get_argv () in
+  let host =
+    match Array.length args with
+    | 0 | 1 -> "localhost"
+    | _ -> args.(1)
+  in *)
+  let program_hash = local_copy () in
+  let dir = sprintf "/tmp/shard/%s" version_string in
+  let exe = sprintf "%s/shard.exe" dir in
+  debug_println program_hash;
+  let ssh = connect host in
+  (* Check for remote copy of Shard *)
+  verbose_println "Checking for remote copy of Shard...";
+  let remote_hash = remote_command_fixed ssh (hash_command exe) ~size:1024 in
+  debug_println remote_hash;
+  let remote_exists = String.equal remote_hash program_hash in
+  let src = "./shard.exe" in
+  let dest = sprintf "%s/shard.exe" dir in
+  if not remote_exists
+  then (
+    (* If remote copy does not exist, make directory *)
+    verbose_println "Remote copy does not exist.";
+    verbose_println "Making remote directory...";
+    remote_command ssh (sprintf "mkdir -p %s" dir);
+    (* Copy Shard to remote *)
+    verbose_println "Copying executable to remote...";
+    send_copy ssh ~dir ~src ~dest;
+    (* Set permissions of Shard *)
+    verbose_println "Setting permissions of remote executable...";
+    remote_command ssh (sprintf "chmod 744 %s" dest));
+  (* Run command on remote Shard *)
+  verbose_println "Running command on remote Shard...";
+  remote_command_output ssh (sprintf "echo '%s' | %s" program dest) ~write_callback;
+  close_callback ();
+  verbose_println "Complete!"
 ;;

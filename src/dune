@@ -1,5 +1,5 @@
 (library
  (name shard)
- (libraries angstrom_extended async core mllibssh sexplib)
+ (libraries angstrom_extended async core mllibssh_extended sexplib)
  (preprocess
   (pps ppx_fields_conv ppx_let ppx_sexp_conv)))

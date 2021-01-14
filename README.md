@@ -24,6 +24,8 @@ Follow the [setup guide](https://dev.realworldocaml.org/install.html) from [Real
 - If using VSCode, install the extension `OCaml Platform` from `OCaml Labs`
   - For other editors, check on the Real World OCaml setup guide linked above
 
+- TODO: add information about `libssh`
+
 ## Building
 
 Running `make` on the top level directory builds an executable (using `dune build`) and symbolic links the executable to `shard.exe`.
@@ -35,4 +37,11 @@ Running `dune promote` accepts the program as being correct, and adjusts the out
 
 ## License
 
-This repository uses code modified from [Angstrom](https://github.com/inhabitedtype/angstrom/) parser-combinator library, which is licensed under the [3-clause BSD license](https://github.com/inhabitedtype/angstrom/blob/master/LICENSE).
+The source files, build files, and documentation in this repository are dual licensed under the MIT license and the LGPL 2.1+ license (version 2.1 or any future version), with the following exceptions:
+- The files in the directory [src/mllibssh_extended] is modified from the project [Mllibssh](https://gitlab.com/pinotree/mllibssh) licensed under the [LGPL 2.1+ license](https://gitlab.com/pinotree/mllibssh/-/blob/master/COPYING).
+- The files in the directory [src/angstrom_extended] is modified from the project [Angstrom](https://github.com/inhabitedtype/angstrom/) licensed under the [3-clause BSD license](https://github.com/inhabitedtype/angstrom/blob/master/LICENSE).
+
+The thesis writing, including TeX and PDF files, are not licensed under the above license.
+
+Note that the built executable statically links [libssh](https://www.libssh.org/), which is licensed under the [LGPL 2.1 license](https://git.libssh.org/projects/libssh.git/tree/COPYING).
+

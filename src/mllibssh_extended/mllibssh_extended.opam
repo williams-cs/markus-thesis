@@ -1,0 +1,38 @@
+opam-version: "2.0"
+name: "mllibssh"
+authors: "Pino Toscano <ptoscano@redhat.com>"
+maintainer: "Pino Toscano <ptoscano@redhat.com>"
+homepage: "https://gitlab.com/pinotree/mllibssh"
+dev-repo: "git+https://gitlab.com/pinotree/mllibssh.git"
+bug-reports: "https://gitlab.com/pinotree/mllibssh/issues"
+synopsis: "OCaml bindings to libssh"
+description: """OCaml bindings to libssh
+
+The ssh library was designed to be used by programmers needing a working SSH
+implementation by the mean of a library. The complete control of the client is
+made by the programmer. With libssh, you can remotely execute programs, transfer
+files, use a secure and transparent tunnel for your remote programs. With its
+Secure FTP implementation, you can play with remote files easily, without
+third-party programs others than libcrypto (from openssl)."""
+license: "LGPL-2.1+"
+tags: [
+  "libssh"
+  "ssh"
+]
+build: [
+  ["dune" "build"]
+]
+depends: [
+  "conf-pkg-config" {build}
+  "ocamlfind" {build}
+]
+depexts: [
+  ["libssh-dev"] {os-family = "debian"}
+  ["libssh-devel"] {os-family = "rhel"}
+  ["libssh-devel"] {os-family = "suse"}
+  ["libssh-devel"] {os-distribution = "mageia"}
+  ["libssh"] {os = "macos" & os-distribution = "homebrew"}
+  ["libssh-dev"] {os-distribution = "alpine"}
+  ["libssh"] {os-distribution = "nixos"}
+  ["libssh"] {os-distribution = "arch"}
+]

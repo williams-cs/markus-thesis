@@ -1,3 +1,5 @@
 (executable
  (name shard_runner)
- (libraries async core shard))
+ (libraries async core shard)
+ (preprocess
+  (pps ppx_let)))

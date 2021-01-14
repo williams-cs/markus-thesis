@@ -1,5 +1,15 @@
 # Research Log
 
+## 2020-01-12
+- Weekly meeting
+  - Jeannie meeting on Friday
+  - Mathematical model
+  - Implementation
+    - LGPL not a problem for research
+    - For next week: send work over cluster, job control, fix hacks
+    - Verbose mode
+    - Propogate over errors
+
 ## 2020-01-11
 - Current network implementation
   - Using `libssh` binding `mllibssh`
