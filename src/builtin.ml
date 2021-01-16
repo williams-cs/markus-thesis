@@ -1,7 +1,7 @@
 open Core
 open Async
 
-let builtin_cd args =
+let rec builtin_cd ~env ~args =
   match args with
   | [] ->
     let home = Unix.getenv "HOME" in
@@ -9,18 +9,27 @@ let builtin_cd args =
     | None ->
       print_endline "cd: no home directory";
       return 1
-    | Some dir ->
-      let%bind () = Unix.chdir dir in
-      return 0)
+    | Some dir -> builtin_cd ~env ~args:[ dir ])
   | [ dir ] ->
-    let%bind () = Unix.chdir dir in
-    return 0
+    let%bind res =
+      Async.try_with (fun () ->
+          let%bind () = Unix.chdir (Env.cwd env) in
+          let%bind () = Unix.chdir dir in
+          let%bind cwd = Unix.getcwd () in
+          Env.cd env ~dir:cwd;
+          return 0)
+    in
+    (match res with
+    | Ok code -> return code
+    | Error exn ->
+      print_endline (exn |> Error.of_exn |> Error.to_string_hum);
+      return 1)
   | _ ->
     print_endline "cd: too many arguments";
     return 1
 ;;
 
-let builtin_exit args =
+let builtin_exit ~env:_ ~args =
   match args with
   | [] ->
     shutdown 0;

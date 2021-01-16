@@ -94,7 +94,7 @@ let read_fixed (channel : Libssh.channel) ~buf =
 
 let debug_println str = ignore str
 let verbose = true
-let verbose_println str = if verbose then print_endline str
+let verbose_println str = if verbose then print_endline ("[Shard] " ^ str)
 
 let local_command str =
   let env = Array.create ~len:0 "" in

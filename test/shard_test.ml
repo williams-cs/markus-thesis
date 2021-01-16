@@ -2,14 +2,24 @@ open Core
 open Async
 open Shard
 
+let test_cwd = "/tmp/shard/test"
+
 let run_test_no_timeout input =
+  let%bind () = Unix.mkdir ~p:() test_cwd in
   let stdout = force Writer.stdout in
   match Ast.parse input with
   | Error err ->
     print_endline (Error.to_string_hum err);
     return ()
   | Ok ast ->
-    eval ast ~eval_args:(Eval_args.create ~stdin:None ~stdout ~verbose:false)
+    Eval.eval
+      ast
+      ~eval_args:
+        (Eval.Eval_args.create
+           ~env:(Env.create ~working_directory:test_cwd)
+           ~stdin:None
+           ~stdout
+           ~verbose:false)
     |> Deferred.ignore_m
 ;;
 
@@ -214,6 +224,26 @@ let%expect_test "variable_assign_local" =
 let%expect_test "variable_assign_multi" =
   let%bind () = run_test "v1=\"ha\" v2=$(echo $v1$v1) echo haha'$v2'\"$v2\"\\$v2" in
   [%expect {|haha$v2haha$v2|}]
+;;
+
+(* Filesystem tests. Based on a test_cwd of /tmp/shard/test *)
+
+let%expect_test "pwd" =
+  let%bind () = run_test "pwd" in
+  (* Value same as test_cwd *)
+  [%expect {|/tmp/shard/test|}]
+;;
+
+let%expect_test "cd" =
+  let%bind () = run_test "(cd ..; pwd)" in
+  [%expect {|/tmp/shard|}]
+;;
+
+let%expect_test "cd_independent" =
+  let%bind () = run_test "(cd ..; pwd); (cd ../test; pwd) " in
+  [%expect {|
+  /tmp/shard
+  /tmp/shard/test|}]
 ;;
 
 (* TODO redirection tests; potentially figure out how to mock file system *)

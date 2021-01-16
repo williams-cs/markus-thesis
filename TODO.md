@@ -36,7 +36,7 @@
 ## Shell feature table
 | Feature                | Syntax | Local | Remote | Testing |
 |------------------------|--------|-------|--------|---------|
-| Basic commands         | Y      | Y     |        |         |
+| Basic commands         | Y      | Y     | Y      |         |
 | Pipes                  | Y      | Y     |        |         |
 | File redirection       | Y      | ~     |        |         |
 | Variables              | Y      | Y     |        |         |

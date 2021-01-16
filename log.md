@@ -1,5 +1,18 @@
 # Research Log
 
+## 2020-01-16
+- Implementation
+  - Add working directory to env
+  - Fixed builtin `cd`
+  - Refactored `eval` into separate module
+  - Rewrote some `Env` functionality
+
+## 2020-01-14
+- Implementation
+  - Stable remote execution
+    - Fix libssh binding double-free bug
+  - Hashed based dedup for executable
+
 ## 2020-01-12
 - Weekly meeting
   - Jeannie meeting on Friday
