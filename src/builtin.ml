@@ -4,12 +4,12 @@ open Async
 let rec builtin_cd ~env ~stdout ~stderr ~args =
   match args with
   | [] ->
-    let home = Unix.getenv "HOME" in
+    let home = Env.assign_get env ~key:"HOME" in
     (match home with
-    | None ->
+    | "" ->
       Writer.write_line stderr "cd: no home directory";
       return 1
-    | Some dir -> builtin_cd ~env ~stdout ~stderr ~args:[ dir ])
+    | dir -> builtin_cd ~env ~stdout ~stderr ~args:[ dir ])
   | [ dir ] ->
     let%bind res =
       Async.try_with (fun () ->
@@ -69,6 +69,19 @@ let validate_identifier _id =
   true
 ;;
 
+let export_single arg ~env =
+  let parts = String.split arg ~on:'=' in
+  match parts with
+  | [] -> ()
+  | [ key ] -> if validate_identifier key then Env.export_add env ~key
+  | key :: values ->
+    if validate_identifier key
+    then (
+      let data = String.concat ~sep:"=" values in
+      Env.assign_set env ~key ~data |> ignore;
+      Env.export_add env ~key)
+;;
+
 let builtin_export ~env ~stdout ~stderr ~args =
   let print_exports () =
     Env.exports_print env ~write_callback:(fun line -> Writer.write_line stdout line)
@@ -80,17 +93,7 @@ let builtin_export ~env ~stdout ~stderr ~args =
   | _ ->
     (match separate_flags args ~valid_flags:[ "p" ] with
     | Ok (flags, args) ->
-      List.iter args ~f:(fun arg ->
-          let parts = String.split arg ~on:'=' in
-          match parts with
-          | [] -> ()
-          | [ key ] -> if validate_identifier key then Env.export_add env ~key
-          | key :: values ->
-            if validate_identifier key
-            then (
-              let data = String.concat ~sep:"=" values in
-              Env.assign_set env ~key ~data |> ignore;
-              Env.export_add env ~key));
+      List.iter args ~f:(fun arg -> export_single arg ~env);
       if List.exists flags ~f:(fun x -> String.equal x "p") then print_exports ();
       return 0
     | Error invalid_flag ->

@@ -15,10 +15,15 @@ let run ?sexp_mode () =
   in
   let%bind isatty = Unix.isatty (Fd.stdin ()) in
   let env = Env.create ~working_directory:cwd in
+  let read_enviornment_variables ~env =
+    Array.iter (Unix.environment ()) ~f:(fun assignment ->
+        Builtin.export_single assignment ~env)
+  in
+  read_enviornment_variables ~env;
   let rec repl ?state prior_input =
-    if isatty && Option.is_none state
+    if isatty
     then (
-      let prompt = "$ " in
+      let prompt = if Option.is_none state then "$ " else "> " in
       print_string prompt);
     let sexp_mode =
       match sexp_mode with

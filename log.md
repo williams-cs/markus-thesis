@@ -3,6 +3,7 @@
 ## 2020-01-18
 - Implementation
   - Added export command for givving the export attribute to variables
+  - Added importing existing environment to shell
 
 ## 2020-01-16
 - Implementation

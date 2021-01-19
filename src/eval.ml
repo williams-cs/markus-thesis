@@ -272,7 +272,13 @@ and eval_token_part ~eval_args =
     return (s |> parse_field_split |> insert_splits)
   | Variable v ->
     let env = Eval_args.env eval_args in
-    return [ Some (Env.assign_get env ~key:v) ]
+    let assignment = Env.assign_get env ~key:v in
+    let res =
+      match assignment with
+      | "" -> []
+      | s -> [ Some s ]
+    in
+    return res
   | Literal s -> return [ Some s ]
 
 and eval_token token_parts ~eval_args : string list Deferred.t =

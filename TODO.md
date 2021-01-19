@@ -41,10 +41,10 @@
 | File redirection       | Y      | ~     |        |         |
 | Variables              | Y      | Y     |        |         |
 | Globbing               |        |       |        |         |
-| Environment            |        |       |        |         |
+| Environment            | Y      | Y     |        |         |
 | Functions              |        |       |        |         |
 | Job control            |        |       |        |         |
-| Built-in functions     |        |       |        |         |
+| Built-in functions     | Y      | ~     |        |         |
 
 ## Distributed failure modes
 | Failure kind | Recovery mechanism |Citation|
