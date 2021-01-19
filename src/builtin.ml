@@ -1,6 +1,23 @@
 open Core
 open Async
 
+(* Returns: flags list * args list. Fails if flag is not in [valid_flags]. *)
+let separate_flags args ~valid_flags =
+  let rec helper args res_flags =
+    match args with
+    | [] -> Result.return (res_flags, [])
+    | x :: xs ->
+      if String.equal (String.slice x 0 1) "-"
+      then (
+        let arg_name = String.slice x 1 0 in
+        if List.exists valid_flags ~f:(fun x -> String.equal x arg_name)
+        then helper xs (arg_name :: res_flags)
+        else Result.fail arg_name)
+      else Result.return (res_flags, args)
+  in
+  helper args []
+;;
+
 let rec builtin_cd ~env ~stdout ~stderr ~args =
   match args with
   | [] ->
@@ -47,23 +64,6 @@ let builtin_exit ~env:_ ~stdout:_ ~stderr ~args =
     return 1
 ;;
 
-(* Returns: flags list * args list. Fails if flag is not in [valid_flags]. *)
-let separate_flags args ~valid_flags =
-  let rec helper args res_flags =
-    match args with
-    | [] -> Result.return (res_flags, [])
-    | x :: xs ->
-      if String.equal (String.slice x 0 1) "-"
-      then (
-        let arg_name = String.slice x 1 0 in
-        if List.exists valid_flags ~f:(fun x -> String.equal x arg_name)
-        then helper xs (arg_name :: res_flags)
-        else Result.fail arg_name)
-      else Result.return (res_flags, args)
-  in
-  helper args []
-;;
-
 let validate_identifier _id =
   (* TODO identifier validation *)
   true
@@ -82,6 +82,8 @@ let export_single arg ~env =
       Env.export_add env ~key)
 ;;
 
+let has_flag flags name = List.mem flags name ~equal:String.equal
+
 let builtin_export ~env ~stdout ~stderr ~args =
   let print_exports () =
     Env.exports_print env ~write_callback:(fun line -> Writer.write_line stdout line)
@@ -94,15 +96,49 @@ let builtin_export ~env ~stdout ~stderr ~args =
     (match separate_flags args ~valid_flags:[ "p" ] with
     | Ok (flags, args) ->
       List.iter args ~f:(fun arg -> export_single arg ~env);
-      if List.exists flags ~f:(fun x -> String.equal x "p") then print_exports ();
+      if has_flag flags "p" then print_exports ();
       return 0
     | Error invalid_flag ->
       Writer.write_line stderr (sprintf "export: %s: invalid option" invalid_flag);
       return 1)
 ;;
 
+(** Builtin: cluster [-aps] NAME. 
+Options:
+  -s Set the currently modified cluster to that of the specified name (default cluster is named "default"). If it does
+     not already exist, create the cluster.
+  -a Add the specified ssh profile to the cluster
+  -p (or no argument) Prints out the details of the cluster
+If more than one option is specified, command is invalid.
+*)
+let builtin_cluster ~env ~stdout ~stderr ~args =
+  match separate_flags args ~valid_flags:[ "a"; "p"; "s" ] with
+  | Ok (flags, args) ->
+    (match flags with
+    | [] | [ "p" ] ->
+      Env.cluster_print env args ~write_callback:(fun line ->
+          Writer.write_line stdout line);
+      return 0
+    | [ "s" ] ->
+      Env.cluster_set_active env (List.last args);
+      return 0
+    | [ "a" ] ->
+      Env.cluster_add env args;
+      return 0
+    | _ ->
+      Writer.write_line stderr "cluster: too many options";
+      return 1)
+  | Error invalid_flag ->
+    Writer.write_line stderr (sprintf "cluster: %s: invalid option" invalid_flag);
+    return 1
+;;
+
 let builtins =
   Map.of_alist_exn
     (module String)
-    [ "cd", builtin_cd; "exit", builtin_exit; "export", builtin_export ]
+    [ "cd", builtin_cd
+    ; "exit", builtin_exit
+    ; "export", builtin_export
+    ; "cluster", builtin_cluster
+    ]
 ;;

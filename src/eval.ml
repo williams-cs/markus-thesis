@@ -192,20 +192,29 @@ and eval_pipeline_part ~eval_args =
   | Subshell t -> eval_subshell t ~eval_args
   | Simple_command part -> eval_simple_command part ~eval_args
   (* TODO: remake string from AST instead of keeping string? *)
-  | Remote_command (t, host) ->
+  | Remote_command (t, cluster) ->
     let program =
       match t with
       | Remote_subshell sexp -> `Sexp (sexp |> Ast.sexp_of_t)
       | Remote_name name -> `Name name
     in
     let%bind stdout = Eval_args.stdout eval_args in
-    let ivar = Ivar.create () in
-    Remote.remote_run
-      ~host
-      ~program
-      ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
-      ~close_callback:(fun () -> Ivar.fill ivar ());
-    let%bind () = Ivar.read ivar in
+    (* let ivar = Ivar.create () in *)
+    let remote_run_one host =
+      In_thread.run (fun () ->
+          Remote.remote_run
+            ~host
+            ~program
+            ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
+            ~close_callback:(fun () -> ()))
+    in
+    let env = Eval_args.env eval_args in
+    let remotes = Env.cluster_resolve env cluster in
+    let%bind () =
+      Deferred.List.map remotes ~f:(fun remote -> remote_run_one remote)
+      |> Deferred.ignore_m
+    in
+    (* let%bind () = Ivar.read ivar in *)
     return 0
 
 and eval_assigment assignment ~eval_args =

@@ -1,7 +1,14 @@
 open Core
 open Base.Poly
 
+(* Configuration *)
+(* Default timeout: 3 seconds *)
+let default_ssh_timeout = 3000000L
+let debug = false
+let verbose = true
+let ssh_debug = false
 let ssh_println str = str |> ignore
+let version_string = "v0001"
 
 (* print_endline str *)
 
@@ -50,8 +57,10 @@ let authenticate ssh =
 let connect host =
   let ssh = new Libssh.ssh () in
   ssh#options_set (Libssh.SSH_OPTIONS_HOST host);
+  ssh#options_set (Libssh.SSH_OPTIONS_TIMEOUT_USEC default_ssh_timeout);
   (* SSH debug mode *)
-  (* ssh#options_set (Libssh.SSH_OPTIONS_LOG_VERBOSITY Libssh.SSH_LOG_DEBUG); *)
+  if ssh_debug
+  then ssh#options_set (Libssh.SSH_OPTIONS_LOG_VERBOSITY Libssh.SSH_LOG_DEBUG);
   ssh#options_parse_config None;
   (* verify_known_hosts ssh; *)
   ssh#connect ();
@@ -66,8 +75,6 @@ let connect host =
     ssh_println "Auth Error!";
     exit 1
 ;;
-
-let version_string = "v0001"
 
 let send_copy ssh ~dir ~src ~dest =
   let file = Unix.openfile ~mode:[ Unix.O_RDONLY ] src in
@@ -92,8 +99,7 @@ let read_fixed (channel : Libssh.channel) ~buf =
   | End_of_file | Libssh.LibsshError _ -> 0
 ;;
 
-let debug_println str = ignore str
-let verbose = true
+let debug_println str = if debug then print_endline ("[Shard-debug] " ^ str)
 let verbose_println str = if verbose then print_endline ("[Shard] " ^ str)
 
 let local_command str =

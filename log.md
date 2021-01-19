@@ -4,6 +4,14 @@
 - Implementation
   - Added export command for givving the export attribute to variables
   - Added importing existing environment to shell
+  - Added primitive cluster funcionality
+- TODO
+  - Multithreaded ssh access
+    - Potentially multiprocessing
+    - Socket/stream based communication?
+- Questions
+  - Partial completion of 'task'
+    - Stream vs buffer
 
 ## 2020-01-16
 - Implementation
