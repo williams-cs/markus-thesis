@@ -210,6 +210,11 @@ let%expect_test "unassigned_variable" =
   [%expect {||}]
 ;;
 
+let%expect_test "unassigned_variable_run" =
+  let%bind () = run_test "$unassigned" in
+  [%expect {||}]
+;;
+
 let%expect_test "variable_assign_noop" =
   let%bind () = run_test "test=test" in
   [%expect {||}]
@@ -224,6 +229,16 @@ let%expect_test "variable_assign_local" =
 let%expect_test "variable_assign_multi" =
   let%bind () = run_test "v1=\"ha\" v2=$(echo $v1$v1) echo haha'$v2'\"$v2\"\\$v2" in
   [%expect {|haha$v2haha$v2|}]
+;;
+
+let%expect_test "special_character_eq" =
+  let%bind () = run_test "echo f=ma" in
+  [%expect {|f=ma|}]
+;;
+
+let%expect_test "special_character_at" =
+  let%bind () = run_test "echo seti@home" in
+  [%expect {|seti@home|}]
 ;;
 
 (* Filesystem tests. Based on a test_cwd of /tmp/shard/test *)
@@ -244,6 +259,37 @@ let%expect_test "cd_independent" =
   [%expect {|
   /tmp/shard
   /tmp/shard/test|}]
+;;
+
+(* Export tests *)
+
+let%expect_test "export_empty" =
+  let%bind () = run_test "export" in
+  [%expect {||}]
+;;
+
+let%expect_test "export_assign" =
+  let%bind () = run_test "export key=v; export" in
+  [%expect {|export key="v"|}]
+;;
+
+let%expect_test "export_assign_escape" =
+  let%bind () = run_test "export key=\\$\\\"\\\\; export" in
+  [%expect {|export key="\$\"\\"|}]
+;;
+
+let%expect_test "export_no_assign" =
+  let%bind () = run_test "export key; export" in
+  [%expect {|export key|}]
+;;
+
+let%expect_test "export_existing_assign" =
+  let%bind () = run_test "k0=v0; k1=v1; k2=v2; export -p k4 k3=v3 k2 k1=vn1" in
+  [%expect {|
+  export k1="vn1"
+  export k2="v2"
+  export k3="v3"
+  export k4|}]
 ;;
 
 (* TODO redirection tests; potentially figure out how to mock file system *)

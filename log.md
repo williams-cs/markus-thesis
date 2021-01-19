@@ -1,5 +1,9 @@
 # Research Log
 
+## 2020-01-18
+- Implementation
+  - Added export command for givving the export attribute to variables
+
 ## 2020-01-16
 - Implementation
   - Add working directory to env

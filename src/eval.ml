@@ -59,7 +59,9 @@ let eval_command prog args ~eval_args =
   match builtin with
   | Some fn ->
     let env = Eval_args.env eval_args in
-    fn ~env ~args
+    let%bind stdout = Eval_args.stdout eval_args in
+    (* TODO add stderr support *)
+    fn ~env ~stdout ~stderr:stdout ~args
   | None ->
     let%bind () = Unix.chdir (eval_args |> Eval_args.env |> Env.cwd) in
     let%bind process = Process.create ~prog ~args ~stdin:"" () in

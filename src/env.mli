@@ -14,3 +14,7 @@ val cd : t -> dir:string -> unit
 
 (** Returns the working directory *)
 val cwd : t -> string
+
+val export_add : t -> key:string -> unit
+val exports : t -> string list
+val exports_print : t -> write_callback:(string -> unit) -> unit

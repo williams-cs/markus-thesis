@@ -92,7 +92,7 @@ let is_whitespace = function
   | _ -> false
 ;;
 
-let is_special = function
+let is_special ~eq_special = function
   (* Backslash *)
   | '\\'
   (* Quote *)
@@ -109,7 +109,6 @@ let is_special = function
   | '$'
   | '`'
   | '#'
-  | '='
   | '['
   | ']'
   | '!'
@@ -125,6 +124,7 @@ let is_special = function
   | '?'
   | '~'
   | '&' -> true
+  | '=' -> eq_special
   | '@' -> remote_extensions
   | _ -> false
 ;;
@@ -199,9 +199,11 @@ let ast : t Angstrom_extended.t =
       (* Quoting *)
       let chars_to_literal cl = cl |> String.of_char_list |> fun l -> Literal l in
       let maybe_chars_to_literal mcl = mcl |> List.filter_opt |> chars_to_literal in
-      let non_special_character = satisfy (fun x -> not (is_special x)) in
-      let character_out_of_quotes ~within_backtick =
-        non_special_character
+      let non_special_character ~eq_special =
+        satisfy (fun x -> not (is_special ~eq_special x))
+      in
+      let character_out_of_quotes ~within_backtick ~eq_special =
+        non_special_character ~eq_special
         >>| some
         <|> char '\\' *> g_newline *> return None
         <|> char '\\'
@@ -213,7 +215,7 @@ let ast : t Angstrom_extended.t =
       in
       let variable =
         let within_backtick = Subshell_state.within_backtick subshell_state in
-        char '$' *> many1 (character_out_of_quotes ~within_backtick)
+        char '$' *> many1 (character_out_of_quotes ~within_backtick ~eq_special:true)
         >>| fun mcl ->
         mcl |> List.filter_opt |> String.of_char_list |> fun v -> Variable v
       in
@@ -252,11 +254,12 @@ let ast : t Angstrom_extended.t =
         <|> command_substitution
         <|> (many1 character_in_double_quotes >>| chars_to_literal)
       in
-      let token_part_unquoted =
+      let token_part_unquoted ~eq_special =
         let within_backtick = Subshell_state.within_backtick subshell_state in
         variable
         <|> command_substitution
-        <|> (many1 (character_out_of_quotes ~within_backtick) >>| maybe_chars_to_literal)
+        <|> (many1 (character_out_of_quotes ~within_backtick ~eq_special)
+            >>| maybe_chars_to_literal)
       in
       let single_quoted_str =
         single_quote *> many token_part_in_single_quotes <* single_quote
@@ -264,16 +267,16 @@ let ast : t Angstrom_extended.t =
       let double_quoted_str =
         double_quote *> many token_part_in_double_quotes <* double_quote
       in
-      let unquoted_string = many1 token_part_unquoted in
-      let name = many1 non_special_character >>| String.of_char_list in
-      let word =
-        many1 (unquoted_string <|> single_quoted_str <|> double_quoted_str)
+      let unquoted_string ~eq_special = many1 (token_part_unquoted ~eq_special) in
+      let name = many1 (non_special_character ~eq_special:true) >>| String.of_char_list in
+      let word ~eq_special =
+        many1 (unquoted_string ~eq_special <|> single_quoted_str <|> double_quoted_str)
         >>| List.concat
       in
-      let delimited_word = delimiter *> word <* delimiter in
-      let assignment = both (name <* string "=") word in
+      let delimited_word = delimiter *> word ~eq_special:false <* delimiter in
+      let assignment = both (name <* string "=") (word ~eq_special:true) in
       let assignment_word = delimiter *> assignment <* delimiter in
-      let g_filename = unquoted_string in
+      let g_filename = unquoted_string ~eq_special:false in
       let io_less = token "<" *> return Less in
       let io_lessand = token "<&" *> return Lessand in
       let io_great = token ">" *> return Great in
@@ -296,7 +299,7 @@ let ast : t Angstrom_extended.t =
       let io_dless = token "<<" *> return Dless in
       let io_dlessdash = token "<<-" *> return Dlessdash in
       (* TODO *)
-      let g_here_end = token "TODO" in
+      let g_here_end = fail "TODO here_end" in
       let g_io_here =
         both (io_dless <|> io_dlessdash) g_here_end
         >>| fun (here_op, here_end) -> Io_here (here_op, here_end)
