@@ -1,5 +1,20 @@
 # Research Log
 
+## 2020-01-20
+- Discussion
+  - Thread safety
+  - Reentrant vs. thread safe
+  - Use processes instead
+  - Job control
+
+## 2020-01-19
+- Discusion
+  - Failure in the middle: based on application class
+  - Interposition
+  - A -> Shard -> B
+  - Separation of mechanism and policy
+  - Spreadsheet for applications classes
+
 ## 2020-01-18
 - Implementation
   - Added export command for givving the export attribute to variables

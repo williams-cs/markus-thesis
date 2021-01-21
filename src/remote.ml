@@ -100,7 +100,10 @@ let read_fixed (channel : Libssh.channel) ~buf =
 ;;
 
 let debug_println str = if debug then print_endline ("[Shard-debug] " ^ str)
-let verbose_println str = if verbose then print_endline ("[Shard] " ^ str)
+
+let verbose_println host str =
+  if verbose then print_endline (sprintf "[Shard-%s] " host ^ str)
+;;
 
 let local_command str =
   let env = Array.create ~len:0 "" in
@@ -111,8 +114,8 @@ let local_command str =
 
 let hash_command str = sprintf "md5sum %s| cut -d ' ' -f 1" str
 
-let local_copy () =
-  verbose_println "Looking for local copy of Shard...";
+let local_copy host () =
+  verbose_println host "Looking for local copy of Shard...";
   let dir = sprintf "/tmp/shard/%s" version_string in
   let dest = sprintf "%s/shard.exe" dir in
   let dest_hash = local_command (hash_command dest) in
@@ -120,8 +123,8 @@ let local_copy () =
   let src_hash = local_command (hash_command src) in
   if not (String.equal dest_hash src_hash)
   then (
-    verbose_println "Local copy not found.";
-    verbose_println "Installing local copy of Shard...";
+    verbose_println host "Local copy not found.";
+    verbose_println host "Installing local copy of Shard...";
     Unix.mkdir_p dir;
     Gc.compact ();
     local_command (sprintf "cp %s %s" src dest) |> ignore;
@@ -167,20 +170,15 @@ let remote_command_output ssh command ~write_callback =
   channel#close ()
 ;;
 
-let remote_run ~host ~program ~write_callback ~close_callback =
-  (* let args = Sys.get_argv () in
-  let host =
-    match Array.length args with
-    | 0 | 1 -> "localhost"
-    | _ -> args.(1)
-  in *)
-  let program_hash = local_copy () in
+let remote_run_unsafe ~host ~program ~write_callback ~close_callback =
+  let program_hash = local_copy host () in
   let dir = sprintf "/tmp/shard/%s" version_string in
   let exe = sprintf "%s/shard.exe" dir in
   debug_println program_hash;
+  verbose_println host "Conneting to remote...";
   let ssh = connect host in
   (* Check for remote copy of Shard *)
-  verbose_println "Checking for remote copy of Shard...";
+  verbose_println host "Checking for remote copy of Shard...";
   let remote_hash = remote_command_fixed ssh (hash_command exe) ~size:1024 in
   debug_println remote_hash;
   let remote_exists = String.equal remote_hash program_hash in
@@ -189,17 +187,17 @@ let remote_run ~host ~program ~write_callback ~close_callback =
   if not remote_exists
   then (
     (* If remote copy does not exist, make directory *)
-    verbose_println "Remote copy does not exist.";
-    verbose_println "Making remote directory...";
+    verbose_println host "Remote copy does not exist.";
+    verbose_println host "Making remote directory...";
     remote_command ssh (sprintf "mkdir -p %s" dir);
     (* Copy Shard to remote *)
-    verbose_println "Copying executable to remote...";
+    verbose_println host "Copying executable to remote...";
     send_copy ssh ~dir ~src ~dest;
     (* Set permissions of Shard *)
-    verbose_println "Setting permissions of remote executable...";
+    verbose_println host "Setting permissions of remote executable...";
     remote_command ssh (sprintf "chmod 744 %s" dest));
   (* Run command on remote Shard *)
-  verbose_println "Running command on remote Shard...";
+  verbose_println host "Running command on remote Shard...";
   let command =
     match program with
     | `Sexp sexp -> sprintf "echo '%s' | %s -s" (Sexp.to_string sexp) dest
@@ -207,5 +205,10 @@ let remote_run ~host ~program ~write_callback ~close_callback =
   in
   remote_command_output ssh command ~write_callback;
   close_callback ();
-  verbose_println "Complete!"
+  verbose_println host "Complete!"
+;;
+
+let remote_run ~host ~program ~write_callback ~close_callback =
+  try remote_run_unsafe ~host ~program ~write_callback ~close_callback with
+  | exn -> verbose_println host (Exn.to_string exn)
 ;;

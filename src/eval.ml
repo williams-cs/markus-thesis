@@ -211,7 +211,7 @@ and eval_pipeline_part ~eval_args =
     let env = Eval_args.env eval_args in
     let remotes = Env.cluster_resolve env cluster in
     let%bind () =
-      Deferred.List.map remotes ~f:(fun remote -> remote_run_one remote)
+      Deferred.List.map ~how:`Parallel remotes ~f:(fun remote -> remote_run_one remote)
       |> Deferred.ignore_m
     in
     (* let%bind () = Ivar.read ivar in *)
