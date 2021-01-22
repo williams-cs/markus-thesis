@@ -8,3 +8,15 @@ module Eval_args : sig
 end
 
 val eval : Ast.t -> eval_args:Eval_args.t -> int Deferred.t
+
+(* Stdin/stdout/stderr refers the the evaluator itself, rather than the program being evaluated *)
+val eval_lines
+  :  ?sexp_mode:bool
+  -> ?interactive:bool
+  -> stdin:Reader.t
+  -> stdout:Writer.t
+  -> stderr:Writer.t
+  -> env:Env.t
+  -> maybe_eval_args:Eval_args.t option
+  -> unit
+  -> int Deferred.t

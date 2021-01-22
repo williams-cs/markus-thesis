@@ -25,4 +25,5 @@ _build
 **/.merlin
 
 src/angstrom_extended_async
+cluster.shard
 							

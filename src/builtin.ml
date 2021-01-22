@@ -1,6 +1,15 @@
 open Core
 open Async
 
+type t =
+  | Function of
+      (env:Env.t
+       -> stdout:Writer.t
+       -> stderr:Writer.t
+       -> args:string list
+       -> int Deferred.t)
+  | Source
+
 (* Returns: flags list * args list. Fails if flag is not in [valid_flags]. *)
 let separate_flags args ~valid_flags =
   let rec helper args res_flags =
@@ -136,9 +145,11 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
 let builtins =
   Map.of_alist_exn
     (module String)
-    [ "cd", builtin_cd
-    ; "exit", builtin_exit
-    ; "export", builtin_export
-    ; "cluster", builtin_cluster
+    [ "cd", Function builtin_cd
+    ; "exit", Function builtin_exit
+    ; "export", Function builtin_export
+    ; "cluster", Function builtin_cluster
+    ; "source", Source
+    ; ".", Source
     ]
 ;;

@@ -1,5 +1,10 @@
 # Research Log
 
+## 2020-01-21
+- Implementation
+  - Added concurrent ssh access with threads
+  - Added "source" builtin
+
 ## 2020-01-20
 - Discussion
   - Thread safety
