@@ -33,7 +33,7 @@ let rec builtin_cd ~env ~stdout ~stderr ~args =
     let home = Env.assign_get env ~key:"HOME" in
     (match home with
     | "" ->
-      Writer.write_line stderr "cd: no home directory";
+      fprintf stderr "cd: no home directory\n";
       return 1
     | dir -> builtin_cd ~env ~stdout ~stderr ~args:[ dir ])
   | [ dir ] ->
@@ -48,10 +48,10 @@ let rec builtin_cd ~env ~stdout ~stderr ~args =
     (match res with
     | Ok code -> return code
     | Error exn ->
-      Writer.write_line stderr (exn |> Error.of_exn |> Error.to_string_hum);
+      fprintf stderr "%s\n" (exn |> Error.of_exn |> Error.to_string_hum);
       return 1)
   | _ ->
-    Writer.write_line stderr "cd: too many arguments";
+    fprintf stderr "cd: too many arguments\n";
     return 1
 ;;
 
@@ -63,13 +63,13 @@ let builtin_exit ~env:_ ~stdout:_ ~stderr ~args =
   | [ x ] ->
     (match Or_error.try_with (fun () -> Int.of_string x) with
     | Error _ ->
-      Writer.write_line stderr "exit: numeric argument required";
+      fprintf stderr "exit: numeric argument required\n";
       return 1
     | Ok code ->
       shutdown code;
       return code)
   | _ ->
-    Writer.write_line stderr "exit: too many arguments";
+    fprintf stderr "exit: too many arguments\n";
     return 1
 ;;
 
@@ -108,7 +108,7 @@ let builtin_export ~env ~stdout ~stderr ~args =
       if has_flag flags "p" then print_exports ();
       return 0
     | Error invalid_flag ->
-      Writer.write_line stderr (sprintf "export: %s: invalid option" invalid_flag);
+      fprintf stderr "export: %s: invalid option\n" invalid_flag;
       return 1)
 ;;
 
@@ -135,10 +135,10 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
       Env.cluster_add env args;
       return 0
     | _ ->
-      Writer.write_line stderr "cluster: too many options";
+      fprintf stderr "cluster: too many options\n";
       return 1)
   | Error invalid_flag ->
-    Writer.write_line stderr (sprintf "cluster: %s: invalid option" invalid_flag);
+    fprintf stderr "cluster: %s: invalid option\n" invalid_flag;
     return 1
 ;;
 

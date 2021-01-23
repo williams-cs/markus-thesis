@@ -7,6 +7,7 @@ let test_cwd = "/tmp/shard/test"
 let run_test_no_timeout input =
   let%bind () = Unix.mkdir ~p:() test_cwd in
   let stdout = force Writer.stdout in
+  let stderr = force Writer.stderr in
   match Ast.parse input with
   | Error err ->
     print_endline (Error.to_string_hum err);
@@ -19,6 +20,7 @@ let run_test_no_timeout input =
            ~env:(Env.create ~working_directory:test_cwd)
            ~stdin:None
            ~stdout
+           ~stderr
            ~verbose:false)
     |> Deferred.ignore_m
 ;;

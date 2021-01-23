@@ -19,15 +19,18 @@ module Eval_args = struct
     { env : Env.t
     ; stdin : Stdin.t
     ; stdout : Writer.t Deferred.t
+    ; stderr : Writer.t
     ; verbose : bool
     }
   [@@deriving fields]
 
-  let create ~env ~stdin ~stdout ~verbose =
-    { env; stdin = Stdin.create ~stdin; stdout = return stdout; verbose }
+  let create ~env ~stdin ~stdout ~stderr ~verbose =
+    { env; stdin = Stdin.create ~stdin; stdout = return stdout; stderr; verbose }
   ;;
 
-  let with_env { env = _; stdin; stdout; verbose } ~env = { env; stdin; stdout; verbose }
+  let with_env { env = _; stdin; stdout; stderr; verbose } ~env =
+    { env; stdin; stdout; stderr; verbose }
+  ;;
 end
 
 let glue ~reader ~writer =
@@ -75,12 +78,12 @@ let rec eval_command prog args ~eval_args =
     | Function fn ->
       let env = Eval_args.env eval_args in
       let%bind stdout = Eval_args.stdout eval_args in
-      (* TODO add stderr support *)
-      fn ~env ~stdout ~stderr:stdout ~args
+      let stderr = Eval_args.stderr eval_args in
+      fn ~env ~stdout ~stderr ~args
     | Source ->
       (match args with
       | [] ->
-        print_endline "source: filename argument required";
+        fprintf (Eval_args.stderr eval_args) "source: filename argument required\n";
         return 1
       | arg :: _ ->
         let%bind () = update_dir () in
@@ -90,7 +93,22 @@ let rec eval_command prog args ~eval_args =
     let%bind process = Process.create ~prog ~args ~stdin:"" () in
     (match process with
     | Error err ->
-      print_endline (Error.to_string_hum err);
+      fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
+      let%bind () =
+        (* drain input *)
+        match Eval_args.stdin eval_args with
+        | Stdin_none -> return ()
+        | Stdin_reader reader ->
+          let%bind reader = reader in
+          Reader.drain reader
+        | Stdin_pipe pipe ->
+          let%bind writer, _ =
+            Writer.of_pipe
+              (Info.of_string "empty_writer")
+              (Pipe.create_writer (fun reader -> Pipe.drain reader))
+          in
+          pipe writer
+      in
       return (-1)
     | Ok process ->
       let pid = Pid.to_int (Process.pid process) in
@@ -107,7 +125,7 @@ let rec eval_command prog args ~eval_args =
         glue ~reader:(return child_stdout) ~writer:(Eval_args.stdout eval_args)
       in
       let err_deferred =
-        glue ~reader:(return child_stderr) ~writer:(return (force Writer.stderr))
+        glue ~reader:(return child_stderr) ~writer:(return (Eval_args.stderr eval_args))
       in
       let%bind exit_code = wait_until_exit process in
       let%bind () = in_deferred in
@@ -116,7 +134,7 @@ let rec eval_command prog args ~eval_args =
       if Eval_args.verbose eval_args
       then
         fprintf
-          (force Writer.stderr)
+          (Eval_args.stderr eval_args)
           "Child process %i exited with status %i\n"
           pid
           exit_code;
@@ -127,11 +145,10 @@ and eval_source file ~eval_args =
   match maybe_stdin with
   | Ok stdin ->
     let%bind stdout = Eval_args.stdout eval_args in
-    (* TODO eval_args stderr *)
-    let stderr = stdout in
+    let stderr = Eval_args.stderr eval_args in
     eval_lines ~interactive:false ~stdin ~stdout ~stderr ~eval_args ()
   | Error exn ->
-    fprintf (force Writer.stderr) "%s\n" (Exn.to_string exn);
+    fprintf (Eval_args.stderr eval_args) "%s\n" (Exn.to_string exn);
     return 1
 
 and eval (ast : Ast.t) ~eval_args =
