@@ -152,12 +152,10 @@ and eval (ast : Ast.t) ~eval_args =
       let%bind () = eval_and_or_list h t ~eval_args |> Deferred.ignore_m in
       eval ast ~eval_args
     | Ampersand ->
-      let%bind (), v =
-        Deferred.both
-          (eval_and_or_list h t ~eval_args |> Deferred.ignore_m)
-          (eval_subshell ast ~eval_args)
-      in
-      return v)
+      eval_subshell [ (h, t), Semicolon ] ~eval_args
+      |> Deferred.ignore_m
+      |> Deferred.don't_wait_for;
+      eval ast ~eval_args)
 
 and eval_subshell ast ~eval_args =
   let env = Eval_args.env eval_args |> Env.copy in

@@ -5,7 +5,12 @@ module Ast = Ast
 module Env = Env
 module Eval = Eval
 
+let setup_signal_handlers () = ()
+
+(* Signal.handle [ Signal.int ] ~f:(fun _signal -> print_endline "cancel") *)
+
 let run ?sexp_mode () =
+  setup_signal_handlers ();
   let stdin = force Reader.stdin in
   let stdout = force Writer.stdout in
   let stderr = force Writer.stderr in

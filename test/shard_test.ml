@@ -155,6 +155,7 @@ let%expect_test "parens_inside_subshell" =
 
 let%expect_test "parallel_execution" =
   let%bind () = run_test "echo $(sleep 0.2s; echo a) & echo $(sleep 0.1s; echo b)" in
+  let%bind () = Clock.after (Time.Span.of_sec 0.3) in
   [%expect {|
     b 
     a|}]

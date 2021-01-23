@@ -350,7 +350,8 @@ let ast : t Angstrom_extended.t =
       let re_remote_command =
         if remote_extensions
         then
-          both (re_subshell <|> re_name <* token "@@") name
+          both (re_subshell <|> re_name <* delimiter <* token "@@") name
+          <* delimiter
           >>| fun (x, n) -> Remote_command (x, n)
         else fail "Remote extensions required"
       in
