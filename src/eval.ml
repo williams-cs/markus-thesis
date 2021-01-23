@@ -129,15 +129,7 @@ and eval_source file ~eval_args =
     let%bind stdout = Eval_args.stdout eval_args in
     (* TODO eval_args stderr *)
     let stderr = stdout in
-    let env = Eval_args.env eval_args in
-    eval_lines
-      ~interactive:false
-      ~stdin
-      ~stdout
-      ~stderr
-      ~env
-      ~maybe_eval_args:(Some eval_args)
-      ()
+    eval_lines ~interactive:false ~stdin ~stdout ~stderr ~eval_args ()
   | Error exn ->
     fprintf (force Writer.stderr) "%s\n" (Exn.to_string exn);
     return 1
@@ -339,16 +331,9 @@ and eval_token token_parts ~eval_args : string list Deferred.t =
   in
   z
 
-and eval_lines ?sexp_mode ?interactive ~stdin ~stdout ~stderr ~env ~maybe_eval_args () =
+and eval_lines ?sexp_mode ?interactive ~stdin ~stdout ~stderr ~eval_args () =
   let rec repl ?state ?prior_input () =
-    let eval_run ast =
-      let eval_args =
-        match maybe_eval_args with
-        | Some args -> args
-        | None -> Eval_args.create ~env ~stdin:None ~stdout ~verbose:false
-      in
-      eval ast ~eval_args
-    in
+    let eval_run ast = eval ast ~eval_args in
     let interactive =
       match interactive with
       | None -> false

@@ -16,7 +16,6 @@ val eval_lines
   -> stdin:Reader.t
   -> stdout:Writer.t
   -> stderr:Writer.t
-  -> env:Env.t
-  -> maybe_eval_args:Eval_args.t option
+  -> eval_args:Eval_args.t
   -> unit
   -> int Deferred.t
