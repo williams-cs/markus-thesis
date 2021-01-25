@@ -1,5 +1,15 @@
 # Research Log
 
+## 2020-01-24
+- Implementation
+  - Attempted work on signal handling
+
+## 2020-01-23
+- Implementation
+  - Fixed behavoir of background execution
+  - Added ability to execute 'shard' files directly
+  - Added stderr support for pipes
+
 ## 2020-01-21
 - Implementation
   - Added concurrent ssh access with threads

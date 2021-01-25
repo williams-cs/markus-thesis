@@ -2,12 +2,12 @@
 
 ## Roadmap
 
-- [ ] Network communication infrastucture
-  - [ ] SSH communcation
+- [X] Network communication infrastucture
+  - [X] SSH communcation
     - Built-in authentication and security
     - Commonly used and widely present
     - Some reliability measures
-  - [ ] Sending a copy of program
+  - [X] Sending a copy of program
   - [ ] Splitting shell into server model
     - Similar to a Jupyter notebook server / Programming language server
     - Useful for continued computation across multiple SSH sessions

@@ -5,9 +5,11 @@ module Ast = Ast
 module Env = Env
 module Eval = Eval
 
-let setup_signal_handlers () = ()
-
-(* Signal.handle [ Signal.int ] ~f:(fun _signal -> print_endline "cancel") *)
+let setup_signal_handlers () =
+  Signal.handle [ Signal.int ] ~f:(fun _signal ->
+      print_endline "cancel";
+      Remote.disconnect_active_sessions ())
+;;
 
 let run ?sexp_mode ?filename ?verbose () =
   setup_signal_handlers ();

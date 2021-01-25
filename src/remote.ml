@@ -10,6 +10,42 @@ let ssh_debug = false
 let ssh_println str = str |> ignore
 let version_string = "v0001"
 
+module Session = struct
+  type t =
+    | Not_connected of bool ref
+    | Connected of Libssh.ssh
+    | Complete
+
+  let create status =
+    match status with
+    | `Not_connected -> Not_connected (ref true)
+    | `Connected ssh -> Connected ssh
+    | `Complete -> Complete
+  ;;
+
+  let disconnect t =
+    match t with
+    | Not_connected to_connect -> to_connect := false
+    | Connected ssh -> ssh#disconnect ()
+    | Complete -> ()
+  ;;
+
+  let should_connect t =
+    match t with
+    | Not_connected to_connect -> !to_connect
+    | Connected _ -> false
+    | Complete -> false
+  ;;
+end
+
+let active_sessions : (string, Session.t ref) Hashtbl.t = Hashtbl.create (module String)
+
+let disconnect_active_sessions () =
+  Hashtbl.iter active_sessions ~f:(fun session_ref ->
+      let session = !session_ref in
+      Session.disconnect session)
+;;
+
 (* print_endline str *)
 
 let auth_publickey (ssh : Libssh.ssh) = ssh#userauth_publickey_auto ()
@@ -170,45 +206,57 @@ let remote_command_output ssh command ~write_callback =
   channel#close ()
 ;;
 
-let remote_run_unsafe ~host ~program ~write_callback ~close_callback =
+let remote_run_unsafe ~host ~program ~write_callback ~close_callback ~session_ref =
   let program_hash = local_copy host () in
   let dir = sprintf "/tmp/shard/%s" version_string in
   let exe = sprintf "%s/shard.exe" dir in
   debug_println program_hash;
   verbose_println host "Conneting to remote...";
-  let ssh = connect host in
-  (* Check for remote copy of Shard *)
-  verbose_println host "Checking for remote copy of Shard...";
-  let remote_hash = remote_command_fixed ssh (hash_command exe) ~size:1024 in
-  debug_println remote_hash;
-  let remote_exists = String.equal remote_hash program_hash in
-  let src = "./shard.exe" in
-  let dest = sprintf "%s/shard.exe" dir in
-  if not remote_exists
+  if Session.should_connect !session_ref
   then (
-    (* If remote copy does not exist, make directory *)
-    verbose_println host "Remote copy does not exist.";
-    verbose_println host "Making remote directory...";
-    remote_command ssh (sprintf "mkdir -p %s" dir);
-    (* Copy Shard to remote *)
-    verbose_println host "Copying executable to remote...";
-    send_copy ssh ~dir ~src ~dest;
-    (* Set permissions of Shard *)
-    verbose_println host "Setting permissions of remote executable...";
-    remote_command ssh (sprintf "chmod 744 %s" dest));
-  (* Run command on remote Shard *)
-  verbose_println host "Running command on remote Shard...";
-  let command =
-    match program with
-    | `Sexp sexp -> sprintf "echo '%s' | %s -s" (Sexp.to_string sexp) dest
-    | `Name name -> sprintf "echo '%s' | %s" name dest
-  in
-  remote_command_output ssh command ~write_callback;
-  close_callback ();
-  verbose_println host "Complete!"
+    let ssh = connect host in
+    session_ref := Session.create (`Connected ssh);
+    (* Check for remote copy of Shard *)
+    verbose_println host "Checking for remote copy of Shard...";
+    let remote_hash = remote_command_fixed ssh (hash_command exe) ~size:1024 in
+    debug_println remote_hash;
+    let remote_exists = String.equal remote_hash program_hash in
+    let src = "./shard.exe" in
+    let dest = sprintf "%s/shard.exe" dir in
+    if not remote_exists
+    then (
+      (* If remote copy does not exist, make directory *)
+      verbose_println host "Remote copy does not exist.";
+      verbose_println host "Making remote directory...";
+      remote_command ssh (sprintf "mkdir -p %s" dir);
+      (* Copy Shard to remote *)
+      verbose_println host "Copying executable to remote...";
+      send_copy ssh ~dir ~src ~dest;
+      (* Set permissions of Shard *)
+      verbose_println host "Setting permissions of remote executable...";
+      remote_command ssh (sprintf "chmod 744 %s" dest));
+    (* Run command on remote Shard *)
+    verbose_println host "Running command on remote Shard...";
+    let command =
+      match program with
+      | `Sexp sexp -> sprintf "echo '%s' | %s -s" (Sexp.to_string sexp) dest
+      | `Name name -> sprintf "echo '%s' | %s" name dest
+    in
+    remote_command_output ssh command ~write_callback;
+    close_callback ();
+    session_ref := Session.create `Complete;
+    verbose_println host "Complete!")
+  else verbose_println host "Connection cancelled!"
 ;;
 
+let random_state = Random.State.make_self_init ()
+let random_session_key () = Uuid.create_random random_state |> Uuid.to_string
+
 let remote_run ~host ~program ~write_callback ~close_callback =
-  try remote_run_unsafe ~host ~program ~write_callback ~close_callback with
+  let key = random_session_key () in
+  (* No duplicates should exist from UUID keys *)
+  let session_ref = ref (Session.create `Not_connected) in
+  Hashtbl.add_exn active_sessions ~key ~data:session_ref;
+  try remote_run_unsafe ~host ~program ~write_callback ~close_callback ~session_ref with
   | exn -> verbose_println host (Exn.to_string exn)
 ;;

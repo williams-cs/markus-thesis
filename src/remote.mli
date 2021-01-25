@@ -1,5 +1,7 @@
 open Core
 
+val disconnect_active_sessions : unit -> unit
+
 val remote_run
   :  host:string
   -> program:[ `Sexp of Sexp.t | `Name of string ]
