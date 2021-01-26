@@ -1,5 +1,8 @@
 open Core
 open Async
+open Util
+
+let remote_rpc = true
 
 module Eval_args = struct
   module Stdin = struct
@@ -32,20 +35,6 @@ module Eval_args = struct
     { env; stdin; stdout; stderr; verbose }
   ;;
 end
-
-let glue ~reader ~writer =
-  let%bind reader = reader in
-  let%bind writer = writer in
-  let rec print_until_done () =
-    let%bind maybe_line = Reader.read_until reader (`Char '\n') ~keep_delim:true in
-    match maybe_line with
-    | `Eof -> return ()
-    | `Ok line | `Eof_without_delim line ->
-      Writer.write writer line;
-      print_until_done ()
-  in
-  print_until_done ()
-;;
 
 let rec wait_until_exit process =
   let%bind wait_result = Process.wait process in
@@ -238,12 +227,27 @@ and eval_pipeline_part ~eval_args =
     let%bind stdout = Eval_args.stdout eval_args in
     (* let ivar = Ivar.create () in *)
     let remote_run_one host =
-      In_thread.run (fun () ->
-          Remote.remote_run
+      match remote_rpc with
+      | true ->
+        let stderr = Eval_args.stderr eval_args in
+        let%map result =
+          Remote_rpc.remote_run
             ~host
             ~program
-            ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
-            ~close_callback:(fun () -> ()))
+            ~write_callback:(fun b len -> return (Writer.write_bytes stdout b ~len))
+            ~close_callback:(fun () -> return ())
+            ~stderr
+        in
+        (match result with
+        | Ok () -> ()
+        | Error err -> fprintf (Eval_args.stderr eval_args) "%s" (Error.to_string_hum err))
+      | false ->
+        In_thread.run (fun () ->
+            Remote_unsafe.remote_run
+              ~host
+              ~program
+              ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
+              ~close_callback:(fun () -> ()))
     in
     let env = Eval_args.env eval_args in
     let remotes = Env.cluster_resolve env cluster in

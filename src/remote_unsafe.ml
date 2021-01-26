@@ -4,7 +4,7 @@ open Base.Poly
 (* Configuration *)
 (* Default timeout: 3 seconds *)
 let default_ssh_timeout = 3000000L
-let debug = false
+let debug = true
 let verbose = true
 let ssh_debug = false
 let ssh_println str = str |> ignore
@@ -150,7 +150,7 @@ let local_command str =
 
 let hash_command str = sprintf "md5sum %s| cut -d ' ' -f 1" str
 
-let local_copy host () =
+let local_copy ~host =
   verbose_println host "Looking for local copy of Shard...";
   let dir = sprintf "/tmp/shard/%s" version_string in
   let dest = sprintf "%s/shard.exe" dir in
@@ -164,8 +164,9 @@ let local_copy host () =
     Unix.mkdir_p dir;
     Gc.compact ();
     local_command (sprintf "cp %s %s" src dest) |> ignore;
-    Unix.chmod dest ~perm:0744);
-  src_hash
+    Unix.chmod dest ~perm:0o744;
+    verbose_println host "Local installation complete!");
+  dest, src_hash
 ;;
 
 let remote_command ssh command =
@@ -207,7 +208,7 @@ let remote_command_output ssh command ~write_callback =
 ;;
 
 let remote_run_unsafe ~host ~program ~write_callback ~close_callback ~session_ref =
-  let program_hash = local_copy host () in
+  let _local_path, program_hash = local_copy ~host in
   let dir = sprintf "/tmp/shard/%s" version_string in
   let exe = sprintf "%s/shard.exe" dir in
   debug_println program_hash;
@@ -249,8 +250,19 @@ let remote_run_unsafe ~host ~program ~write_callback ~close_callback ~session_re
   else verbose_println host "Connection cancelled!"
 ;;
 
-let random_state = Random.State.make_self_init ()
-let random_session_key () = Uuid.create_random random_state |> Uuid.to_string
+let random_state_ref : Random.State.t option ref = ref None
+let set_random_state state = random_state_ref := Some state
+
+let random_state () =
+  match !random_state_ref with
+  | Some state -> state
+  | None ->
+    let state = Random.State.make_self_init () in
+    random_state_ref := Some state;
+    state
+;;
+
+let random_session_key () = Uuid.create_random (random_state ()) |> Uuid.to_string
 
 let remote_run ~host ~program ~write_callback ~close_callback =
   let key = random_session_key () in

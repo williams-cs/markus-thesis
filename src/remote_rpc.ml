@@ -17,6 +17,10 @@ module Query = struct
   [@@deriving bin_io, fields]
 end
 
+module Close_query = struct
+  type t = Close [@@deriving bin_io]
+end
+
 module Response = struct
   type t =
     | Write_callback of bytes * int
@@ -24,14 +28,28 @@ module Response = struct
   [@@deriving bin_io]
 end
 
+module State = struct
+  type t = { close_ivar : unit Ivar.t } [@@deriving fields]
+
+  let create () = { close_ivar = Ivar.create () }
+end
+
 let rpc =
   Pipe_rpc.create
-    ~name:"shard_ssh_client_rpc"
+    ~name:"shard_ssh_client_rpc_dispatch"
     ~version:1
     ~bin_query:Query.bin_t
     ~bin_response:Response.bin_t
     ~bin_error:Error.bin_t
     ()
+;;
+
+let close_rpc =
+  Rpc.create
+    ~name:"shard_ssh_client_rpc_close"
+    ~version:1
+    ~bin_query:Close_query.bin_t
+    ~bin_response:Close_query.bin_t
 ;;
 
 let handle_query _state query =
@@ -44,7 +62,7 @@ let handle_query _state query =
                | Name s -> `Name s
                | Sexp s -> `Sexp s
              in
-             Remote.remote_run
+             Remote_unsafe.remote_run
                ~host
                ~program
                ~write_callback:(fun b len ->
@@ -54,18 +72,36 @@ let handle_query _state query =
              Pipe.close pipe)))
 ;;
 
+let handle_close state query =
+  let ivar = State.close_ivar state in
+  Ivar.fill_if_empty ivar ();
+  return query
+;;
+
 let implementations =
   Implementations.create_exn
-    ~implementations:[ Pipe_rpc.implement rpc handle_query ]
+    ~implementations:
+      [ Pipe_rpc.implement rpc handle_query; Rpc.implement close_rpc handle_close ]
     ~on_unknown_rpc:`Raise
 ;;
 
-let run_server port =
+let run_server port state =
   Connection.serve
     ~implementations
-    ~initial_connection_state:(fun _addr conn -> conn)
+    ~initial_connection_state:(fun _addr _conn -> state)
     ~where_to_listen:(Tcp.Where_to_listen.of_port port)
     ()
+;;
+
+let ready_message = "ready"
+
+let start_server ~port =
+  let state = State.create () in
+  let%bind _tcp = run_server port state in
+  (* Signal to the client that the connection is ready *)
+  print_endline ready_message;
+  let ivar = State.close_ivar state in
+  Ivar.read ivar
 ;;
 
 let run_client host port =
@@ -87,15 +123,31 @@ let dispatch conn ~host ~program =
   Or_error.join response
 ;;
 
-let setup_rpc_service () =
-  (* TODO *)
-  (* copy executable to shard folder *)
-  (* run copied executable with command line argument, which runs the server *)
-  (* run the client *)
-  (* return the connection *)
+let dispatch_close conn =
+  let query = Close_query.Close in
+  Rpc.dispatch close_rpc conn query |> Deferred.Or_error.ignore_m
+;;
+
+let setup_rpc_service ~host ~stderr =
+  let%bind local_path =
+    (* copy executable to shard folder *)
+    In_thread.run (fun () ->
+        let local_path, _hash = Remote_unsafe.local_copy ~host in
+        local_path)
+  in
   let port = 60273 in
   let host = "localhost" in
-  run_server port |> ignore;
+  let prog = local_path in
+  let args = [ "-r"; Int.to_string port ] in
+  (* run copied executable with command line argument, which runs the server *)
+  let%bind.Deferred.Or_error process = Process.create ~prog ~args ~stdin:"" () in
+  let child_stdout = Process.stdout process in
+  let child_stderr = Process.stderr process in
+  let _err_deferred = Util.glue' ~reader:child_stderr ~writer:stderr in
+  (* let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in *)
+  let%bind _ready_string = Reader.read_line child_stdout in
+  let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in
+  (* run the client and return the connection *)
   run_client host port
 ;;
 
@@ -107,15 +159,19 @@ let deferred_or_error_swap v =
   | Error err -> return (Result.fail err)
 ;;
 
-let remote_run ~host ~program ~write_callback ~close_callback =
+let remote_run ~host ~program ~write_callback ~close_callback ~stderr =
   (let open Deferred.Or_error.Let_syntax in
-  let%bind conn = setup_rpc_service () in
+  let%bind conn = setup_rpc_service ~host ~stderr in
   let%map resp = dispatch conn ~host ~program in
   let reader, _metadata = resp in
-  Pipe.iter ~continue_on_error:true reader ~f:(fun response ->
-      match response with
-      | Write_callback (b, len) -> write_callback b len
-      | Close_callback -> close_callback ()))
+  let%bind.Deferred () =
+    Pipe.iter ~continue_on_error:true reader ~f:(fun response ->
+        match response with
+        | Write_callback (b, len) -> write_callback b len
+        | Close_callback -> close_callback ())
+  in
+  dispatch_close conn)
   |> Deferred.map ~f:deferred_or_error_swap
   |> Deferred.join
+  |> Deferred.map ~f:Or_error.join
 ;;

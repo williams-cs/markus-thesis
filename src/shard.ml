@@ -4,11 +4,14 @@ open Eval
 module Ast = Ast
 module Env = Env
 module Eval = Eval
+module Remote_rpc = Remote_rpc
+module Remote_unsafe = Remote_unsafe
 
 let setup_signal_handlers () =
   Signal.handle [ Signal.int ] ~f:(fun _signal ->
-      print_endline "cancel";
-      Remote.disconnect_active_sessions ())
+      match Eval.remote_rpc with
+      | true -> (* todo *) ()
+      | false -> Remote_unsafe.disconnect_active_sessions ())
 ;;
 
 let run ?sexp_mode ?filename ?verbose () =
