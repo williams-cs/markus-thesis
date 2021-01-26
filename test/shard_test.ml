@@ -26,8 +26,7 @@ let run_test_no_timeout input =
 ;;
 
 let run_test input =
-  Remote_unsafe.set_random_state
-    (Random.State.make (Array.of_list [ 3; 1; 4; 1; 5; 9; 2; 6 ]));
+  Util.set_random_state (Random.State.make (Array.of_list [ 3; 1; 4; 1; 5; 9; 2; 6 ]));
   let timeout sec =
     let%bind () = Async_unix.after (Time.Span.of_sec sec) in
     print_endline "Test case exceeded timeout!";

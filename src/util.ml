@@ -1,4 +1,17 @@
+open Core
 open Async
+
+let random_state_ref : Random.State.t option ref = ref None
+let set_random_state state = random_state_ref := Some state
+
+let random_state () =
+  match !random_state_ref with
+  | Some state -> state
+  | None ->
+    let state = Random.State.make_self_init () in
+    random_state_ref := Some state;
+    state
+;;
 
 let glue' ~reader ~writer =
   let rec print_until_done () =

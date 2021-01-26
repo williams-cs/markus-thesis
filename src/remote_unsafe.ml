@@ -250,19 +250,7 @@ let remote_run_unsafe ~host ~program ~write_callback ~close_callback ~session_re
   else verbose_println host "Connection cancelled!"
 ;;
 
-let random_state_ref : Random.State.t option ref = ref None
-let set_random_state state = random_state_ref := Some state
-
-let random_state () =
-  match !random_state_ref with
-  | Some state -> state
-  | None ->
-    let state = Random.State.make_self_init () in
-    random_state_ref := Some state;
-    state
-;;
-
-let random_session_key () = Uuid.create_random (random_state ()) |> Uuid.to_string
+let random_session_key () = Uuid.create_random (Util.random_state ()) |> Uuid.to_string
 
 let remote_run ~host ~program ~write_callback ~close_callback =
   let key = random_session_key () in

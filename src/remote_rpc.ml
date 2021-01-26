@@ -128,27 +128,35 @@ let dispatch_close conn =
   Rpc.dispatch close_rpc conn query |> Deferred.Or_error.ignore_m
 ;;
 
-let setup_rpc_service ~host ~stderr =
-  let%bind local_path =
-    (* copy executable to shard folder *)
-    In_thread.run (fun () ->
-        let local_path, _hash = Remote_unsafe.local_copy ~host in
-        local_path)
+let setup_rpc_service ~host ~stderr ~job =
+  let continue_if_should_connect f =
+    if Job.should_connect job
+    then f ()
+    else Deferred.Or_error.error_string "Should not connect on attempted connection!"
   in
-  let port = 60273 in
-  let host = "localhost" in
-  let prog = local_path in
-  let args = [ "-r"; Int.to_string port ] in
-  (* run copied executable with command line argument, which runs the server *)
-  let%bind.Deferred.Or_error process = Process.create ~prog ~args ~stdin:"" () in
-  let child_stdout = Process.stdout process in
-  let child_stderr = Process.stderr process in
-  let _err_deferred = Util.glue' ~reader:child_stderr ~writer:stderr in
-  (* let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in *)
-  let%bind _ready_string = Reader.read_line child_stdout in
-  let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in
-  (* run the client and return the connection *)
-  run_client host port
+  continue_if_should_connect (fun () ->
+      let%bind local_path =
+        (* copy executable to shard folder *)
+        In_thread.run (fun () ->
+            let local_path, _hash = Remote_unsafe.local_copy ~host in
+            local_path)
+      in
+      let port = 60273 in
+      let host = "localhost" in
+      let prog = local_path in
+      let args = [ "-r"; Int.to_string port ] in
+      (* run copied executable with command line argument, which runs the server *)
+      continue_if_should_connect (fun () ->
+          let%bind.Deferred.Or_error process = Process.create ~prog ~args ~stdin:"" () in
+          Job.connect job process;
+          let child_stdout = Process.stdout process in
+          let child_stderr = Process.stderr process in
+          let _err_deferred = Util.glue' ~reader:child_stderr ~writer:stderr in
+          (* let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in *)
+          let%bind _ready_string = Reader.read_line child_stdout in
+          let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in
+          (* run the client and return the connection *)
+          run_client host port))
 ;;
 
 let deferred_or_error_swap v =
@@ -160,8 +168,10 @@ let deferred_or_error_swap v =
 ;;
 
 let remote_run ~host ~program ~write_callback ~close_callback ~stderr =
+  let job = Job.create () in
+  (* UUID key should be unique *)
   (let open Deferred.Or_error.Let_syntax in
-  let%bind conn = setup_rpc_service ~host ~stderr in
+  let%bind conn = setup_rpc_service ~host ~stderr ~job in
   let%map resp = dispatch conn ~host ~program in
   let reader, _metadata = resp in
   let%bind.Deferred () =
@@ -170,6 +180,7 @@ let remote_run ~host ~program ~write_callback ~close_callback ~stderr =
         | Write_callback (b, len) -> write_callback b len
         | Close_callback -> close_callback ())
   in
+  Job.complete job;
   dispatch_close conn)
   |> Deferred.map ~f:deferred_or_error_swap
   |> Deferred.join

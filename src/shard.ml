@@ -6,11 +6,12 @@ module Env = Env
 module Eval = Eval
 module Remote_rpc = Remote_rpc
 module Remote_unsafe = Remote_unsafe
+module Util = Util
 
 let setup_signal_handlers () =
   Signal.handle [ Signal.int ] ~f:(fun _signal ->
       match Eval.remote_rpc with
-      | true -> (* todo *) ()
+      | true -> Job.cancel_all ()
       | false -> Remote_unsafe.disconnect_active_sessions ())
 ;;
 
