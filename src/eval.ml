@@ -36,13 +36,18 @@ module Eval_args = struct
   ;;
 end
 
-let rec wait_until_exit process =
+let wait_until_exit process =
   let%bind wait_result = Process.wait process in
   match wait_result with
   | Error err ->
     (match err with
     | `Exit_non_zero v -> return v
-    | `Signal _ -> wait_until_exit process)
+    | `Signal _signal ->
+      (* print_endline (Signal.to_string signal); *)
+      (* if List.mem [ Signal.kill; Signal.segv; Signal.quit ] signal ~equal:Signal.equal *)
+      (* then *)
+      return 1)
+    (* else wait_until_exit process) *)
   | Ok () -> return 0
 ;;
 
@@ -78,10 +83,12 @@ let rec eval_command prog args ~eval_args =
         let%bind () = update_dir () in
         eval_source arg ~eval_args))
   | None ->
+    let job = Job.create () in
     let%bind () = update_dir () in
     let%bind process = Process.create ~prog ~args ~stdin:"" () in
     (match process with
     | Error err ->
+      Job.cancel_without_signal job;
       fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
       let%bind () =
         (* drain input *)
@@ -100,6 +107,7 @@ let rec eval_command prog args ~eval_args =
       in
       return (-1)
     | Ok process ->
+      Job.connect job process;
       let pid = Pid.to_int (Process.pid process) in
       let child_stdin = Process.stdin process in
       let child_stdout = Process.stdout process in
@@ -117,9 +125,15 @@ let rec eval_command prog args ~eval_args =
         glue ~reader:(return child_stderr) ~writer:(return (Eval_args.stderr eval_args))
       in
       let%bind exit_code = wait_until_exit process in
-      let%bind () = in_deferred in
-      let%bind () = out_deferred in
-      let%bind () = err_deferred in
+      let%bind () =
+        if Job.cancelled job
+        then return ()
+        else (
+          let%bind () = in_deferred in
+          let%bind () = out_deferred in
+          let%bind () = err_deferred in
+          return ())
+      in
       if Eval_args.verbose eval_args
       then
         fprintf
@@ -127,6 +141,7 @@ let rec eval_command prog args ~eval_args =
           "Child process %i exited with status %i\n"
           pid
           exit_code;
+      Job.complete job;
       return exit_code)
 
 and eval_source file ~eval_args =
@@ -217,46 +232,7 @@ and eval_pipeline_part ~eval_args =
   function
   | Subshell t -> eval_subshell t ~eval_args
   | Simple_command part -> eval_simple_command part ~eval_args
-  (* TODO: remake string from AST instead of keeping string? *)
-  | Remote_command (t, cluster) ->
-    let program =
-      match t with
-      | Remote_subshell sexp -> `Sexp (sexp |> Ast.sexp_of_t)
-      | Remote_name name -> `Name name
-    in
-    let%bind stdout = Eval_args.stdout eval_args in
-    (* let ivar = Ivar.create () in *)
-    let remote_run_one host =
-      match remote_rpc with
-      | true ->
-        let stderr = Eval_args.stderr eval_args in
-        let%map result =
-          Remote_rpc.remote_run
-            ~host
-            ~program
-            ~write_callback:(fun b len -> return (Writer.write_bytes stdout b ~len))
-            ~close_callback:(fun () -> return ())
-            ~stderr
-        in
-        (match result with
-        | Ok () -> ()
-        | Error err -> fprintf (Eval_args.stderr eval_args) "%s" (Error.to_string_hum err))
-      | false ->
-        In_thread.run (fun () ->
-            Remote_unsafe.remote_run
-              ~host
-              ~program
-              ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
-              ~close_callback:(fun () -> ()))
-    in
-    let env = Eval_args.env eval_args in
-    let remotes = Env.cluster_resolve env cluster in
-    let%bind () =
-      Deferred.List.map ~how:`Parallel remotes ~f:(fun remote -> remote_run_one remote)
-      |> Deferred.ignore_m
-    in
-    (* let%bind () = Ivar.read ivar in *)
-    return 0
+  | Remote_command (t, cluster) -> eval_remote_command t cluster ~eval_args
 
 and eval_assigment assignment ~eval_args =
   let name, token = assignment in
@@ -288,6 +264,46 @@ and eval_simple_command (tokens, assignments, _io_redirects) ~eval_args =
   in
   if List.length tokens > 0 then unassign cache ~eval_args;
   res
+
+and eval_remote_command t cluster ~eval_args =
+  let program =
+    match t with
+    | Remote_subshell sexp -> `Sexp (sexp |> Ast.sexp_of_t)
+    | Remote_name name -> `Name name
+  in
+  let%bind stdout = Eval_args.stdout eval_args in
+  (* let ivar = Ivar.create () in *)
+  let remote_run_one host =
+    match remote_rpc with
+    | true ->
+      let stderr = Eval_args.stderr eval_args in
+      let%map result =
+        Remote_rpc.remote_run
+          ~host
+          ~program
+          ~write_callback:(fun b len -> return (Writer.write_bytes stdout b ~len))
+          ~close_callback:(fun () -> return ())
+          ~stderr
+      in
+      (match result with
+      | Ok () -> ()
+      | Error err -> fprintf (Eval_args.stderr eval_args) "%s" (Error.to_string_hum err))
+    | false ->
+      In_thread.run (fun () ->
+          Remote_unsafe.remote_run
+            ~host
+            ~program
+            ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
+            ~close_callback:(fun () -> ()))
+  in
+  let env = Eval_args.env eval_args in
+  let remotes = Env.cluster_resolve env cluster in
+  let%bind () =
+    Deferred.List.map ~how:`Parallel remotes ~f:(fun remote -> remote_run_one remote)
+    |> Deferred.ignore_m
+  in
+  (* let%bind () = Ivar.read ivar in *)
+  return 0
 
 and eval_token_part ~eval_args =
   let open Ast in

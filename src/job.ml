@@ -37,6 +37,14 @@ let cancel (t : t) =
   | Complete | Cancelled -> ()
 ;;
 
+let cancel_without_signal (t : t) =
+  let status = status t in
+  match !status with
+  | Not_connected -> status := Cancelled
+  | Connected _process -> status := Cancelled
+  | Complete | Cancelled -> ()
+;;
+
 let complete (t : t) =
   let status = status t in
   status := Complete
@@ -57,6 +65,13 @@ let should_connect (t : t) =
   match !status with
   | Not_connected | Connected _ -> true
   | Complete | Cancelled -> false
+;;
+
+let cancelled (t : t) =
+  let status = status t in
+  match !status with
+  | Cancelled -> true
+  | Not_connected | Connected _ | Complete -> false
 ;;
 
 let cancel_all () = Hashtbl.iter jobs ~f:(fun job -> cancel job)
