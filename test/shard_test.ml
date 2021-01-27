@@ -2,6 +2,10 @@ open Core
 open Async
 open Shard
 
+let () =
+  Util.set_random_state (Random.State.make (Array.of_list [ 3; 1; 4; 1; 5; 9; 2; 6 ]))
+;;
+
 let test_cwd = "/tmp/shard/test"
 
 let run_test_no_timeout input =
@@ -26,7 +30,6 @@ let run_test_no_timeout input =
 ;;
 
 let run_test input =
-  Util.set_random_state (Random.State.make (Array.of_list [ 3; 1; 4; 1; 5; 9; 2; 6 ]));
   let timeout sec =
     let%bind () = Async_unix.after (Time.Span.of_sec sec) in
     print_endline "Test case exceeded timeout!";

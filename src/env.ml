@@ -14,6 +14,7 @@ type t =
   ; clusters : (string, Cluster.t) Hashtbl.t
   ; active_cluster_ref : string ref
   ; working_directory_ref : string ref
+  ; job_group : Job.Job_group.t
   }
 
 let default_cluster = "default"
@@ -26,15 +27,25 @@ let create ~working_directory =
   ; clusters
   ; active_cluster_ref = ref default_cluster
   ; working_directory_ref = ref working_directory
+  ; job_group = Job.Job_group.create ()
   }
 ;;
 
-let copy { assignments; exports; clusters; active_cluster_ref; working_directory_ref } =
+let copy
+    { assignments
+    ; exports
+    ; clusters
+    ; active_cluster_ref
+    ; working_directory_ref
+    ; job_group = _
+    }
+  =
   { assignments = Hashtbl.copy assignments
   ; exports = Hash_set.copy exports
   ; clusters = Hashtbl.copy clusters
   ; active_cluster_ref = ref !active_cluster_ref
-  ; working_directory_ref = ref !working_directory_ref
+  ; working_directory_ref = ref !working_directory_ref (* Don't copy job group *)
+  ; job_group = Job.Job_group.create ()
   }
 ;;
 
@@ -125,4 +136,9 @@ let cluster_resolve t cluster_or_host =
   match Hashtbl.find clusters cluster_or_host with
   | Some cluster -> Cluster.get_remotes cluster
   | None -> [ cluster_or_host ]
+;;
+
+let job_group t =
+  let { job_group; _ } = t in
+  job_group
 ;;

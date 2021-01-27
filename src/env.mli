@@ -33,3 +33,4 @@ val cluster_print : t -> string list -> write_callback:(string -> unit) -> unit
 val cluster_set_active : t -> string option -> unit
 val cluster_add : t -> string list -> unit
 val cluster_resolve : t -> string -> string list
+val job_group : t -> Job.Job_group.t

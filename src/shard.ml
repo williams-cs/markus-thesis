@@ -8,10 +8,15 @@ module Remote_rpc = Remote_rpc
 module Remote_unsafe = Remote_unsafe
 module Util = Util
 
+let active_job_group : Job.Job_group.t option ref = ref None
+
 let setup_signal_handlers () =
   Signal.handle [ Signal.int ] ~f:(fun _signal ->
       match Eval.remote_rpc with
-      | true -> Job.cancel_all ()
+      | true ->
+        (match !active_job_group with
+        | Some group -> Job.Job_group.cancel group
+        | None -> ())
       | false -> Remote_unsafe.disconnect_active_sessions ())
 ;;
 
@@ -46,6 +51,7 @@ let run ?sexp_mode ?filename ?verbose () =
     | Some b -> b
   in
   let eval_args = Eval_args.create ~env ~stdin:None ~stdout ~stderr ~verbose in
+  active_job_group := Some (Env.job_group env);
   let%map exit_code =
     eval_lines ?sexp_mode ~interactive:isatty ~stdin ~stdout ~stderr ~eval_args ()
   in
