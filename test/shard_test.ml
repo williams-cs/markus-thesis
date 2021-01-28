@@ -300,4 +300,40 @@ let%expect_test "export_existing_assign" =
   export k4|}]
 ;;
 
+let%expect_test "if_file_exists_false" =
+  let%bind () =
+    run_test
+      "if [ -f non_existent_file ]; then echo \"File does exist\"; else echo \"File does \
+       not exist\"; fi"
+  in
+  [%expect {|File does not exist|}]
+;;
+
+let%expect_test "if_variable_exists_true" =
+  let%bind () =
+    run_test
+      "thevar=\"Hello\" ; if [ -n $thevar ]; then echo \"The variable exists\"; else \
+       echo \"The variable does not exist\"; fi"
+  in
+  [%expect {|The variable exists|}]
+;;
+
+let%expect_test "if_without_else" =
+  let%bind () =
+    run_test
+      "largenum=30 ; smallnum=5; if [ $largenum -gt $smallnum ]; then echo \"Greater \
+       than\"; fi"
+  in
+  [%expect {|Greater than|}]
+;;
+
+let%expect_test "if_variable_equal_elif" =
+  let%bind () =
+    run_test
+      "somevar=1337 ; if [ $somevar = 10 ]; then echo \"Branch 1\"; elif [ $somevar = \
+       1337 ]; then echo \"Branch 2\"; else echo \"Branch 3\"; fi"
+  in
+  [%expect {|Branch 2|}]
+;;
+
 (* TODO redirection tests; potentially figure out how to mock file system *)
