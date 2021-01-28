@@ -161,8 +161,10 @@ and eval (ast : Ast.t) ~eval_args =
   | ((h, t), sep) :: ast ->
     (match sep with
     | Semicolon ->
-      let%bind () = eval_and_or_list h t ~eval_args |> Deferred.ignore_m in
-      eval ast ~eval_args
+      let%bind v = eval_and_or_list h t ~eval_args in
+      (match ast with
+      | [] -> return v
+      | _ -> eval ast ~eval_args)
     | Ampersand ->
       eval_subshell [ (h, t), Semicolon ] ~eval_args
       |> Deferred.ignore_m
@@ -176,21 +178,22 @@ and eval_subshell ast ~eval_args =
 and eval_and_or_list h t ~eval_args =
   (* In shell, && and || have the same precendence *)
   let open Ast in
-  let%bind b = eval_boolean_part h ~eval_args in
+  let%bind b_num = eval_boolean_part h ~eval_args in
+  let b = if b_num = 0 then true else false in
   match t with
-  | [] -> return b
+  | [] -> return b_num
   | (and_or, x) :: ls ->
     (match and_or with
-    | Or -> if b then return true else eval_and_or_list x ls ~eval_args
-    | And -> if not b then return false else eval_and_or_list x ls ~eval_args)
+    | Or -> if b then return b_num else eval_and_or_list x ls ~eval_args
+    | And -> if not b then return b_num else eval_and_or_list x ls ~eval_args)
 
 and eval_boolean_part part ~eval_args =
   let maybe_bang, pipline = part in
   let has_bang = Option.is_some maybe_bang in
   let%map code = eval_pipeline pipline ~eval_args in
   match code with
-  | 0 -> not has_bang
-  | _ -> has_bang
+  | 0 -> if has_bang then 1 else 0
+  | x -> if has_bang then 0 else x
 
 and eval_pipeline pipeline ~eval_args =
   match pipeline with
@@ -230,6 +233,8 @@ and eval_pipeline_part ~eval_args =
   let open Ast in
   function
   | Subshell t -> eval_subshell t ~eval_args
+  | If_clause (if_elif_blocks, maybe_else) ->
+    eval_if_clause if_elif_blocks maybe_else ~eval_args
   | Simple_command part -> eval_simple_command part ~eval_args
   | Remote_command (t, cluster) -> eval_remote_command t cluster ~eval_args
 
@@ -311,6 +316,18 @@ and eval_remote_command t cluster ~eval_args =
     (* let%bind () = Ivar.read ivar in *)
     return 0)
 
+and eval_if_clause if_elif_blocks maybe_else ~eval_args =
+  match if_elif_blocks with
+  | [] ->
+    (match maybe_else with
+    | None -> return 0
+    | Some block -> eval block ~eval_args)
+  | (if_cond, then_block) :: remaining ->
+    let%bind return_code = eval if_cond ~eval_args in
+    (match return_code with
+    | 0 -> eval then_block ~eval_args
+    | _ -> eval_if_clause remaining maybe_else ~eval_args)
+
 and eval_token_part ~eval_args =
   let open Ast in
   function
@@ -384,10 +401,17 @@ and eval_lines ?sexp_mode ?interactive ~stdin ~stdout ~stderr ~eval_args () =
     let eval_run ast =
       if interactive
       then (
-        let job_group = eval_args |> Eval_args.env |> Env.job_group in
+        let env = Eval_args.env eval_args in
+        let job_group = Env.job_group env in
         Job.Job_group.reset job_group;
         let%map res = Async.try_with (fun () -> eval ast ~eval_args) in
-        Result.iter_error res ~f:(fun err -> fprintf stderr "%s" (Exn.to_string err)))
+        match res with
+        | Ok exit_code ->
+          let last_exit_code_var = "?" in
+          Env.assign_set env ~key:last_exit_code_var ~data:(Int.to_string exit_code)
+          |> ignore;
+          ()
+        | Error exn -> fprintf stderr "%s" (Exn.to_string exn))
       else eval ast ~eval_args |> Deferred.ignore_m
     in
     if interactive

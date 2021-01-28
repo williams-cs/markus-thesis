@@ -49,6 +49,7 @@ and remote_command =
 
 and command =
   | Simple_command of simple_command
+  | If_clause of (t * t) list * t option
   | Subshell of t
   (* Remote extension *)
   | Remote_command of remote_command * string

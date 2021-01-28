@@ -53,6 +53,7 @@ and remote_command =
 
 and command =
   | Simple_command of simple_command
+  | If_clause of (t * t) list * t option
   | Subshell of t
   (* Remote extension *)
   | Remote_command of remote_command * string
@@ -109,8 +110,8 @@ let is_special ~eq_special = function
   | '$'
   | '`'
   | '#'
-  | '['
-  | ']'
+  (* | '['
+  | ']' *)
   | '!'
   | '>'
   | '<'
@@ -121,12 +122,32 @@ let is_special ~eq_special = function
   | '('
   | ')'
   | '*'
-  | '?'
+  (* | '?' *)
   | '~'
   | '&' -> true
   | '=' -> eq_special
   | '@' -> remote_extensions
   | _ -> false
+;;
+
+let reserved_words =
+  [ "!"
+  ; "{"
+  ; "}"
+  ; "case"
+  ; "do"
+  ; "done"
+  ; "elif"
+  ; "else"
+  ; "esac"
+  ; "fi"
+  ; "for"
+  ; "if"
+  ; "in"
+  ; "then"
+  ; "until"
+  ; "while"
+  ]
 ;;
 
 let single_quote = char '\''
@@ -254,7 +275,10 @@ let ast : t Angstrom_extended.t =
         <|> command_substitution
         <|> (many1 character_in_double_quotes >>| chars_to_literal)
       in
-      let token_part_unquoted ~eq_special =
+      let token_part_unquoted ~reserved_special ~eq_special =
+        let reserved = if reserved_special then reserved_words else [] in
+        choice (List.map reserved ~f:(fun word -> string word))
+        <!|>
         let within_backtick = Subshell_state.within_backtick subshell_state in
         variable
         <|> command_substitution
@@ -267,16 +291,32 @@ let ast : t Angstrom_extended.t =
       let double_quoted_str =
         double_quote *> many token_part_in_double_quotes <* double_quote
       in
-      let unquoted_string ~eq_special = many1 (token_part_unquoted ~eq_special) in
-      let name = many1 (non_special_character ~eq_special:true) >>| String.of_char_list in
-      let word ~eq_special =
-        many1 (unquoted_string ~eq_special <|> single_quoted_str <|> double_quoted_str)
-        >>| List.concat
+      let unquoted_string ~reserved_special ~eq_special =
+        both
+          (token_part_unquoted ~reserved_special ~eq_special)
+          (many (token_part_unquoted ~reserved_special:false ~eq_special))
+        >>| fun (x, xs) -> x :: xs
       in
-      let delimited_word = delimiter *> word ~eq_special:false <* delimiter in
-      let assignment = both (name <* string "=") (word ~eq_special:true) in
+      let name = many1 (non_special_character ~eq_special:true) >>| String.of_char_list in
+      let word ~reserved_special ~eq_special =
+        both
+          (unquoted_string ~reserved_special ~eq_special
+          <|> single_quoted_str
+          <|> double_quoted_str)
+          (many
+             (unquoted_string ~reserved_special:false ~eq_special
+             <|> single_quoted_str
+             <|> double_quoted_str))
+        >>| fun (x, xs) -> x :: xs |> List.concat
+      in
+      let delimited_word ~reserved_special =
+        delimiter *> word ~reserved_special ~eq_special:false <* delimiter
+      in
+      let assignment =
+        both (name <* string "=") (word ~reserved_special:false ~eq_special:true)
+      in
       let assignment_word = delimiter *> assignment <* delimiter in
-      let g_filename = unquoted_string ~eq_special:false in
+      let g_filename = unquoted_string ~reserved_special:false ~eq_special:false in
       let io_less = token "<" *> return Less in
       let io_lessand = token "<&" *> return Lessand in
       let io_great = token ">" *> return Great in
@@ -318,13 +358,17 @@ let ast : t Angstrom_extended.t =
         >>| (fun r -> `Redirect r)
         <|> (assignment_word >>| fun w -> `Assignment w)
       in
-      let g_cmd_prefix = many cmd_prefix_part in
       let g_cmd_prefix_1 = many1 cmd_prefix_part in
-      let g_cmd_suffix_1 =
-        many1
+      let g_cmd_suffix_1 ~reserved_special =
+        both
           (g_io_redirect
           >>| (fun r -> `Redirect r)
-          <|> (delimited_word >>| fun w -> `Token w))
+          <|> (delimited_word ~reserved_special >>| fun w -> `Token w))
+          (many
+             (g_io_redirect
+             >>| (fun r -> `Redirect r)
+             <|> (delimited_word ~reserved_special:false >>| fun w -> `Token w)))
+        >>| fun (x, xs) -> x :: xs
       in
       let g_simple_command : command Angstrom_extended.t =
         let merge_fold (tokens, assignments, io_redirects) = function
@@ -336,7 +380,10 @@ let ast : t Angstrom_extended.t =
           let trev, arev, rrev = List.fold ~init:([], [], []) ~f:merge_fold (l1 @ l2) in
           Simple_command (List.rev trev, List.rev arev, List.rev rrev)
         in
-        delimiter *> (both g_cmd_prefix g_cmd_suffix_1 <|> both g_cmd_prefix_1 (return []))
+        delimiter
+        *> (both g_cmd_prefix_1 (g_cmd_suffix_1 ~reserved_special:false)
+           <|> both g_cmd_prefix_1 (return [])
+           <|> both (return []) (g_cmd_suffix_1 ~reserved_special:true))
         >>| merge_simple_command
       in
       let and_or_if = token "||" *> return Or <|> token "&&" *> return And in
@@ -344,7 +391,26 @@ let ast : t Angstrom_extended.t =
         token "(" *> inner { subshell_state with allow_empty = false } <* token ")"
       in
       let g_subshell : command Angstrom_extended.t = subshell >>| fun x -> Subshell x in
-      let g_compound_command = g_subshell in
+      let text_token str = token str in
+      let g_else_part =
+        both
+          (many
+             (both
+                (text_token "elif" *> inner subshell_state)
+                (text_token "then" *> inner subshell_state)))
+          (option None (text_token "else" *> inner subshell_state >>| fun x -> Some x))
+      in
+      let g_if_clause =
+        both
+          (both
+             (text_token "if" *> inner subshell_state)
+             (text_token "then" *> inner subshell_state))
+          g_else_part
+        <* text_token "fi"
+        >>| fun (if_block, (elif_blocks, maybe_else)) ->
+        If_clause (if_block :: elif_blocks, maybe_else)
+      in
+      let g_compound_command = g_subshell <|> g_if_clause in
       let re_subshell = subshell >>| fun x -> Remote_subshell x in
       let re_name = name >>| fun x -> Remote_name x in
       let re_remote_command =

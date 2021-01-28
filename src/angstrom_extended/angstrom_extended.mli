@@ -352,6 +352,10 @@ val fix : ('a t -> 'a t) -> 'a t
     the input will be reset and [q] will run instead. *)
 val ( <|> ) : 'a t -> 'a t -> 'a t
 
+(** [p <|> q] runs [p]. If [p] succeeds, the input is reset and the entire operation fails.
+    If [p] fails, then the input will be reset and [q] will run instead. *)
+val ( <!|> ) : _ t -> 'a t -> 'a t
+
 (** [choice ?failure_msg ts] runs each parser in [ts] in order until one
     succeeds and returns that result. In the case that none of the parser
     succeeds, then the parser will fail with the message [failure_msg], if
