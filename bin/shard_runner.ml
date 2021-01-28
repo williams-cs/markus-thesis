@@ -18,7 +18,7 @@ let run_command =
       and filename = anon (maybe ("filename" %: string)) in
       fun () ->
         match rpc with
-        | Some port -> Shard.Remote_rpc.start_server ~port
+        | Some port -> Shard.Remote_rpc.start_server ~verbose ~port
         | None -> Shard.run ~sexp_mode ?filename ~verbose ())
 ;;
 

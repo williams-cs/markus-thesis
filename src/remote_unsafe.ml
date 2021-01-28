@@ -5,7 +5,6 @@ open Base.Poly
 (* Default timeout: 3 seconds *)
 let default_ssh_timeout = 3000000L
 let debug = true
-let verbose = true
 let ssh_debug = false
 let ssh_println str = str |> ignore
 let version_string = "v0001"
@@ -135,9 +134,11 @@ let read_fixed (channel : Libssh.channel) ~buf =
   | End_of_file | Libssh.LibsshError _ -> 0
 ;;
 
-let debug_println str = if debug then print_endline ("[Shard-debug] " ^ str)
+let debug_println ~verbose str =
+  if debug && verbose then print_endline ("[Shard-debug] " ^ str)
+;;
 
-let verbose_println host str =
+let verbose_println ~verbose host str =
   if verbose then print_endline (sprintf "[Shard-%s] " host ^ str)
 ;;
 
@@ -150,8 +151,8 @@ let local_command str =
 
 let hash_command str = sprintf "md5sum %s| cut -d ' ' -f 1" str
 
-let local_copy ~host =
-  verbose_println host "Looking for local copy of Shard...";
+let local_copy ~host ~verbose =
+  verbose_println ~verbose host "Looking for local copy of Shard...";
   let dir = sprintf "/tmp/shard/%s" version_string in
   let dest = sprintf "%s/shard.exe" dir in
   let dest_hash = local_command (hash_command dest) in
@@ -159,13 +160,13 @@ let local_copy ~host =
   let src_hash = local_command (hash_command src) in
   if not (String.equal dest_hash src_hash)
   then (
-    verbose_println host "Local copy not found.";
-    verbose_println host "Installing local copy of Shard...";
+    verbose_println ~verbose host "Local copy not found.";
+    verbose_println ~verbose host "Installing local copy of Shard...";
     Unix.mkdir_p dir;
     Gc.compact ();
     local_command (sprintf "cp %s %s" src dest) |> ignore;
     Unix.chmod dest ~perm:0o744;
-    verbose_println host "Local installation complete!");
+    verbose_println ~verbose host "Local installation complete!");
   dest, src_hash
 ;;
 
@@ -207,37 +208,38 @@ let remote_command_output ssh command ~write_callback =
   channel#close ()
 ;;
 
-let remote_run_unsafe ~host ~program ~write_callback ~close_callback ~session_ref =
-  let _local_path, program_hash = local_copy ~host in
+let remote_run_unsafe ~host ~program ~verbose ~write_callback ~close_callback ~session_ref
+  =
+  let _local_path, program_hash = local_copy ~verbose ~host in
   let dir = sprintf "/tmp/shard/%s" version_string in
   let exe = sprintf "%s/shard.exe" dir in
-  debug_println program_hash;
-  verbose_println host "Conneting to remote...";
+  debug_println ~verbose program_hash;
+  verbose_println ~verbose host "Conneting to remote...";
   if Session.should_connect !session_ref
   then (
     let ssh = connect host in
     session_ref := Session.create (`Connected ssh);
     (* Check for remote copy of Shard *)
-    verbose_println host "Checking for remote copy of Shard...";
+    verbose_println ~verbose host "Checking for remote copy of Shard...";
     let remote_hash = remote_command_fixed ssh (hash_command exe) ~size:1024 in
-    debug_println remote_hash;
+    debug_println ~verbose remote_hash;
     let remote_exists = String.equal remote_hash program_hash in
     let src = "./shard.exe" in
     let dest = sprintf "%s/shard.exe" dir in
     if not remote_exists
     then (
       (* If remote copy does not exist, make directory *)
-      verbose_println host "Remote copy does not exist.";
-      verbose_println host "Making remote directory...";
+      verbose_println ~verbose host "Remote copy does not exist.";
+      verbose_println ~verbose host "Making remote directory...";
       remote_command ssh (sprintf "mkdir -p %s" dir);
       (* Copy Shard to remote *)
-      verbose_println host "Copying executable to remote...";
+      verbose_println ~verbose host "Copying executable to remote...";
       send_copy ssh ~dir ~src ~dest;
       (* Set permissions of Shard *)
-      verbose_println host "Setting permissions of remote executable...";
+      verbose_println ~verbose host "Setting permissions of remote executable...";
       remote_command ssh (sprintf "chmod 744 %s" dest));
     (* Run command on remote Shard *)
-    verbose_println host "Running command on remote Shard...";
+    verbose_println ~verbose host "Running command on remote Shard...";
     let command =
       match program with
       | `Sexp sexp -> sprintf "echo '%s' | %s -s" (Sexp.to_string sexp) dest
@@ -246,17 +248,19 @@ let remote_run_unsafe ~host ~program ~write_callback ~close_callback ~session_re
     remote_command_output ssh command ~write_callback;
     close_callback ();
     session_ref := Session.create `Complete;
-    verbose_println host "Complete!")
-  else verbose_println host "Connection cancelled!"
+    verbose_println ~verbose host "Complete!")
+  else verbose_println ~verbose host "Connection cancelled!"
 ;;
 
 let random_session_key () = Uuid.create_random (Util.random_state ()) |> Uuid.to_string
 
-let remote_run ~host ~program ~write_callback ~close_callback =
+let remote_run ~host ~program ~verbose ~write_callback ~close_callback =
   let key = random_session_key () in
   (* No duplicates should exist from UUID keys *)
   let session_ref = ref (Session.create `Not_connected) in
   Hashtbl.add_exn active_sessions ~key ~data:session_ref;
-  try remote_run_unsafe ~host ~program ~write_callback ~close_callback ~session_ref with
-  | exn -> verbose_println host (Exn.to_string exn)
+  try
+    remote_run_unsafe ~host ~program ~verbose ~write_callback ~close_callback ~session_ref
+  with
+  | exn -> verbose_println ~verbose host (Exn.to_string exn)
 ;;

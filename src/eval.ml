@@ -277,6 +277,7 @@ and eval_remote_command t cluster ~eval_args =
     let%bind stdout = Eval_args.stdout eval_args in
     (* let ivar = Ivar.create () in *)
     let remote_run_one host =
+      let verbose = Eval_args.verbose eval_args in
       match remote_rpc with
       | true ->
         let stderr = Eval_args.stderr eval_args in
@@ -287,6 +288,7 @@ and eval_remote_command t cluster ~eval_args =
             ~write_callback:(fun b len -> return (Writer.write_bytes stdout b ~len))
             ~close_callback:(fun () -> return ())
             ~stderr
+            ~verbose
         in
         (match result with
         | Ok () -> ()
@@ -296,6 +298,7 @@ and eval_remote_command t cluster ~eval_args =
             Remote_unsafe.remote_run
               ~host
               ~program
+              ~verbose
               ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
               ~close_callback:(fun () -> ()))
     in

@@ -15,7 +15,7 @@ type t =
   }
 [@@deriving fields]
 
-let kill process = Process.send_signal process Signal.kill
+let kill process = Process.send_signal process Signal.int
 
 let cancel (t : t) =
   let status = status t in

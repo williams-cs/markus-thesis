@@ -29,9 +29,13 @@ module Response = struct
 end
 
 module State = struct
-  type t = { close_ivar : unit Ivar.t } [@@deriving fields]
+  type t =
+    { verbose : bool
+    ; close_ivar : unit Ivar.t
+    }
+  [@@deriving fields]
 
-  let create () = { close_ivar = Ivar.create () }
+  let create ~verbose = { verbose; close_ivar = Ivar.create () }
 end
 
 let rpc =
@@ -52,7 +56,7 @@ let close_rpc =
     ~bin_response:Close_query.bin_t
 ;;
 
-let handle_query _state query =
+let handle_query state query =
   Deferred.Or_error.return
     (Pipe.create_reader ~close_on_exception:true (fun pipe ->
          In_thread.run (fun () ->
@@ -62,9 +66,11 @@ let handle_query _state query =
                | Name s -> `Name s
                | Sexp s -> `Sexp s
              in
+             let verbose = State.verbose state in
              Remote_unsafe.remote_run
                ~host
                ~program
+               ~verbose
                ~write_callback:(fun b len ->
                  Pipe.write_without_pushback pipe (Response.Write_callback (b, len)))
                ~close_callback:(fun () ->
@@ -95,8 +101,8 @@ let run_server port state =
 
 let ready_message = "ready"
 
-let start_server ~port =
-  let state = State.create () in
+let start_server ~port ~verbose =
+  let state = State.create ~verbose in
   let%bind _tcp = run_server port state in
   (* Signal to the client that the connection is ready *)
   print_endline ready_message;
@@ -128,7 +134,7 @@ let dispatch_close conn =
   Rpc.dispatch close_rpc conn query |> Deferred.Or_error.ignore_m
 ;;
 
-let setup_rpc_service ~host ~stderr ~job =
+let setup_rpc_service ~host ~stderr ~verbose ~job =
   let continue_if_should_connect f =
     if Job.should_connect job
     then f ()
@@ -138,13 +144,13 @@ let setup_rpc_service ~host ~stderr ~job =
       let%bind local_path =
         (* copy executable to shard folder *)
         In_thread.run (fun () ->
-            let local_path, _hash = Remote_unsafe.local_copy ~host in
+            let local_path, _hash = Remote_unsafe.local_copy ~verbose ~host in
             local_path)
       in
       let port = 60273 in
       let host = "localhost" in
       let prog = local_path in
-      let args = [ "-r"; Int.to_string port ] in
+      let args = [ "-r"; Int.to_string port ] @ if verbose then [ "-V" ] else [] in
       (* run copied executable with command line argument, which runs the server *)
       continue_if_should_connect (fun () ->
           let%bind.Deferred.Or_error process = Process.create ~prog ~args ~stdin:"" () in
@@ -167,11 +173,11 @@ let deferred_or_error_swap v =
   | Error err -> return (Result.fail err)
 ;;
 
-let remote_run ~host ~program ~write_callback ~close_callback ~stderr =
+let remote_run ~host ~program ~verbose ~write_callback ~close_callback ~stderr =
   let job = Job.create () in
   (* UUID key should be unique *)
   (let open Deferred.Or_error.Let_syntax in
-  let%bind conn = setup_rpc_service ~host ~stderr ~job in
+  let%bind conn = setup_rpc_service ~host ~stderr ~verbose ~job in
   let%map resp = dispatch conn ~host ~program in
   let reader, _metadata = resp in
   let%bind.Deferred () =
