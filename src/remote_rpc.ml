@@ -24,7 +24,7 @@ end
 module Response = struct
   type t =
     | Write_callback of bytes * int
-    | Close_callback
+    | Close_callback of unit Or_error.t
   [@@deriving bin_io]
 end
 
@@ -67,14 +67,18 @@ let handle_query state query =
                | Sexp s -> `Sexp s
              in
              let verbose = State.verbose state in
-             Remote_unsafe.remote_run
-               ~host
-               ~program
-               ~verbose
-               ~write_callback:(fun b len ->
-                 Pipe.write_without_pushback pipe (Response.Write_callback (b, len)))
-               ~close_callback:(fun () ->
-                 Pipe.write_without_pushback pipe Response.Close_callback);
+             let res =
+               Remote_unsafe.remote_run
+                 ~host
+                 ~program
+                 ~verbose
+                 ~write_callback:(fun b len ->
+                   Pipe.write_without_pushback pipe (Response.Write_callback (b, len)))
+                 ~close_callback:(fun () ->
+                   Pipe.write_without_pushback pipe (Response.Close_callback (Ok ())))
+             in
+             Or_error.iter_error res ~f:(fun err ->
+                 Pipe.write_without_pushback pipe (Response.Close_callback (Error err)));
              Pipe.close pipe)))
 ;;
 
@@ -180,14 +184,19 @@ let remote_run ~host ~program ~verbose ~write_callback ~close_callback ~stderr =
   let%bind conn = setup_rpc_service ~host ~stderr ~verbose ~job in
   let%map resp = dispatch conn ~host ~program in
   let reader, _metadata = resp in
-  let%bind.Deferred () =
-    Pipe.iter ~continue_on_error:true reader ~f:(fun response ->
+  let%bind.Deferred maybe_error =
+    Pipe.fold reader ~init:(Ok ()) ~f:(fun accum response ->
         match response with
-        | Write_callback (b, len) -> write_callback b len
-        | Close_callback -> close_callback ())
+        | Write_callback (b, len) ->
+          let%bind.Deferred () = write_callback b len in
+          Deferred.return accum
+        | Close_callback err ->
+          let%bind.Deferred () = close_callback () in
+          Deferred.return err)
   in
   Job.complete job;
-  dispatch_close conn)
+  let%bind () = dispatch_close conn in
+  Deferred.return maybe_error)
   |> Deferred.map ~f:deferred_or_error_swap
   |> Deferred.join
   |> Deferred.map ~f:Or_error.join

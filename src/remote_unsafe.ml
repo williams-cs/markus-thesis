@@ -259,8 +259,12 @@ let remote_run ~host ~program ~verbose ~write_callback ~close_callback =
   (* No duplicates should exist from UUID keys *)
   let session_ref = ref (Session.create `Not_connected) in
   Hashtbl.add_exn active_sessions ~key ~data:session_ref;
-  try
-    remote_run_unsafe ~host ~program ~verbose ~write_callback ~close_callback ~session_ref
-  with
-  | exn -> verbose_println ~verbose host (Exn.to_string exn)
+  Or_error.try_with (fun () ->
+      remote_run_unsafe
+        ~host
+        ~program
+        ~verbose
+        ~write_callback
+        ~close_callback
+        ~session_ref)
 ;;

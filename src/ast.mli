@@ -41,7 +41,7 @@ and assignment = string * token
 
 and simple_command = token list * assignment list * io_redirect list
 
-and case_item = string list * t
+and case_item = token list * t option
 
 and remote_command =
   | Remote_subshell of t

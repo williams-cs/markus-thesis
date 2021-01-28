@@ -45,7 +45,7 @@ and assignment = string * token
 
 and simple_command = token list * assignment list * io_redirect list
 
-and case_item = string list * t
+and case_item = token list * t option
 
 and remote_command =
   | Remote_subshell of t
@@ -54,6 +54,11 @@ and remote_command =
 and command =
   | Simple_command of simple_command
   | If_clause of (t * t) list * t option
+  (* | While_clause of t * t
+  | Until_clause of t * t
+  | Brace_group of t
+  | For_clause of string * token list * t
+  | Case_clause of token * case_item list *)
   | Subshell of t
   (* Remote extension *)
   | Remote_command of remote_command * string

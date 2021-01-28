@@ -11,4 +11,4 @@ val remote_run
   -> verbose:bool
   -> write_callback:(bytes -> int -> unit)
   -> close_callback:(unit -> unit)
-  -> unit
+  -> unit Or_error.t

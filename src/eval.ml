@@ -286,7 +286,7 @@ and eval_remote_command t cluster ~eval_args =
       match remote_rpc with
       | true ->
         let stderr = Eval_args.stderr eval_args in
-        let%map result =
+        let%bind result =
           Remote_rpc.remote_run
             ~host
             ~program
@@ -296,25 +296,35 @@ and eval_remote_command t cluster ~eval_args =
             ~verbose
         in
         (match result with
-        | Ok () -> ()
-        | Error err -> fprintf (Eval_args.stderr eval_args) "%s" (Error.to_string_hum err))
+        | Ok () -> return 0
+        | Error err ->
+          fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
+          return 1)
       | false ->
-        In_thread.run (fun () ->
-            Remote_unsafe.remote_run
-              ~host
-              ~program
-              ~verbose
-              ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
-              ~close_callback:(fun () -> ()))
+        let%bind err =
+          In_thread.run (fun () ->
+              Remote_unsafe.remote_run
+                ~host
+                ~program
+                ~verbose
+                ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
+                ~close_callback:(fun () -> ()))
+        in
+        (match err with
+        | Ok () -> return 0
+        | Error err ->
+          fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
+          return 1)
     in
     let env = Eval_args.env eval_args in
     let remotes = Env.cluster_resolve env cluster in
-    let%bind () =
+    let%bind exit_codes =
       Deferred.List.map ~how:`Parallel remotes ~f:(fun remote -> remote_run_one remote)
-      |> Deferred.ignore_m
     in
+    let nonzero = List.find exit_codes ~f:(fun x -> not (x = 0)) in
+    let exit_code = Option.value nonzero ~default:0 in
     (* let%bind () = Ivar.read ivar in *)
-    return 0)
+    return exit_code)
 
 and eval_if_clause if_elif_blocks maybe_else ~eval_args =
   match if_elif_blocks with
@@ -411,7 +421,7 @@ and eval_lines ?sexp_mode ?interactive ~stdin ~stdout ~stderr ~eval_args () =
           Env.assign_set env ~key:last_exit_code_var ~data:(Int.to_string exit_code)
           |> ignore;
           ()
-        | Error exn -> fprintf stderr "%s" (Exn.to_string exn))
+        | Error exn -> fprintf stderr "%s\n" (Exn.to_string exn))
       else eval ast ~eval_args |> Deferred.ignore_m
     in
     if interactive
