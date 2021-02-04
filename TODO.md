@@ -42,6 +42,7 @@
 | Variables              | Y      | Y     |        |         |
 | Globbing               |        |       |        |         |
 | Environment            | Y      | Y     |        |         |
+| Control-flow           | ~      | ~     |        |         |
 | Functions              |        |       |        |         |
 | Job control            |        |       |        |         |
 | Built-in functions     | Y      | ~     |        |         |

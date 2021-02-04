@@ -1,5 +1,25 @@
 # Research Log
 
+## 2020-01-29
+- Discussion
+  - Diagram of how the architecture work
+  - Fully worked example of how to send data on pipe
+
+## 2020-01-28
+- Implementation
+  - Added last exit code variable $?
+  - Error handling fix for remote over RPC
+
+## 2020-01-27
+- Implementation
+  - Keyboard interrupts now work as expected in interactive mode
+  - Added if-else statements
+
+## 2020-01-26
+- Implementation
+  - Remote communication now runs on separate process, communicating over RPC on localhost
+  - Can use Ctrl-C to stop all remote computation
+
 ## 2020-01-24
 - Implementation
   - Attempted work on signal handling
