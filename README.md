@@ -1,4 +1,4 @@
-# Accessible, Reliable, Distributed Shell (Shard)
+# Shard: Shell for Ad Hoc, Reliable, Distributed Programs
 
 Performing tasks that are distributed among many systems currently fail to achieve each of the goals of being reliable, easy to set up, closely resembling an existing technology, and friendly to users without distributed systems knowledge.
 Because distributed systems are inherently unreliable, succeeding in these goals require the system to provide an abstraction for error handling and recovery that account for the many failure cases that may arise.
