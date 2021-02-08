@@ -37,7 +37,7 @@
 | Feature                | Syntax | Local | Remote | Testing |
 |------------------------|--------|-------|--------|---------|
 | Basic commands         | Y      | Y     | Y      |         |
-| Pipes                  | Y      | Y     |        |         |
+| Pipes                  | Y      | Y     | Y      |         |
 | File redirection       | Y      | ~     |        |         |
 | Variables              | Y      | Y     |        |         |
 | Globbing               |        |       |        |         |

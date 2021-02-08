@@ -1,5 +1,15 @@
 # Research Log
 
+## 2020-02-07
+- Implementation
+  - Rewrote communication layer over ssh, now with sender/receiver on both local and remote 
+  - Working pipes between local/remote and back
+  - Next steps
+    - Failure inducing/handling
+    - Variables over remote
+    - File redirection
+    - Functions
+
 ## 2020-02-04
 - Investigation onto blocking semantics
   - Blocking by default doesn't happen, even if there is no 'reader' on the other end
@@ -7,7 +17,6 @@
   - In other words, synchronized read-write blocking in not expected from the shell
   - Therefore, the shell should set up an additional fixed size 'write buffer' and stop reading when it is full
   - This will cause futher writes to reside in the system pipe
-
 
 ## 2020-01-29
 - Discussion

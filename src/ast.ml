@@ -47,10 +47,6 @@ and simple_command = token list * assignment list * io_redirect list
 
 and case_item = token list * t option
 
-and remote_command =
-  | Remote_subshell of t
-  | Remote_name of string
-
 and command =
   | Simple_command of simple_command
   | If_clause of (t * t) list * t option
@@ -61,7 +57,7 @@ and command =
   | Case_clause of token * case_item list *)
   | Subshell of t
   (* Remote extension *)
-  | Remote_command of remote_command * string
+  | Remote_command of t * string
 
 (* | For_clause of string * string list * t
 | Case_clause of string * case_item list
@@ -202,6 +198,10 @@ module Subshell_state = struct
     }
   [@@deriving fields]
 end
+
+let literal_command s : t =
+  [ ((None, [ Simple_command ([ [ Literal s ] ], [], []) ]), []), Semicolon ]
+;;
 
 let ast : t Angstrom_extended.t =
   (* Grammar from: https://pubs.opengroup.org/onlinepubs/009604499/utilities/xcu_chap02.html#tag_02_10 *)
@@ -416,8 +416,8 @@ let ast : t Angstrom_extended.t =
         If_clause (if_block :: elif_blocks, maybe_else)
       in
       let g_compound_command = g_subshell <|> g_if_clause in
-      let re_subshell = subshell >>| fun x -> Remote_subshell x in
-      let re_name = name >>| fun x -> Remote_name x in
+      let re_subshell = subshell in
+      let re_name = name >>| fun x -> literal_command x in
       let re_remote_command =
         if remote_extensions
         then

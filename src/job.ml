@@ -4,7 +4,7 @@ open Async
 module Job_status = struct
   type t =
     | Not_connected
-    | Connected of Process.t
+    | Connected of Process.t list
     | Canceled
     | Complete
 end
@@ -15,14 +15,16 @@ type t =
   }
 [@@deriving fields]
 
-let kill process = Process.send_signal process Signal.int
+let kill processes =
+  List.map processes ~f:(fun process -> Process.send_signal process Signal.int) |> ignore
+;;
 
 let cancel (t : t) =
   let status = status t in
   match !status with
   | Not_connected -> status := Canceled
-  | Connected process ->
-    kill process;
+  | Connected processes ->
+    kill processes;
     status := Canceled
   | Complete | Canceled -> ()
 ;;
@@ -40,14 +42,23 @@ let complete (t : t) =
   status := Complete
 ;;
 
-let connect (t : t) process =
+let attach ~process (t : t) =
   let status = status t in
   match !status with
-  | Not_connected -> status := Connected process
-  | Connected old_process ->
-    kill old_process;
-    status := Connected process
-  | Complete | Canceled -> kill process
+  | Connected old_processes -> status := Connected (process :: old_processes)
+  | Not_connected | Complete | Canceled -> kill [ process ]
+;;
+
+let connect ?process (t : t) =
+  let status = status t in
+  match !status with
+  | Not_connected -> status := Connected []
+  | Connected old_processes ->
+    kill old_processes;
+    status := Connected []
+  | Complete | Canceled ->
+    kill [];
+    Option.iter process ~f:(fun process -> attach t ~process)
 ;;
 
 let should_connect (t : t) =
@@ -71,6 +82,7 @@ module Job_group = struct
     }
 
   let create () = { jobs = Hashtbl.create (module String); canceled = ref false }
+  let all_jobs_inner = create ()
   let add { jobs; canceled = _ } ~job = Hashtbl.add_exn jobs ~key:(id job) ~data:job
 
   let cancel { jobs; canceled } =
@@ -78,7 +90,9 @@ module Job_group = struct
     canceled := true
   ;;
 
-  let canceled { jobs = _; canceled } = !canceled
+  let canceled { jobs = _; canceled } =
+    if !(all_jobs_inner.canceled) then true else !canceled
+  ;;
 
   let reset { jobs; canceled } =
     canceled := false;
@@ -89,7 +103,7 @@ module Job_group = struct
   type t = t_inner
 end
 
-let all_jobs = Job_group.create ()
+let all_jobs = Job_group.all_jobs_inner
 let random_session_key () = Uuid.create_random (Util.random_state ()) |> Uuid.to_string
 
 let create ?groups () : t =

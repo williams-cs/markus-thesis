@@ -32,6 +32,38 @@ module Eval_args = struct
   let with_env { env = _; stdin; stdout; stderr; verbose } ~env =
     { env; stdin; stdout; stderr; verbose }
   ;;
+
+  let stdin_reader t =
+    let empty_reader () =
+      Reader.of_pipe
+        (Info.of_string "empty_reader")
+        (Pipe.create_reader ~close_on_exception:false (fun writer ->
+             let%bind writer, _ = Writer.of_pipe (Info.of_string "empty_writer") writer in
+             Writer.close writer))
+    in
+    let stdin = stdin t in
+    match stdin with
+    | Stdin_none -> empty_reader ()
+    | Stdin_reader reader -> reader
+    | Stdin_pipe fn ->
+      let%bind `Reader reader, `Writer writer =
+        Unix.pipe (Info.of_string "read_write_pipe")
+      in
+      let _write_deferred = fn (Writer.create writer) in
+      Reader.create reader |> return
+  ;;
+end
+
+module Prog_input = struct
+  module Sexp_mode = struct
+    type t =
+      | Sexp
+      | Not_sexp
+  end
+
+  type t =
+    | Stream of Reader.t * Sexp_mode.t
+    | Sexp of Sexp.t
 end
 
 let wait_until_exit process =
@@ -109,7 +141,7 @@ let rec eval_command prog args ~eval_args =
         in
         return (-1)
       | Ok process ->
-        Job.connect job process;
+        Job.connect job ~process;
         let pid = Pid.to_int (Process.pid process) in
         let child_stdin = Process.stdin process in
         let child_stdout = Process.stdout process in
@@ -150,7 +182,13 @@ and eval_source file ~eval_args =
   let%bind stdin = Reader.open_file file in
   let%bind stdout = Eval_args.stdout eval_args in
   let stderr = Eval_args.stderr eval_args in
-  eval_lines ~interactive:false ~stdin ~stdout ~stderr ~eval_args ()
+  eval_lines
+    ~interactive:false
+    ~prog_input:(Prog_input.Stream (stdin, Not_sexp))
+    ~stdout
+    ~stderr
+    ~eval_args
+    ()
 
 and eval (ast : Ast.t) ~eval_args =
   let open Ast in
@@ -272,24 +310,15 @@ and eval_remote_command t cluster ~eval_args =
   if Job.Job_group.canceled job_group
   then return 1
   else (
-    let program =
-      match t with
-      | Remote_subshell sexp -> `Sexp (sexp |> Ast.sexp_of_t)
-      | Remote_name name -> `Name name
-    in
+    let program = t |> Ast.sexp_of_t in
     let%bind stdout = Eval_args.stdout eval_args in
     (* let ivar = Ivar.create () in *)
     let remote_run_one host =
       let verbose = Eval_args.verbose eval_args in
+      let%bind stdin = Eval_args.stdin_reader eval_args in
       let stderr = Eval_args.stderr eval_args in
       let%bind result =
-        Remote_rpc.remote_run
-          ~host
-          ~program
-          ~write_callback:(fun b len -> return (Writer.write_bytes stdout b ~len))
-          ~close_callback:(fun () -> return ())
-          ~stderr
-          ~verbose
+        Remote_rpc.remote_run ~host ~program ~stdin ~stdout ~stderr ~verbose
       in
       match result with
       | Ok () -> return 0
@@ -382,7 +411,7 @@ and eval_token token_parts ~eval_args : string list Deferred.t =
   in
   z
 
-and eval_lines ?sexp_mode ?interactive ~stdin ~stdout ~stderr ~eval_args () =
+and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args () =
   let rec repl ?state ?prior_input () =
     let interactive =
       match interactive with
@@ -409,63 +438,64 @@ and eval_lines ?sexp_mode ?interactive ~stdin ~stdout ~stderr ~eval_args () =
     then (
       let prompt = if Option.is_none state then "$ " else "> " in
       Writer.write stdout prompt);
-    let sexp_mode =
-      match sexp_mode with
-      | None -> false
-      | Some b -> b
-    in
-    if sexp_mode
-    then (
-      let%bind res =
-        Async.try_with (fun () ->
-            let%bind sexp = Reader.read_sexp stdin in
-            match sexp with
-            | `Ok sexp ->
-              let%bind () = Ast.t_of_sexp sexp |> eval_run |> Deferred.ignore_m in
-              return true
-            | `Eof -> return false)
-      in
-      match res with
-      | Ok cont -> if cont then repl () else return 0
-      | Error err ->
-        fprintf
-          stderr
-          "Sexp parse error: %s\n"
-          (err |> Error.of_exn |> Error.to_string_hum);
-        if interactive then repl () else return 1)
-    else (
-      let%bind maybe_line = Reader.read_line stdin in
-      match maybe_line with
-      | `Eof -> return 0
-      | `Ok line ->
-        let line = line ^ "\n" in
-        let prior_input =
-          match prior_input with
-          | None -> ""
-          | Some s -> s
+    let eval_sexp sexp = Ast.t_of_sexp sexp |> eval_run |> Deferred.ignore_m in
+    match prog_input with
+    | Sexp sexp ->
+      let%bind () = eval_sexp sexp in
+      return 0
+    | Prog_input.Stream (stdin, sexp_mode) ->
+      (match sexp_mode with
+      | Sexp ->
+        let%bind res =
+          Async.try_with (fun () ->
+              let%bind sexp = Reader.read_sexp stdin in
+              match sexp with
+              | `Ok sexp ->
+                let%bind () = eval_sexp sexp in
+                return true
+              | `Eof -> return false)
         in
-        let input = prior_input ^ line in
-        (match Ast.parse input with
-        | Ok complete ->
-          let%bind () = eval_run complete |> Deferred.ignore_m in
-          repl ()
-        | Error _err ->
-          let new_state = Ast.parse_partial ?state line in
-          (match new_state with
-          | Partial p -> repl ~state:(Partial p) ~prior_input:input ()
-          | Done (unconsumed, ast) ->
-            let%bind () =
-              if unconsumed.len > 0
-              then (
-                let msg = "Unconsumed input remaining!" in
-                fprintf stderr "Parse error: %s\n" msg;
-                return ())
-              else eval_run ast |> Deferred.ignore_m
-            in
-            if interactive then repl () else return 1
-          | Fail (_unconsumed, _marks, msg) ->
-            fprintf stderr "Parse error: %s\n" msg;
-            if interactive then repl () else return 1)))
+        (match res with
+        | Ok cont -> if cont then repl () else return 0
+        | Error err ->
+          fprintf
+            stderr
+            "Sexp parse error: %s\n"
+            (err |> Error.of_exn |> Error.to_string_hum);
+          if interactive then repl () else return 1)
+      | Not_sexp ->
+        let%bind maybe_line = Reader.read_line stdin in
+        (match maybe_line with
+        | `Eof -> return 0
+        | `Ok line ->
+          let line = line ^ "\n" in
+          let prior_input =
+            match prior_input with
+            | None -> ""
+            | Some s -> s
+          in
+          let input = prior_input ^ line in
+          (match Ast.parse input with
+          | Ok complete ->
+            let%bind () = eval_run complete |> Deferred.ignore_m in
+            repl ()
+          | Error _err ->
+            let new_state = Ast.parse_partial ?state line in
+            (match new_state with
+            | Partial p -> repl ~state:(Partial p) ~prior_input:input ()
+            | Done (unconsumed, ast) ->
+              let%bind () =
+                if unconsumed.len > 0
+                then (
+                  let msg = "Unconsumed input remaining!" in
+                  fprintf stderr "Parse error: %s\n" msg;
+                  return ())
+                else eval_run ast |> Deferred.ignore_m
+              in
+              if interactive then repl () else return 1
+            | Fail (_unconsumed, _marks, msg) ->
+              fprintf stderr "Parse error: %s\n" msg;
+              if interactive then repl () else return 1))))
   in
   repl ()
 ;;

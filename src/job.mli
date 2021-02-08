@@ -18,7 +18,8 @@ val create : ?groups:Job_group.t list -> unit -> t
 val cancel : t -> unit
 val cancel_without_signal : t -> unit
 val complete : t -> unit
-val connect : t -> Process.t -> unit
+val connect : ?process:Process.t -> t -> unit
+val attach : process:Process.t -> t -> unit
 val should_connect : t -> bool
 val canceled : t -> bool
 val all_jobs : Job_group.t

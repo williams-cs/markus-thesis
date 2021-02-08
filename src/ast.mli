@@ -43,16 +43,12 @@ and simple_command = token list * assignment list * io_redirect list
 
 and case_item = token list * t option
 
-and remote_command =
-  | Remote_subshell of t
-  | Remote_name of string
-
 and command =
   | Simple_command of simple_command
   | If_clause of (t * t) list * t option
   | Subshell of t
   (* Remote extension *)
-  | Remote_command of remote_command * string
+  | Remote_command of t * string
 
 and pipeline = bang option * command list
 

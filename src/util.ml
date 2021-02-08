@@ -30,3 +30,7 @@ let glue ~reader ~writer =
   let%bind writer = writer in
   glue' ~reader ~writer
 ;;
+
+let verbose_println ~name ~verbose ~stderr ~host str =
+  if verbose then fprintf stderr "%s\n" (sprintf "[%s-%s] " name host ^ str)
+;;

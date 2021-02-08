@@ -6,3 +6,11 @@ val set_random_state : Random.State.t -> unit
 val random_state : unit -> Random.State.t
 val glue : reader:Reader.t Deferred.t -> writer:Writer.t Deferred.t -> unit Deferred.t
 val glue' : reader:Reader.t -> writer:Writer.t -> unit Deferred.t
+
+val verbose_println
+  :  name:string
+  -> verbose:bool
+  -> stderr:Writer.t
+  -> host:string
+  -> string
+  -> unit
