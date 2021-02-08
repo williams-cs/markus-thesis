@@ -25,5 +25,6 @@ _build
 **/.merlin
 
 src/angstrom_extended_async
+local
 *.shard
 							

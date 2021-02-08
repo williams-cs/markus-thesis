@@ -13,7 +13,6 @@ module Eval_args : sig
     -> t
 end
 
-val remote_rpc : bool
 val eval : Ast.t -> eval_args:Eval_args.t -> int Deferred.t
 
 (* Stdin/stdout/stderr refers the the evaluator itself, rather than the program being evaluated *)

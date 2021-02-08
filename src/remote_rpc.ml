@@ -38,6 +38,10 @@ module State = struct
   let create ~verbose = { verbose; close_ivar = Ivar.create () }
 end
 
+let verbose_println ~verbose host str =
+  if verbose then print_endline (sprintf "[ShardRPC-%s] " host ^ str)
+;;
+
 let rpc =
   Pipe_rpc.create
     ~name:"shard_ssh_client_rpc_dispatch"
@@ -68,7 +72,7 @@ let handle_query state query =
              in
              let verbose = State.verbose state in
              let res =
-               Remote_unsafe.remote_run
+               Remote_ssh.remote_run
                  ~host
                  ~program
                  ~verbose
@@ -95,21 +99,20 @@ let implementations =
     ~on_unknown_rpc:`Raise
 ;;
 
-let run_server port state =
+let run_server state =
   Connection.serve
     ~implementations
     ~initial_connection_state:(fun _addr _conn -> state)
-    ~where_to_listen:(Tcp.Where_to_listen.of_port port)
+    ~where_to_listen:Tcp.Where_to_listen.of_port_chosen_by_os
     ()
 ;;
 
-let ready_message = "ready"
-
-let start_server ~port ~verbose =
+let start_server ~verbose =
   let state = State.create ~verbose in
-  let%bind _tcp = run_server port state in
+  let%bind tcp = run_server state in
   (* Signal to the client that the connection is ready *)
-  print_endline ready_message;
+  let port = Tcp.Server.listening_on tcp in
+  print_endline (Int.to_string port);
   let ivar = State.close_ivar state in
   Ivar.read ivar
 ;;
@@ -145,28 +148,36 @@ let setup_rpc_service ~host ~stderr ~verbose ~job =
     else Deferred.Or_error.error_string "Should not connect on attempted connection!"
   in
   continue_if_should_connect (fun () ->
+      verbose_println ~verbose host "Copying local executable...";
       let%bind local_path =
         (* copy executable to shard folder *)
         In_thread.run (fun () ->
-            let local_path, _hash = Remote_unsafe.local_copy ~verbose ~host in
+            let local_path, _hash = Remote_ssh.local_copy ~verbose ~host in
             local_path)
       in
-      let port = 60273 in
       let host = "localhost" in
       let prog = local_path in
-      let args = [ "-r"; Int.to_string port ] @ if verbose then [ "-V" ] else [] in
+      let args = [ "-r" ] @ if verbose then [ "-V" ] else [] in
       (* run copied executable with command line argument, which runs the server *)
       continue_if_should_connect (fun () ->
+          verbose_println ~verbose host "Starting RPC communicator...";
           let%bind.Deferred.Or_error process = Process.create ~prog ~args ~stdin:"" () in
           Job.connect job process;
           let child_stdout = Process.stdout process in
           let child_stderr = Process.stderr process in
           let _err_deferred = Util.glue' ~reader:child_stderr ~writer:stderr in
           (* let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in *)
-          let%bind _ready_string = Reader.read_line child_stdout in
-          let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in
-          (* run the client and return the connection *)
-          run_client host port))
+          let%bind ready_string = Reader.read_line child_stdout in
+          match ready_string with
+          | `Eof ->
+            return (Or_error.error_string "EOF reached when waiting for ready port")
+          | `Ok port_string ->
+            verbose_println ~verbose host (sprintf "RPC port: %s" port_string);
+            let port = Int.of_string port_string in
+            let _out_deferred = Util.glue' ~reader:child_stdout ~writer:stderr in
+            (* run the client and return the connection *)
+            verbose_println ~verbose host "Starting RPC client...";
+            run_client host port))
 ;;
 
 let deferred_or_error_swap v =

@@ -1,5 +1,14 @@
 # Research Log
 
+## 2020-02-04
+- Investigation onto blocking semantics
+  - Blocking by default doesn't happen, even if there is no 'reader' on the other end
+  - Blocking only happens when 'write buffer' is full
+  - In other words, synchronized read-write blocking in not expected from the shell
+  - Therefore, the shell should set up an additional fixed size 'write buffer' and stop reading when it is full
+  - This will cause futher writes to reside in the system pipe
+
+
 ## 2020-01-29
 - Discussion
   - Diagram of how the architecture work

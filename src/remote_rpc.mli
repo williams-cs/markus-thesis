@@ -1,6 +1,6 @@
 open Async
 
-val start_server : port:int -> verbose:bool -> unit Deferred.t
+val start_server : verbose:bool -> unit Deferred.t
 
 val remote_run
   :  host:string

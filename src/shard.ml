@@ -5,19 +5,16 @@ module Ast = Ast
 module Env = Env
 module Eval = Eval
 module Remote_rpc = Remote_rpc
-module Remote_unsafe = Remote_unsafe
+module Remote_ssh = Remote_ssh
 module Util = Util
 
 let active_job_group : Job.Job_group.t option ref = ref None
 
 let setup_signal_handlers () =
   Signal.handle [ Signal.int ] ~f:(fun _signal ->
-      match Eval.remote_rpc with
-      | true ->
-        (match !active_job_group with
-        | Some group -> Job.Job_group.cancel group
-        | None -> ())
-      | false -> Remote_unsafe.disconnect_active_sessions ())
+      match !active_job_group with
+      | Some group -> Job.Job_group.cancel group
+      | None -> ())
 ;;
 
 let run ?sexp_mode ?filename ?verbose () =

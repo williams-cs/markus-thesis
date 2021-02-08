@@ -10,16 +10,14 @@ let run_command =
       and rpc =
         flag
           "-r"
-          (optional int)
-          ~doc:
-            "Set up an rpc server for remote program on the specified port (internal \
-             use)."
+          no_arg
+          ~doc:"Set up an rpc server for remote program on an open port (internal use)."
       and verbose = flag "-V" no_arg ~doc:"Verbose mode."
       and filename = anon (maybe ("filename" %: string)) in
       fun () ->
         match rpc with
-        | Some port -> Shard.Remote_rpc.start_server ~verbose ~port
-        | None -> Shard.run ~sexp_mode ?filename ~verbose ())
+        | true -> Shard.Remote_rpc.start_server ~verbose
+        | false -> Shard.run ~sexp_mode ?filename ~verbose ())
 ;;
 
 let () = Command.run run_command

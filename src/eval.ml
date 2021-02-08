@@ -2,8 +2,6 @@ open Core
 open Async
 open Util
 
-let remote_rpc = true
-
 module Eval_args = struct
   module Stdin = struct
     type t =
@@ -283,38 +281,21 @@ and eval_remote_command t cluster ~eval_args =
     (* let ivar = Ivar.create () in *)
     let remote_run_one host =
       let verbose = Eval_args.verbose eval_args in
-      match remote_rpc with
-      | true ->
-        let stderr = Eval_args.stderr eval_args in
-        let%bind result =
-          Remote_rpc.remote_run
-            ~host
-            ~program
-            ~write_callback:(fun b len -> return (Writer.write_bytes stdout b ~len))
-            ~close_callback:(fun () -> return ())
-            ~stderr
-            ~verbose
-        in
-        (match result with
-        | Ok () -> return 0
-        | Error err ->
-          fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
-          return 1)
-      | false ->
-        let%bind err =
-          In_thread.run (fun () ->
-              Remote_unsafe.remote_run
-                ~host
-                ~program
-                ~verbose
-                ~write_callback:(fun b len -> Writer.write_bytes stdout b ~len)
-                ~close_callback:(fun () -> ()))
-        in
-        (match err with
-        | Ok () -> return 0
-        | Error err ->
-          fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
-          return 1)
+      let stderr = Eval_args.stderr eval_args in
+      let%bind result =
+        Remote_rpc.remote_run
+          ~host
+          ~program
+          ~write_callback:(fun b len -> return (Writer.write_bytes stdout b ~len))
+          ~close_callback:(fun () -> return ())
+          ~stderr
+          ~verbose
+      in
+      match result with
+      | Ok () -> return 0
+      | Error err ->
+        fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
+        return 1
     in
     let env = Eval_args.env eval_args in
     let remotes = Env.cluster_resolve env cluster in
