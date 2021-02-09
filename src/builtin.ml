@@ -132,7 +132,10 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
       Env.cluster_set_active env (List.last args);
       return 0
     | [ "a" ] ->
-      Env.cluster_add env args;
+      (match Env.cluster_add env args with
+      | Ok () -> ()
+      | Error l ->
+        List.iter l ~f:(fun h -> fprintf stderr "cluster: error resolving host for %s" h));
       return 0
     | _ ->
       fprintf stderr "cluster: too many options\n";

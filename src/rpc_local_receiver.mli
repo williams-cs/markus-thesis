@@ -16,6 +16,7 @@ val start_local_receiver : verbose:bool -> unit Deferred.t
 val dispatch
   :  t
   -> host:string
+  -> port:int option
   -> remote_port:int
   -> (Response.t Pipe.Reader.t * Rpc.Pipe_rpc.Metadata.t) Deferred.Or_error.t
 

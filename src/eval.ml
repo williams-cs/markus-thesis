@@ -312,13 +312,14 @@ and eval_remote_command t cluster ~eval_args =
   else (
     let program = t |> Ast.sexp_of_t in
     let%bind stdout = Eval_args.stdout eval_args in
-    (* let ivar = Ivar.create () in *)
-    let remote_run_one host =
+    let remote_run_one host_and_port =
+      let host = Env.Host_and_maybe_port.host host_and_port in
+      let port = Env.Host_and_maybe_port.port host_and_port in
       let verbose = Eval_args.verbose eval_args in
       let%bind stdin = Eval_args.stdin_reader eval_args in
       let stderr = Eval_args.stderr eval_args in
       let%bind result =
-        Remote_rpc.remote_run ~host ~program ~stdin ~stdout ~stderr ~verbose
+        Remote_rpc.remote_run ~host ~port ~program ~stdin ~stdout ~stderr ~verbose
       in
       match result with
       | Ok () -> return 0
@@ -333,7 +334,6 @@ and eval_remote_command t cluster ~eval_args =
     in
     let nonzero = List.find exit_codes ~f:(fun x -> not (x = 0)) in
     let exit_code = Option.value nonzero ~default:0 in
-    (* let%bind () = Ivar.read ivar in *)
     return exit_code)
 
 and eval_if_clause if_elif_blocks maybe_else ~eval_args =

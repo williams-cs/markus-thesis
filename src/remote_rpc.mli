@@ -19,6 +19,7 @@ val start_remote_receiver : verbose:bool -> unit Deferred.t
 
 val remote_run
   :  host:string
+  -> port:int option
   -> program:Sexp.t
   -> verbose:bool
   -> stdin:Reader.t

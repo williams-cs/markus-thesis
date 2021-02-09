@@ -1,5 +1,12 @@
 # Research Log
 
+## 2020-02-08
+- Implementation
+  - Fixed blocking on failure to connect to remote
+  - Fixed hanging processes on failure
+  - Added custom port specification
+  - Added error logging on remote
+
 ## 2020-02-07
 - Implementation
   - Rewrote communication layer over ssh, now with sender/receiver on both local and remote 

@@ -31,6 +31,7 @@ let glue ~reader ~writer =
   glue' ~reader ~writer
 ;;
 
-let verbose_println ~name ~verbose ~stderr ~host str =
-  if verbose then fprintf stderr "%s\n" (sprintf "[%s-%s] " name host ^ str)
+let verbose_println ~name ~verbose ~stderr ~host ~port str =
+  let port_string = match port with | None -> "" | Some i -> sprintf ":%d" i in
+  if verbose then fprintf stderr "%s\n" (sprintf "[%s-%s%s] " name host port_string ^ str)
 ;;

@@ -6,6 +6,7 @@ open Rpc_common
 module Open_query = struct
   type t =
     { host : string
+    ; port : int option
     ; header : Header.t
     }
   [@@deriving bin_io, fields]
@@ -20,7 +21,7 @@ module Close_query = struct
 end
 
 module Open_response = struct
-  type t = int [@@deriving bin_io]
+  type t = int Or_error.t [@@deriving bin_io]
 end
 
 module Response = struct
@@ -72,16 +73,23 @@ let handle_open state query =
   let fd = State.read_fd state in
   let verbose = State.verbose state in
   let host = Open_query.host query in
+  let port = Open_query.port query in
   let header = Open_query.header query |> Header.sexp_of_t |> Sexp.to_string_mach in
-  let ivar : int Ivar.t = Ivar.create () in
+  let ivar : int Or_error.t Ivar.t = Ivar.create () in
   let _x =
     In_thread.run (fun () ->
-        Remote_ssh.remote_run_sender
-          ~host
-          ~verbose
-          ~header
-          ~port_callback:(fun port -> Ivar.fill ivar port)
-          ~read_callback:(fun buf len -> Core.Unix.read fd ~len ~buf))
+        let res =
+          Remote_ssh.remote_run_sender
+            ~host
+            ~port
+            ~verbose
+            ~header
+            ~port_callback:(fun port -> Ivar.fill ivar (Ok port))
+            ~read_callback:(fun buf len -> Core.Unix.read fd ~len ~buf)
+        in
+        match res with
+        | Ok () -> ()
+        | Error err -> Ivar.fill ivar (Error err))
   in
   Ivar.read ivar
 ;;
@@ -129,11 +137,11 @@ let start_local_sender ~verbose =
   Ivar.read ivar
 ;;
 
-let dispatch_open conn ~host ~program =
+let dispatch_open conn ~host ~port ~program =
   let header = { Header.program } in
-  let query = { Open_query.host; header } in
+  let query = { Open_query.host; port; header } in
   let%map response = Rpc.dispatch open_rpc conn query in
-  response
+  Or_error.join response
 ;;
 
 let dispatch_write conn ~buf ~amt =

@@ -2,6 +2,17 @@ open Core
 
 type t
 
+module Host_and_maybe_port : sig
+  type t =
+    { host : string
+    ; port : int option
+    }
+  [@@deriving fields]
+
+  val create : host:string -> port:int option -> t
+  val to_string : t -> string
+end
+
 module Cluster : sig
   type t
 end
@@ -31,6 +42,6 @@ val clusters : t -> (string, Cluster.t) Hashtbl.t
 val cluster_get : t -> string -> Cluster.t option
 val cluster_print : t -> string list -> write_callback:(string -> unit) -> unit
 val cluster_set_active : t -> string option -> unit
-val cluster_add : t -> string list -> unit
-val cluster_resolve : t -> string -> string list
+val cluster_add : t -> string list -> (unit, string list) Result.t
+val cluster_resolve : t -> string -> Host_and_maybe_port.t list
 val job_group : t -> Job.Job_group.t

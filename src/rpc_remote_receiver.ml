@@ -40,21 +40,27 @@ let rpc =
 let handle_query state () =
   Deferred.Or_error.return
     (Pipe.create_reader ~close_on_exception:true (fun pipe ->
-         let stdin = force Reader.stdin in
-         let%bind header_sexp = Reader.read_sexp stdin in
-         match header_sexp with
-         | `Eof -> raise_s [%message "Bad header"]
-         | `Ok header_sexp ->
-           let header = Rpc_common.Header.t_of_sexp header_sexp in
-           let%bind () = Pipe.write pipe (Response.Header header) in
-           let stdin_pipe = Reader.pipe stdin in
-           let%bind () =
-             Pipe.iter stdin_pipe ~f:(fun s -> Pipe.write pipe (Response.Message s))
-           in
-           Pipe.close pipe;
-           let close_ivar = State.close_ivar state in
-           Ivar.fill close_ivar ();
-           return ()))
+         let%bind res =
+           Async.try_with (fun () ->
+               let stdin = force Reader.stdin in
+               let%bind header_sexp = Reader.read_sexp stdin in
+               match header_sexp with
+               | `Eof -> raise_s [%message "Bad header"]
+               | `Ok header_sexp ->
+                 let header = Rpc_common.Header.t_of_sexp header_sexp in
+                 let%bind () = Pipe.write pipe (Response.Header header) in
+                 let stdin_pipe = Reader.pipe stdin in
+                 let%bind () =
+                   Pipe.iter stdin_pipe ~f:(fun s -> Pipe.write pipe (Response.Message s))
+                 in
+                 Pipe.close pipe;
+                 return ())
+         in
+         let close_ivar = State.close_ivar state in
+         Ivar.fill close_ivar ();
+         match res with
+         | Ok () -> return ()
+         | Error exn -> raise exn))
 ;;
 
 let implementations =

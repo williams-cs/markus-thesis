@@ -5,6 +5,7 @@ open Rpc
 module Query = struct
   type t =
     { host : string
+    ; port : int option
     ; remote_port : int
     }
   [@@deriving bin_io, fields]
@@ -62,11 +63,13 @@ let handle_query state query =
     (Pipe.create_reader ~close_on_exception:true (fun pipe ->
          In_thread.run (fun () ->
              let host = Query.host query in
+             let port = Query.port query in
              let remote_port = Query.remote_port query in
              let verbose = State.verbose state in
              let res =
                Remote_ssh.remote_run_receiver
                  ~host
+                 ~port
                  ~remote_port
                  ~verbose
                  ~write_callback:(fun b len ->
@@ -110,8 +113,8 @@ let start_local_receiver ~verbose =
   Ivar.read ivar
 ;;
 
-let dispatch conn ~host ~remote_port =
-  let query = { Query.host; remote_port } in
+let dispatch conn ~host ~port ~remote_port =
+  let query = { Query.host; port; remote_port } in
   let%map response = Pipe_rpc.dispatch rpc conn query in
   Or_error.join response
 ;;

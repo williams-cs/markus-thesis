@@ -1,9 +1,35 @@
 open Core
 
-module Cluster = struct
-  type t = { remotes : string Hash_set.t }
+module Host_and_maybe_port = struct
+  open Ppx_compare_lib.Builtin
 
-  let create () = { remotes = Hash_set.create (module String) }
+  module Stable = struct
+    type t =
+      { host : string
+      ; port : int option
+      }
+    [@@deriving fields, sexp, bin_io, compare, hash]
+  end
+
+  include Stable
+  include (Hashable.Make_binable (Stable) : Hashable.S_binable with type t := t)
+
+  let create ~host ~port = { host; port }
+
+  let to_string { host; port } =
+    let port_part =
+      match port with
+      | None -> ""
+      | Some i -> sprintf ":%d" i
+    in
+    sprintf "%s%s" host port_part
+  ;;
+end
+
+module Cluster = struct
+  type t = { remotes : Host_and_maybe_port.t Hash_set.t }
+
+  let create () = { remotes = Hash_set.create (module Host_and_maybe_port) }
   let add_remote { remotes } remote = Hash_set.add remotes remote
   let get_remotes { remotes } = Hash_set.to_list remotes
 end
@@ -18,6 +44,15 @@ type t =
   }
 
 let default_cluster = "default"
+
+let resolve remote =
+  let uri = Uri.of_string (sprintf "ssh://%s" remote) in
+  match Uri.host uri with
+  | None -> None
+  | Some host ->
+    let port = Uri.port uri in
+    Some (Host_and_maybe_port.create ~host ~port)
+;;
 
 let create ~working_directory =
   let clusters = Hashtbl.create (module String) in
@@ -113,7 +148,10 @@ let cluster_print { clusters; _ } cluster_names ~write_callback =
       then (
         write_callback (sprintf "cluster -s \"%s\"" (print_escape key));
         List.iter (Cluster.get_remotes data) ~f:(fun remote ->
-            write_callback (sprintf "cluster -a \"%s\"" (print_escape remote)))))
+            write_callback
+              (sprintf
+                 "cluster -a \"%s\""
+                 (print_escape (Host_and_maybe_port.to_string remote))))))
 ;;
 
 let cluster_set_active t maybe_name =
@@ -127,7 +165,18 @@ let cluster_add t remotes =
   let { clusters; active_cluster_ref; _ } = t in
   let active_cluster = !active_cluster_ref in
   match Hashtbl.find clusters active_cluster with
-  | Some cluster -> List.iter remotes ~f:(fun remote -> Cluster.add_remote cluster remote)
+  | Some cluster ->
+    let failed =
+      List.fold remotes ~init:[] ~f:(fun failed remote ->
+          match resolve remote with
+          | Some host_and_port ->
+            Cluster.add_remote cluster host_and_port;
+            failed
+          | None -> remote :: failed)
+    in
+    (match failed with
+    | [] -> Ok ()
+    | _ -> Error failed)
   | None -> raise_s [%message "Active cluster should always exist"]
 ;;
 
@@ -135,7 +184,10 @@ let cluster_resolve t cluster_or_host =
   let { clusters; _ } = t in
   match Hashtbl.find clusters cluster_or_host with
   | Some cluster -> Cluster.get_remotes cluster
-  | None -> [ cluster_or_host ]
+  | None ->
+    (match resolve cluster_or_host with
+    | Some host_and_port -> [ host_and_port ]
+    | None -> raise_s [%message "Failed to resolve cluster or host: %s" cluster_or_host])
 ;;
 
 let job_group t =

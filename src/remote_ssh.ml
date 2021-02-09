@@ -5,25 +5,32 @@ open Base.Poly
 (* Default timeout: 3 seconds *)
 let default_ssh_timeout = 3000000L
 let debug = true
-let ssh_debug = false
-let ssh_println str = str |> ignore
+let ssh_debug = true
 let version_string = "v0001"
 let auth_publickey (ssh : Libssh.ssh) = ssh#userauth_publickey_auto ()
 
+let debug_println ~verbose str =
+  if debug && verbose
+  then (
+    fprintf stderr "%s\n" ("[Shard-debug] " ^ str);
+    Out_channel.flush stderr)
+;;
+
 (* TODO: fix verify known hosts *)
-let _verify_known_hosts (ssh : Libssh.ssh) =
+let _verify_known_hosts ~(ssh : Libssh.ssh) ~verbose =
   let _spub = ssh#get_server_publickey () in
   let state = ssh#is_known_server () in
   match state with
   | Libssh.SSH_KNOWN_HOSTS_OK -> ()
   | Libssh.SSH_KNOWN_HOSTS_CHANGED ->
-    ssh_println "Host key changed, connection will be aborted.";
+    debug_println ~verbose "Host key changed, connection will be aborted.";
     exit 1
   | Libssh.SSH_KNOWN_HOSTS_OTHER ->
-    ssh_println "Host key not found, connection will be aborted.";
+    debug_println ~verbose "Host key not found, connection will be aborted.";
     exit 1
   | Libssh.SSH_KNOWN_HOSTS_NOT_FOUND | Libssh.SSH_KNOWN_HOSTS_UNKNOWN ->
-    ssh_println
+    debug_println
+      ~verbose
       "Server is unknown, please connect to it with ssh normally to add to known hosts.";
     exit 1
 ;;
@@ -50,9 +57,18 @@ let authenticate ssh =
     loop auths
 ;;
 
-let connect host =
+let connect ~host ~port ~verbose =
   let ssh = new Libssh.ssh () in
+  let port_string =
+    match port with
+    | None -> "N/A"
+    | Some i -> Int.to_string i
+  in
+  debug_println ~verbose (sprintf "ssh-connect: host: %s; port: %s" host port_string);
   ssh#options_set (Libssh.SSH_OPTIONS_HOST host);
+  (match port with
+  | None -> ()
+  | Some i -> ssh#options_set (Libssh.SSH_OPTIONS_PORT i));
   ssh#options_set (Libssh.SSH_OPTIONS_TIMEOUT_USEC default_ssh_timeout);
   (* SSH debug mode *)
   if ssh_debug
@@ -60,15 +76,16 @@ let connect host =
   ssh#options_parse_config None;
   (* verify_known_hosts ssh; *)
   ssh#connect ();
+  debug_println ~verbose "Attempting to authenticate...";
   match authenticate ssh with
   | Libssh.SSH_AUTH_SUCCESS ->
-    ssh_println "Success!";
+    debug_println ~verbose "Success!";
     ssh
   | Libssh.SSH_AUTH_DENIED ->
-    ssh_println "Access denied!";
+    debug_println ~verbose "Access denied!";
     exit 1
   | _ ->
-    ssh_println "Auth Error!";
+    debug_println ~verbose "Auth Error!";
     exit 1
 ;;
 
@@ -95,10 +112,6 @@ let read_fixed (channel : Libssh.channel) ~buf =
   | End_of_file | Libssh.LibsshError _ -> 0
 ;;
 
-let debug_println ~verbose str =
-  if debug && verbose then print_endline ("[Shard-debug] " ^ str)
-;;
-
 let source tag =
   match tag with
   | `Sender -> "Shard_ssh_sender"
@@ -115,13 +128,14 @@ let local_command str =
 
 let hash_command str = sprintf "md5sum %s| cut -d ' ' -f 1" str
 
-let local_copy ~host ~verbose =
+let local_copy ~host ~port ~verbose =
   let stderr = force Async.Writer.stderr in
   Util.verbose_println
     ~name:(source `Copy)
     ~verbose
     ~stderr
     ~host
+    ~port
     "Looking for local copy of Shard...";
   let dir = sprintf "/tmp/shard/%s" version_string in
   let dest = sprintf "%s/shard.exe" dir in
@@ -135,12 +149,14 @@ let local_copy ~host ~verbose =
       ~verbose
       ~stderr
       ~host
+      ~port
       "Local copy not found.";
     Util.verbose_println
       ~name:(source `Copy)
       ~verbose
       ~stderr
       ~host
+      ~port
       "Installing local copy of Shard...";
     Unix.mkdir_p dir;
     Gc.compact ();
@@ -151,6 +167,7 @@ let local_copy ~host ~verbose =
       ~verbose
       ~stderr
       ~host
+      ~port
       "Local installation complete!");
   dest, src_hash
 ;;
@@ -243,24 +260,28 @@ let remote_command_io ssh command ~header ~read_callback ~write_callback =
 
 let shard_dir = sprintf "/tmp/shard/%s" version_string
 let shard_exe = sprintf "%s/shard.exe" shard_dir
+let rslog = sprintf "%s/rslog.txt" shard_dir
+let rrlog = sprintf "%s/rrlog.txt" shard_dir
 
-let remote_run_sender_unsafe ~host ~verbose ~header ~port_callback ~read_callback =
+let remote_run_sender_unsafe ~host ~port ~verbose ~header ~port_callback ~read_callback =
   let stderr = force Async.Writer.stderr in
-  let _local_path, program_hash = local_copy ~verbose ~host in
+  let _local_path, program_hash = local_copy ~verbose ~host ~port in
   debug_println ~verbose program_hash;
   Util.verbose_println
     ~name:(source `Sender)
     ~verbose
     ~stderr
     ~host
-    "Conneting to remote...";
-  let ssh = connect host in
+    ~port
+    "Connecting to remote...";
+  let ssh = connect ~host ~port ~verbose in
   (* Check for remote copy of Shard *)
   Util.verbose_println
     ~name:(source `Sender)
     ~verbose
     ~stderr
     ~host
+    ~port
     "Checking for remote copy of Shard...";
   let remote_hash = remote_command_fixed ssh (hash_command shard_exe) ~size:1024 in
   debug_println ~verbose remote_hash;
@@ -273,12 +294,14 @@ let remote_run_sender_unsafe ~host ~verbose ~header ~port_callback ~read_callbac
       ~verbose
       ~stderr
       ~host
+      ~port
       "Remote copy does not exist.";
     Util.verbose_println
       ~name:(source `Sender)
       ~verbose
       ~stderr
       ~host
+      ~port
       "Making remote directory...";
     remote_command ssh (sprintf "mkdir -p %s" shard_dir);
     (* Copy Shard to remote *)
@@ -287,6 +310,7 @@ let remote_run_sender_unsafe ~host ~verbose ~header ~port_callback ~read_callbac
       ~verbose
       ~stderr
       ~host
+      ~port
       "Copying executable to remote...";
     send_copy ssh ~dir:shard_dir ~src:shard_exe ~dest:shard_exe;
     (* Set permissions of Shard *)
@@ -295,6 +319,7 @@ let remote_run_sender_unsafe ~host ~verbose ~header ~port_callback ~read_callbac
       ~verbose
       ~stderr
       ~host
+      ~port
       "Setting permissions of remote executable...";
     remote_command ssh (sprintf "chmod 744 %s" shard_exe));
   (* Run command on remote Shard *)
@@ -303,17 +328,24 @@ let remote_run_sender_unsafe ~host ~verbose ~header ~port_callback ~read_callbac
     ~verbose
     ~stderr
     ~host
+    ~port
     "Starting receiver on remote Shard...";
-  let command = sprintf "%s -Rrr" shard_exe in
+  let command = sprintf "%s -Rrr 2>> %s" shard_exe rrlog in
   remote_command_io ssh command ~header ~read_callback ~write_callback:(fun b amt ->
       let sub = Bytes.sub ~pos:0 ~len:amt b in
       let port_string = Bytes.to_string sub in
       let port_string = String.chop_suffix_if_exists ~suffix:"\n" port_string in
       port_callback (Int.of_string port_string));
-  Util.verbose_println ~name:(source `Sender) ~verbose ~stderr ~host "Complete!"
+  Util.verbose_println ~name:(source `Sender) ~verbose ~stderr ~host ~port "Complete!"
 ;;
 
-let remote_run_receiver_unsafe ~host ~verbose ~remote_port ~write_callback ~close_callback
+let remote_run_receiver_unsafe
+    ~host
+    ~port
+    ~verbose
+    ~remote_port
+    ~write_callback
+    ~close_callback
   =
   let stderr = force Async.Writer.stderr in
   Util.verbose_println
@@ -321,30 +353,33 @@ let remote_run_receiver_unsafe ~host ~verbose ~remote_port ~write_callback ~clos
     ~verbose
     ~stderr
     ~host
+    ~port
     "Conneting to remote...";
-  let ssh = connect host in
+  let ssh = connect ~host ~port ~verbose in
   (* Run command on remote Shard *)
   Util.verbose_println
     ~name:(source `Receiver)
     ~verbose
     ~stderr
     ~host
+    ~port
     "Starting sender on remote Shard...";
-  let command = sprintf "%s -Rrs %d -s" shard_exe remote_port in
+  let command = sprintf "%s -Rrs %d -s 2>> %s" shard_exe remote_port rslog in
   remote_command_output ssh command ~write_callback;
   close_callback ();
-  Util.verbose_println ~name:(source `Receiver) ~verbose ~stderr ~host "Complete!"
+  Util.verbose_println ~name:(source `Receiver) ~verbose ~stderr ~host ~port "Complete!"
 ;;
 
-let remote_run_sender ~host ~verbose ~header ~port_callback ~read_callback =
+let remote_run_sender ~host ~port ~verbose ~header ~port_callback ~read_callback =
   Or_error.try_with (fun () ->
-      remote_run_sender_unsafe ~host ~verbose ~header ~port_callback ~read_callback)
+      remote_run_sender_unsafe ~host ~port ~verbose ~header ~port_callback ~read_callback)
 ;;
 
-let remote_run_receiver ~host ~verbose ~remote_port ~write_callback ~close_callback =
+let remote_run_receiver ~host ~port ~verbose ~remote_port ~write_callback ~close_callback =
   Or_error.try_with (fun () ->
       remote_run_receiver_unsafe
         ~host
+        ~port
         ~verbose
         ~remote_port
         ~write_callback

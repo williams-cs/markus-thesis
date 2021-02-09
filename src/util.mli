@@ -12,5 +12,6 @@ val verbose_println
   -> verbose:bool
   -> stderr:Writer.t
   -> host:string
+  -> port:int option
   -> string
   -> unit
