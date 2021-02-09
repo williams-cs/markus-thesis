@@ -80,10 +80,11 @@ let run_command =
               Shard.Remote_rpc.start_remote_sender
                 ~verbose
                 ~remote_port
-                ~runner:(fun ~verbose ~prog ~eval_args_stdin ~stdout ~stderr ->
+                ~runner:(fun ~verbose ~prog ~env ~eval_args_stdin ~stdout ~stderr ->
                   Shard.run_with_io
                     ~verbose
                     ~prog_input:(Shard.Eval.Prog_input.Sexp prog)
+                    ~env
                     ~eval_args_stdin
                     ~stdout
                     ~stderr

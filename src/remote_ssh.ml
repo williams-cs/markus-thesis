@@ -5,7 +5,7 @@ open Base.Poly
 (* Default timeout: 3 seconds *)
 let default_ssh_timeout = 3000000L
 let debug = true
-let ssh_debug = true
+let ssh_debug = false
 let version_string = "v0001"
 let auth_publickey (ssh : Libssh.ssh) = ssh#userauth_publickey_auto ()
 
@@ -229,13 +229,9 @@ let remote_command_io ssh command ~header ~read_callback ~write_callback =
      let index = ref 0 in
      let header_len = Bytes.length header_bytes in
      while !index < header_len do
-       let amt = header_len - !index in
-       Bytes.blit
-         ~src:header_bytes
-         ~src_pos:!index
-         ~dst:buf
-         ~dst_pos:0
-         ~len:(Int.min (Bytes.length buf) amt);
+       let max_amt = header_len - !index in
+       let amt = Int.min (Bytes.length buf) max_amt in
+       Bytes.blit ~src:header_bytes ~src_pos:!index ~dst:buf ~dst_pos:0 ~len:amt;
        channel#write buf 0 amt |> ignore;
        index := !index + amt
      done

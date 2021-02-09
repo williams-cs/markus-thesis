@@ -120,7 +120,7 @@ let deferred_or_error_swap v =
   | Error err -> return (Result.fail err)
 ;;
 
-let remote_run ~host ~port ~program ~verbose ~stdin ~stdout ~stderr =
+let remote_run ~host ~port ~program ~env ~verbose ~stdin ~stdout ~stderr =
   let job = Job.create () in
   let sconn = ref None in
   let rconn = ref None in
@@ -132,7 +132,7 @@ let remote_run ~host ~port ~program ~verbose ~stdin ~stdout ~stderr =
      sconn := Some sender_conn;
      rconn := Some receiver_conn;
      let%bind.Deferred.Or_error remote_port =
-       Rpc_local_sender.dispatch_open sender_conn ~host ~port ~program
+       Rpc_local_sender.dispatch_open sender_conn ~host ~port ~program ~env
      in
      let%map.Deferred.Or_error resp =
        Rpc_local_receiver.dispatch receiver_conn ~host ~port ~remote_port

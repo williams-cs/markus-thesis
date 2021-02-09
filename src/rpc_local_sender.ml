@@ -89,7 +89,14 @@ let handle_open state query =
         in
         match res with
         | Ok () -> ()
-        | Error err -> Ivar.fill ivar (Error err))
+        | Error err ->
+          (match Ivar.is_empty ivar with
+          | true -> Ivar.fill_if_empty ivar (Error err)
+          | false ->
+            fprintf
+              (force Writer.stderr)
+              "Local sender error: %s"
+              (Error.to_string_hum err)))
   in
   Ivar.read ivar
 ;;
@@ -137,8 +144,9 @@ let start_local_sender ~verbose =
   Ivar.read ivar
 ;;
 
-let dispatch_open conn ~host ~port ~program =
-  let header = { Header.program } in
+let dispatch_open conn ~host ~port ~program ~env =
+  let env_image = Env.Image.of_env env in
+  let header = { Header.program; env_image } in
   let query = { Open_query.host; port; header } in
   let%map response = Rpc.dispatch open_rpc conn query in
   Or_error.join response

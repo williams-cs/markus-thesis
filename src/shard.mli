@@ -9,6 +9,7 @@ module Util = Util
 val run_with_io
   :  ?verbose:bool
   -> prog_input:Eval.Prog_input.t
+  -> env:Env.t
   -> eval_args_stdin:Reader.t option
   -> stdout:Writer.t
   -> stderr:Writer.t

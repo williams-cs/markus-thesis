@@ -38,6 +38,9 @@ let start_remote_sender ~verbose ~remote_port ~runner =
       in
       let%bind header = Ivar.read header in
       let prog = Rpc_common.Header.program header in
-      runner ~verbose ~prog ~eval_args_stdin:(Some reader) ~stdout ~stderr)
+      let env_image = Rpc_common.Header.env_image header in
+      let%bind cwd = Unix.getcwd () in
+      let env = Env.Image.to_env ~working_directory:cwd env_image in
+      runner ~verbose ~prog ~env ~eval_args_stdin:(Some reader) ~stdout ~stderr)
   |> Deferred.map ~f:(fun x -> Result.map_error x ~f:Error.of_exn |> Or_error.join)
 ;;

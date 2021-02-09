@@ -84,6 +84,54 @@ let copy
   }
 ;;
 
+module Image = struct
+  module Cluster_image = struct
+    type t = { img_remotes : Host_and_maybe_port.t list } [@@deriving sexp, bin_io]
+
+    let of_cluster { Cluster.remotes } = { img_remotes = Hash_set.to_list remotes }
+
+    let to_cluster { img_remotes } =
+      { Cluster.remotes = Hash_set.of_list (module Host_and_maybe_port) img_remotes }
+    ;;
+  end
+
+  type t_inner =
+    { img_assignments : string String.Map.t
+    ; img_exports : String.Set.t
+    ; img_clusters : Cluster_image.t String.Map.t
+    ; img_active_cluster : string
+    }
+  [@@deriving sexp, bin_io]
+
+  type t = t_inner [@@deriving sexp, bin_io]
+
+  let of_env { assignments; exports; clusters; active_cluster_ref; _ } =
+    { img_assignments = String.Map.of_hashtbl_exn assignments
+    ; img_exports = String.Set.of_hash_set exports
+    ; img_clusters =
+        String.Map.of_hashtbl_exn clusters |> Map.map ~f:Cluster_image.of_cluster
+    ; img_active_cluster = !active_cluster_ref
+    }
+  ;;
+
+  let to_env
+      ~working_directory
+      { img_assignments; img_exports; img_clusters; img_active_cluster }
+    =
+    { assignments =
+        Hashtbl.of_alist_exn (module String) (String.Map.to_alist img_assignments)
+    ; exports = Hash_set.of_list (module String) (String.Set.to_list img_exports)
+    ; clusters =
+        Map.map ~f:Cluster_image.to_cluster img_clusters
+        |> String.Map.to_alist
+        |> Hashtbl.of_alist_exn (module String)
+    ; active_cluster_ref = ref img_active_cluster
+    ; working_directory_ref = ref working_directory
+    ; job_group = Job.Job_group.create ()
+    }
+  ;;
+end
+
 let assign_get t ~key =
   let { assignments; _ } = t in
   Hashtbl.find assignments key |> Option.value ~default:""
@@ -94,6 +142,11 @@ let assign_set t ~key ~data =
   let old_value = assign_get t ~key in
   Hashtbl.set assignments ~key ~data;
   old_value
+;;
+
+let assignments t =
+  let { assignments; _ } = t in
+  String.Map.of_hashtbl_exn assignments
 ;;
 
 let export_add t ~key =

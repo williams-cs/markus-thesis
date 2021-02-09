@@ -22,9 +22,7 @@ let setup_signal_handlers ~interactive =
       | None -> ())
 ;;
 
-let run_with_io ?verbose ~prog_input ~eval_args_stdin ~stdout ~stderr ~isatty () =
-  let%bind cwd = Unix.getcwd () in
-  let env = Env.create ~working_directory:cwd in
+let run_with_io ?verbose ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isatty () =
   let read_enviornment_variables ~env =
     Array.iter (Unix.environment ()) ~f:(fun assignment ->
         Builtin.export_single assignment ~env)
@@ -69,5 +67,7 @@ let run ?sexp_mode ?filename ?verbose () =
         | None -> Not_sexp
         | Some b -> if b then Sexp else Not_sexp )
   in
-  run_with_io ?verbose ~prog_input ~eval_args_stdin ~stdout ~stderr ~isatty ()
+  let%bind cwd = Unix.getcwd () in
+  let env = Env.create ~working_directory:cwd in
+  run_with_io ?verbose ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isatty ()
 ;;

@@ -17,6 +17,15 @@ module Cluster : sig
   type t
 end
 
+module Image : sig
+  type t_inner
+
+  val of_env : t -> t_inner
+  val to_env : working_directory:string -> t_inner -> t
+
+  type t = t_inner [@@deriving sexp, bin_io]
+end
+
 val create : working_directory:string -> t
 val copy : t -> t
 
@@ -25,6 +34,8 @@ val assign_get : t -> key:string -> string
 
 (** Returns old assigned value *)
 val assign_set : t -> key:string -> data:string -> string
+
+val assignments : t -> string String.Map.t
 
 (** Changes the working directory *)
 val cd : t -> dir:string -> unit

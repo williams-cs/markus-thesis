@@ -8,10 +8,10 @@
     - Commonly used and widely present
     - Some reliability measures
   - [X] Sending a copy of program
-  - [ ] Splitting shell into server model
+  - [X] Splitting shell into server model
     - Similar to a Jupyter notebook server / Programming language server
     - Useful for continued computation across multiple SSH sessions
-  - [ ] Communication with parent node
+  - [X] Communication with parent node
     - I/O Stream forwarding
     - Environment variables?
   - [ ] Cleanup on completion/failure
@@ -39,9 +39,9 @@
 | Basic commands         | Y      | Y     | Y      |         |
 | Pipes                  | Y      | Y     | Y      |         |
 | File redirection       | Y      | ~     |        |         |
-| Variables              | Y      | Y     |        |         |
+| Variables              | Y      | Y     | ~      |         |
 | Globbing               |        |       |        |         |
-| Environment            | Y      | Y     |        |         |
+| Environment            | Y      | Y     | Y      |         |
 | Control-flow           | ~      | ~     |        |         |
 | Functions              |        |       |        |         |
 | Job control            |        |       |        |         |

@@ -6,6 +6,7 @@ val start_remote_sender
   -> runner:
        (verbose:bool
         -> prog:Sexp.t
+        -> env:Env.t
         -> eval_args_stdin:Reader.t option
         -> stdout:Writer.t
         -> stderr:Writer.t

@@ -2,6 +2,7 @@
 
 ## 2020-02-08
 - Implementation
+  - Added support for variable copying to remote
   - Fixed blocking on failure to connect to remote
   - Fixed hanging processes on failure
   - Added custom port specification

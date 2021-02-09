@@ -306,7 +306,8 @@ and eval_simple_command (tokens, assignments, _io_redirects) ~eval_args =
   res
 
 and eval_remote_command t cluster ~eval_args =
-  let job_group = eval_args |> Eval_args.env |> Env.job_group in
+  let env = Eval_args.env eval_args in
+  let job_group = env |> Env.job_group in
   if Job.Job_group.canceled job_group
   then return 1
   else (
@@ -319,7 +320,7 @@ and eval_remote_command t cluster ~eval_args =
       let%bind stdin = Eval_args.stdin_reader eval_args in
       let stderr = Eval_args.stderr eval_args in
       let%bind result =
-        Remote_rpc.remote_run ~host ~port ~program ~stdin ~stdout ~stderr ~verbose
+        Remote_rpc.remote_run ~host ~port ~program ~env ~stdin ~stdout ~stderr ~verbose
       in
       match result with
       | Ok () -> return 0
