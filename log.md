@@ -1,5 +1,18 @@
 # Research Log
 
+## 2020-02-24
+- Presentation
+  - 15 mins pres, 5 min question
+  - Outline for presentation
+
+## 2020-02-16
+- Presentation: March 5
+- Research Statement
+  - How do we create a distributed language that allows someone who little distributed systems knowledge to create ad-hoc and reliable distributed jobs with minimal configuration?
+    - The design is the research contribution
+  - What makes a distributed application hard? Errors
+  - We will lose on performance
+
 ## 2020-02-08
 - Implementation
   - Added support for variable copying to remote

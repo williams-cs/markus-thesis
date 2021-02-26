@@ -118,6 +118,7 @@ Options:
      not already exist, create the cluster.
   -a Add the specified ssh profile to the cluster
   -p (or no argument) Prints out the details of the cluster
+  -t Set the type of the cluster (options: adhoc, mapreduce; default: adhoc)
 If more than one option is specified, command is invalid.
 *)
 let builtin_cluster ~env ~stdout ~stderr ~args =
@@ -132,11 +133,27 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
       Env.cluster_set_active env (List.last args);
       return 0
     | [ "a" ] ->
-      (match Env.cluster_add env args with
+      let active_cluster = Env.cluster_get_active env in
+      (match Env.Cluster.add active_cluster args with
       | Ok () -> ()
       | Error l ->
-        List.iter l ~f:(fun h -> fprintf stderr "cluster: error resolving host for %s" h));
+        List.iter l ~f:(fun h ->
+            fprintf stderr "cluster: error resolving host for %s\n" h));
       return 0
+    | [ "t" ] ->
+      (match args with
+      | [ s ] ->
+        let active_cluster = Env.cluster_get_active env in
+        (match Cluster_type.maybe_t_of_string s with
+        | Some cluster_type ->
+          Env.Cluster.set_type active_cluster cluster_type;
+          return 0
+        | None ->
+          fprintf stderr "cluster: cluster type not found\n";
+          return 1)
+      | _ ->
+        fprintf stderr "cluster: incorrect number of arguments for cluster type\n";
+        return 1)
     | _ ->
       fprintf stderr "cluster: too many options\n";
       return 1)

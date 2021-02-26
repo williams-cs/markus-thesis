@@ -15,6 +15,10 @@ end
 
 module Cluster : sig
   type t
+
+  val add : t -> string list -> (unit, string list) Result.t
+  val set_type : t -> Cluster_type.t -> unit
+  val get_type : t -> Cluster_type.t
 end
 
 module Image : sig
@@ -53,6 +57,6 @@ val clusters : t -> (string, Cluster.t) Hashtbl.t
 val cluster_get : t -> string -> Cluster.t option
 val cluster_print : t -> string list -> write_callback:(string -> unit) -> unit
 val cluster_set_active : t -> string option -> unit
-val cluster_add : t -> string list -> (unit, string list) Result.t
+val cluster_get_active : t -> Cluster.t
 val cluster_resolve : t -> string -> Host_and_maybe_port.t list
 val job_group : t -> Job.Job_group.t

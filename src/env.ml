@@ -26,12 +26,47 @@ module Host_and_maybe_port = struct
   ;;
 end
 
-module Cluster = struct
-  type t = { remotes : Host_and_maybe_port.t Hash_set.t }
+let resolve remote =
+  let uri = Uri.of_string (sprintf "ssh://%s" remote) in
+  match Uri.host uri with
+  | None -> None
+  | Some host ->
+    let port = Uri.port uri in
+    Some (Host_and_maybe_port.create ~host ~port)
+;;
 
-  let create () = { remotes = Hash_set.create (module Host_and_maybe_port) }
-  let add_remote { remotes } remote = Hash_set.add remotes remote
-  let get_remotes { remotes } = Hash_set.to_list remotes
+module Cluster = struct
+  type t =
+    { remotes : Host_and_maybe_port.t Hash_set.t
+    ; cluster_type : Cluster_type.t ref
+    }
+  [@@deriving fields]
+
+  let create () =
+    { remotes = Hash_set.create (module Host_and_maybe_port)
+    ; cluster_type = ref Cluster_type.default
+    }
+  ;;
+
+  let add_remote t remote = Hash_set.add (remotes t) remote
+
+  let add t new_remotes =
+    let failed =
+      List.fold new_remotes ~init:[] ~f:(fun failed remote ->
+          match resolve remote with
+          | Some host_and_port ->
+            add_remote t host_and_port;
+            failed
+          | None -> remote :: failed)
+    in
+    match failed with
+    | [] -> Ok ()
+    | _ -> Error failed
+  ;;
+
+  let get_remotes t = Hash_set.to_list (remotes t)
+  let set_type t new_type = cluster_type t := new_type
+  let get_type t = !(cluster_type t)
 end
 
 type t =
@@ -44,15 +79,6 @@ type t =
   }
 
 let default_cluster = "default"
-
-let resolve remote =
-  let uri = Uri.of_string (sprintf "ssh://%s" remote) in
-  match Uri.host uri with
-  | None -> None
-  | Some host ->
-    let port = Uri.port uri in
-    Some (Host_and_maybe_port.create ~host ~port)
-;;
 
 let create ~working_directory =
   let clusters = Hashtbl.create (module String) in
@@ -86,12 +112,20 @@ let copy
 
 module Image = struct
   module Cluster_image = struct
-    type t = { img_remotes : Host_and_maybe_port.t list } [@@deriving sexp, bin_io]
+    type t =
+      { img_remotes : Host_and_maybe_port.t list
+      ; img_cluster_type : Cluster_type.t
+      }
+    [@@deriving sexp, bin_io]
 
-    let of_cluster { Cluster.remotes } = { img_remotes = Hash_set.to_list remotes }
+    let of_cluster { Cluster.remotes; cluster_type } =
+      { img_remotes = Hash_set.to_list remotes; img_cluster_type = !cluster_type }
+    ;;
 
-    let to_cluster { img_remotes } =
-      { Cluster.remotes = Hash_set.of_list (module Host_and_maybe_port) img_remotes }
+    let to_cluster { img_remotes; img_cluster_type } =
+      { Cluster.remotes = Hash_set.of_list (module Host_and_maybe_port) img_remotes
+      ; cluster_type = ref img_cluster_type
+      }
     ;;
   end
 
@@ -214,22 +248,11 @@ let cluster_set_active t maybe_name =
   active_cluster_ref := name
 ;;
 
-let cluster_add t remotes =
-  let { clusters; active_cluster_ref; _ } = t in
+let cluster_get_active t =
+  let { active_cluster_ref; clusters; _ } = t in
   let active_cluster = !active_cluster_ref in
   match Hashtbl.find clusters active_cluster with
-  | Some cluster ->
-    let failed =
-      List.fold remotes ~init:[] ~f:(fun failed remote ->
-          match resolve remote with
-          | Some host_and_port ->
-            Cluster.add_remote cluster host_and_port;
-            failed
-          | None -> remote :: failed)
-    in
-    (match failed with
-    | [] -> Ok ()
-    | _ -> Error failed)
+  | Some cluster -> cluster
   | None -> raise_s [%message "Active cluster should always exist"]
 ;;
 
