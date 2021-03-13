@@ -1,5 +1,29 @@
 # Research Log
 
+## 2020-03-11
+- Outline
+  - Thesis template
+  - Moving stuff into TeX format
+  - Subsection of outline
+  - Pencil and paper work on math model for "job allocation"
+  - Foucs
+  - Outline by Friday, First Graph by Wednesday
+    - Plot with ggplot or stuff
+  - Intro
+  - Related Work/Background
+  - Design of framework (boxes and arrows)
+    - Distributed, language
+    - Actually go deep into technical stuff
+    - Error model?
+  - Implementation
+    - Separation of implementation of design
+    - Alternative methods
+    - E.g. event driven vs threads
+  - Evaluation
+    - Subsections (ease of use)
+    - Figure out graphs
+  - Conclusion/Future Work
+
 ## 2020-02-24
 - Presentation
   - 15 mins pres, 5 min question
