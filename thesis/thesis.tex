@@ -107,6 +107,46 @@ I could not have written this thesis without the help of my advisors, Dan Barowy
 
 %% Introduction
 \chapter{Introduction}
+\begin{itemize}
+  \item What my project is
+  \item What I've done
+  \item How I've done it
+  \item Measurement of success
+\end{itemize}
+
+\section{Motivation}
+\begin{itemize}
+  \item What makes this project unique (will elaborate in background)
+  \item Introduce three pillars (distributed, reliable, easy to use)
+\end{itemize}
+
+\subsection{Distributed}
+\begin{itemize}
+  \item Why would someone want a distributed program?
+  \item What are some challenges of a distributed program?
+  \item Talk about error handling, segue into reliability
+\end{itemize}
+
+\subsection{Reliable}
+\begin{itemize}
+  \item Error handling
+  \item Why is reliability important?
+  \item Segue - how does it tie into being easy to use
+\end{itemize}
+
+\subsection{Easy to use}
+\begin{itemize}
+  \item Ease of use
+  \item Ad-hoc
+  \item Low knowledge barrier
+  \item Why is being easy to use important?
+  \item Distinguishes Shard from other projects
+\end{itemize}
+
+\section{Summary}
+\begin{itemize}
+  \item Explain the layout of the rest of my thesis
+\end{itemize}
 
 
 %% Background
@@ -230,6 +270,158 @@ Therefore, it makes sense to be able to use the command-line shell to interact w
 However, distributed systems come with existing challenges, particularly because failures are much more likely when there are more avenues of failure and more machines that can fail.
 While many existing distributed systems have built-in error handling and recovery mechanims, prior solutions for extending the shell to a cluster of distributed systems do not sufficiently take into account these same errors.
 This thesis aims improve upon existing solutions by unifying the reliability built in to distributed systems with simplicity and ease of use of the command-line shell interface.
+
+\chapter{Design}
+
+\begin{itemize}
+  \item High level design
+  \begin{itemize}
+    \item Satisfying the three pillars (ease of use, distributed, reliable)
+    \item Use language to solve problem
+  \end{itemize}
+\end{itemize}
+
+\section{Application classes}
+
+\begin{itemize}
+  \item Solves the problem of: reliability/error handling semantics
+  \item Overall error model (or maybe keep it specific to the application classes)
+  \item Describe the existing application classes
+\end{itemize}
+
+\subsection{Application class: \texttt{single\_command}}
+
+\begin{itemize}
+  \item Application features 
+  \item Error handling
+  \item Give example of when to use
+\end{itemize}
+
+\subsection{Application class: \texttt{data\_parallel}}
+
+\section{Language design}
+
+\begin{itemize}
+  \item Solves the problem of: ease of use/familiarity
+  \item Describe the programming language
+  \item Based on the POSIX shell standard
+  \item Simple new syntax/semantics for distributed work
+  \begin{itemize}
+    \item Cluster management (builtin)
+    \item Application classes/error handling semantics support
+    \item Run on remote host (@@) 
+  \end{itemize}
+\end{itemize}
+
+\subsection{Example programs}
+
+\begin{itemize}
+  \item Give examples and explain in detail
+  \item Example program: Hello world
+  \item Example program: Memory usage in cluster
+  \item Example program: Word count in large file
+\end{itemize}
+
+\section{Protocol design}
+
+\begin{itemize}
+  \item Solves the problem of: distributed
+  \item Describe the distributed protocol
+  \item Note that this is about the design of the protocol, rather than the implementation details
+\end{itemize}
+
+\chapter{Implementation}
+
+\section{Architecture}
+
+\begin{itemize}
+  \item Split up into 4 parts: Shell, language, protocol, application class
+  \item Basic summary of each part, its purpose, and how they connect together
+\end{itemize}
+
+\section{Shell implementation}
+
+\begin{itemize}
+  \item In depth writing about how the shell is implemented
+  \item OCaml, directly on top of Unix primitives (rather than on an existing shell)
+  \item Invokable with command line
+  \item Interactive and non-interactive mode
+  \item Most features are written to work locally, and separated so that language/protocol/application class implementations are abstracted
+\end{itemize}
+
+\section{Language implementation}
+
+\begin{itemize}
+  \item Implemented by referring to POSIX shell specification
+  \item Parse: Use recursive parser combinator library Angstrom
+  \item Interpret: Interpret parsed objects in functions directly, with support for custom features needed by Shard
+  \item Some specification features are not yet supported, but there is no reason why support cannot be added if needed
+\end{itemize}
+
+\section{Protocol implementation}
+
+\begin{itemize}
+  \item Model: copy executable to each remote machine, then use SSH to communicate between machines
+  \item Support SSH config
+  \item Each remote invocation spawns two processes locally and two processes remotely: justified by easy to separate remote invocations
+  \item Use OCaml Async RPC for interprocess communication between processes on the same machine: strongly typed, serialization supported, etc
+  \item Heavyweight but works well for ad-hoc programming
+\end{itemize}
+
+\section{Application class implementation}
+
+\begin{itemize}
+  \item Each application class implementation conforms to a specific interface
+  \item Handles how new jobs are dispatched, how existing jobs are managed, retry, error handling, etc. as needed by the application class
+  \item Ability to plug in support for new application classes
+\end{itemize}
+
+\section{Implementation trade-offs}
+
+\subsection{Performance}
+\begin{itemize}
+  \item Quantify performance tradeoffs? examples, stats, graphs, etc
+\end{itemize}
+
+\subsection{Alternative Approaches}
+\begin{itemize}
+  \item Other languages
+  \item Threads vs processes
+\end{itemize}
+
+\chapter{Evaluation}
+
+\section{Distributed}
+\begin{itemize}
+  \item Can be run over network
+  \item Graph to show running time for X machines in cluster (use CS machines? rent some VMs?)
+\end{itemize}
+
+\section{Reliable}
+
+\begin{itemize}
+  \item Still works even in error conditions
+  \item Graph completion time vs random failure rate for \texttt{single\_command} programs with intermittent network errors
+  \item Graph completion time vs random failure rate for \texttt{data\_parallel} programs with both temporarily and permanently failing hosts
+\end{itemize}
+
+\section{Easy to use}
+
+\begin{itemize}
+  \item Provide examples of sample programs
+  \item If time permits, ask other programmers (potentially with less knowledge on distributed systems/programming languages) to try writing programs
+  \item Line of code/code size comparisons?
+\end{itemize}
+
+\chapter{Conclusion}
+\begin{itemize}
+  \item Research question
+  \item Solution (design, implementation)
+  \item Measuring success (three pillars)
+  \item Future work
+  \item What did this thesis accomplish?
+\end{itemize}
+
 
 %%%%%%%% References %%%%%%%%%%
 \bibliographystyle{acm}
