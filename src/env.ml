@@ -1,12 +1,13 @@
 open Core
 
-module Host_and_maybe_port = struct
+module Remote_target = struct
   open Ppx_compare_lib.Builtin
 
   module Stable = struct
     type t =
       { host : string
       ; port : int option
+      ; setting : string
       }
     [@@deriving fields, sexp, bin_io, compare, hash]
   end
@@ -14,36 +15,54 @@ module Host_and_maybe_port = struct
   include Stable
   include (Hashable.Make_binable (Stable) : Hashable.S_binable with type t := t)
 
-  let create ~host ~port = { host; port }
+  let create ~host ~port ~setting = { host; port; setting }
+  let with_setting { host; port; setting = _ } ~setting = { host; port; setting }
 
-  let to_string { host; port } =
+  let to_string { host; port; setting } =
+    let setting_part =
+      match setting with
+      | "" -> ""
+      | s -> sprintf "%s/" s
+    in
     let port_part =
       match port with
       | None -> ""
       | Some i -> sprintf ":%d" i
     in
-    sprintf "%s%s" host port_part
+    sprintf "%s%s%s" setting_part host port_part
   ;;
 end
 
+let split_remote_target_setting remote =
+  let remote_name_splitter = '/' in
+  let parts = String.split ~on:remote_name_splitter remote in
+  let non_final_parts = List.slice parts 0 (List.length parts - 1) in
+  let final_part = List.last parts |> Option.value ~default:"" in
+  let setting =
+    String.concat ~sep:(String.of_char remote_name_splitter) non_final_parts
+  in
+  final_part, setting
+;;
+
 let resolve remote =
-  let uri = Uri.of_string (sprintf "ssh://%s" remote) in
+  let target, setting = split_remote_target_setting remote in
+  let uri = Uri.of_string (sprintf "ssh://%s" target) in
   match Uri.host uri with
   | None -> None
   | Some host ->
     let port = Uri.port uri in
-    Some (Host_and_maybe_port.create ~host ~port)
+    Some (Remote_target.create ~host ~port ~setting)
 ;;
 
 module Cluster = struct
   type t =
-    { remotes : Host_and_maybe_port.t Hash_set.t
+    { remotes : Remote_target.t Hash_set.t
     ; cluster_type : Cluster_type.t ref
     }
   [@@deriving fields]
 
   let create () =
-    { remotes = Hash_set.create (module Host_and_maybe_port)
+    { remotes = Hash_set.create (module Remote_target)
     ; cluster_type = ref Cluster_type.default
     }
   ;;
@@ -113,7 +132,7 @@ let copy
 module Image = struct
   module Cluster_image = struct
     type t =
-      { img_remotes : Host_and_maybe_port.t list
+      { img_remotes : Remote_target.t list
       ; img_cluster_type : Cluster_type.t
       }
     [@@deriving sexp, bin_io]
@@ -123,7 +142,7 @@ module Image = struct
     ;;
 
     let to_cluster { img_remotes; img_cluster_type } =
-      { Cluster.remotes = Hash_set.of_list (module Host_and_maybe_port) img_remotes
+      { Cluster.remotes = Hash_set.of_list (module Remote_target) img_remotes
       ; cluster_type = ref img_cluster_type
       }
     ;;
@@ -238,7 +257,7 @@ let cluster_print { clusters; _ } cluster_names ~write_callback =
             write_callback
               (sprintf
                  "cluster -a \"%s\""
-                 (print_escape (Host_and_maybe_port.to_string remote))))))
+                 (print_escape (Remote_target.to_string remote))))))
 ;;
 
 let cluster_set_active t maybe_name =
@@ -258,8 +277,11 @@ let cluster_get_active t =
 
 let cluster_resolve t cluster_or_host =
   let { clusters; _ } = t in
-  match Hashtbl.find clusters cluster_or_host with
-  | Some cluster -> Cluster.get_remotes cluster
+  let target, setting = split_remote_target_setting cluster_or_host in
+  match Hashtbl.find clusters target with
+  | Some cluster ->
+    Cluster.get_remotes cluster
+    |> List.map ~f:(fun remote -> Remote_target.with_setting remote ~setting)
   | None ->
     (match resolve cluster_or_host with
     | Some host_and_port -> [ host_and_port ]

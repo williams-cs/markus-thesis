@@ -2,14 +2,15 @@ open Core
 
 type t
 
-module Host_and_maybe_port : sig
+module Remote_target : sig
   type t =
     { host : string
     ; port : int option
+    ; setting : string
     }
   [@@deriving fields]
 
-  val create : host:string -> port:int option -> t
+  val create : host:string -> port:int option -> setting:string -> t
   val to_string : t -> string
 end
 
@@ -58,5 +59,5 @@ val cluster_get : t -> string -> Cluster.t option
 val cluster_print : t -> string list -> write_callback:(string -> unit) -> unit
 val cluster_set_active : t -> string option -> unit
 val cluster_get_active : t -> Cluster.t
-val cluster_resolve : t -> string -> Host_and_maybe_port.t list
+val cluster_resolve : t -> string -> Remote_target.t list
 val job_group : t -> Job.Job_group.t

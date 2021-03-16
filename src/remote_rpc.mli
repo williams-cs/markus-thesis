@@ -19,8 +19,7 @@ val start_remote_sender
 val start_remote_receiver : verbose:bool -> unit Deferred.t
 
 val remote_run
-  :  host:string
-  -> port:int option
+  :  remote_target:Env.Remote_target.t
   -> program:Sexp.t
   -> env:Env.t
   -> verbose:bool
