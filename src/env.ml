@@ -1,69 +1,20 @@
 open Core
 
-module Remote_target = struct
-  open Ppx_compare_lib.Builtin
-
-  module Stable = struct
-    type t =
-      { host : string
-      ; port : int option
-      ; setting : string
-      }
-    [@@deriving fields, sexp, bin_io, compare, hash]
-  end
-
-  include Stable
-  include (Hashable.Make_binable (Stable) : Hashable.S_binable with type t := t)
-
-  let create ~host ~port ~setting = { host; port; setting }
-  let with_setting { host; port; setting = _ } ~setting = { host; port; setting }
-
-  let to_string { host; port; setting } =
-    let setting_part =
-      match setting with
-      | "" -> ""
-      | s -> sprintf "%s/" s
-    in
-    let port_part =
-      match port with
-      | None -> ""
-      | Some i -> sprintf ":%d" i
-    in
-    sprintf "%s%s%s" setting_part host port_part
-  ;;
-end
-
-let split_remote_target_setting remote =
-  let remote_name_splitter = '/' in
-  let parts = String.split ~on:remote_name_splitter remote in
-  let non_final_parts = List.slice parts 0 (List.length parts - 1) in
-  let final_part = List.last parts |> Option.value ~default:"" in
-  let setting =
-    String.concat ~sep:(String.of_char remote_name_splitter) non_final_parts
-  in
-  final_part, setting
-;;
-
-let resolve remote =
-  let target, setting = split_remote_target_setting remote in
-  let uri = Uri.of_string (sprintf "ssh://%s" target) in
-  match Uri.host uri with
-  | None -> None
-  | Some host ->
-    let port = Uri.port uri in
-    Some (Remote_target.create ~host ~port ~setting)
-;;
-
 module Cluster = struct
-  type t =
+  type 'a t =
     { remotes : Remote_target.t Hash_set.t
-    ; cluster_type : Cluster_type.t ref
+    ; provider : (module Application_class.Provider with type t = 'a)
+    ; cluster_type : 'a ref
+    ; application_class_backend : (module Application_class.Backend)
     }
   [@@deriving fields]
 
-  let create () =
+  let create (type a) (module Provider : Application_class.Provider with type t = a) =
+    let cluster_type = Provider.default in
     { remotes = Hash_set.create (module Remote_target)
-    ; cluster_type = ref Cluster_type.default
+    ; provider = (module Provider)
+    ; cluster_type = ref cluster_type
+    ; application_class_backend = Provider.application_class_backend_of_t cluster_type
     }
   ;;
 
@@ -72,7 +23,7 @@ module Cluster = struct
   let add t new_remotes =
     let failed =
       List.fold new_remotes ~init:[] ~f:(fun failed remote ->
-          match resolve remote with
+          match Remote_target.resolve remote with
           | Some host_and_port ->
             add_remote t host_and_port;
             failed
@@ -88,10 +39,11 @@ module Cluster = struct
   let get_type t = !(cluster_type t)
 end
 
-type t =
+type 'a t =
   { assignments : (string, string) Hashtbl.t
   ; exports : string Hash_set.t
-  ; clusters : (string, Cluster.t) Hashtbl.t
+  ; clusters : (string, 'a Cluster.t) Hashtbl.t
+  ; provider : (module Application_class.Provider with type t = 'a)
   ; active_cluster_ref : string ref
   ; working_directory_ref : string ref
   ; job_group : Job.Job_group.t
@@ -99,12 +51,18 @@ type t =
 
 let default_cluster = "default"
 
-let create ~working_directory =
+let create
+    (type a)
+    (module Provider : Application_class.Provider with type t = a)
+    ~working_directory
+  =
   let clusters = Hashtbl.create (module String) in
-  Hashtbl.add clusters ~key:default_cluster ~data:(Cluster.create ()) |> ignore;
+  Hashtbl.add clusters ~key:default_cluster ~data:(Cluster.create (module Provider))
+  |> ignore;
   { assignments = Hashtbl.create (module String)
   ; exports = Hash_set.create (module String)
   ; clusters
+  ; provider = (module Provider)
   ; active_cluster_ref = ref default_cluster
   ; working_directory_ref = ref working_directory
   ; job_group = Job.Job_group.create ()
@@ -115,6 +73,7 @@ let copy
     { assignments
     ; exports
     ; clusters
+    ; provider
     ; active_cluster_ref
     ; working_directory_ref
     ; job_group = _
@@ -123,6 +82,7 @@ let copy
   { assignments = Hashtbl.copy assignments
   ; exports = Hash_set.copy exports
   ; clusters = Hashtbl.copy clusters
+  ; provider
   ; active_cluster_ref = ref !active_cluster_ref
   ; working_directory_ref = ref !working_directory_ref (* Don't copy job group *)
   ; job_group = Job.Job_group.create ()
@@ -133,17 +93,34 @@ module Image = struct
   module Cluster_image = struct
     type t =
       { img_remotes : Remote_target.t list
-      ; img_cluster_type : Cluster_type.t
+      ; img_cluster_type : string
       }
     [@@deriving sexp, bin_io]
 
-    let of_cluster { Cluster.remotes; cluster_type } =
-      { img_remotes = Hash_set.to_list remotes; img_cluster_type = !cluster_type }
+    (* Potentially transfer backend info? *)
+    let of_cluster
+        (type a)
+        ({ Cluster.remotes; cluster_type; provider; application_class_backend = _ } :
+          a Cluster.t)
+      =
+      let (module Provider : Application_class.Provider with type t = a) = provider in
+      let cluster_type = !cluster_type in
+      { img_remotes = Hash_set.to_list remotes
+      ; img_cluster_type = Provider.string_of_t cluster_type
+      }
     ;;
 
-    let to_cluster { img_remotes; img_cluster_type } =
+    let to_cluster
+        (type a)
+        (module Provider : Application_class.Provider with type t = a)
+        { img_remotes; img_cluster_type }
+      =
+      let maybe_cluster_type = Provider.maybe_t_of_string img_cluster_type in
+      let cluster_type = Option.value_exn maybe_cluster_type in
       { Cluster.remotes = Hash_set.of_list (module Remote_target) img_remotes
-      ; cluster_type = ref img_cluster_type
+      ; provider = (module Provider)
+      ; cluster_type = ref cluster_type
+      ; application_class_backend = Provider.application_class_backend_of_t cluster_type
       }
     ;;
   end
@@ -162,12 +139,15 @@ module Image = struct
     { img_assignments = String.Map.of_hashtbl_exn assignments
     ; img_exports = String.Set.of_hash_set exports
     ; img_clusters =
-        String.Map.of_hashtbl_exn clusters |> Map.map ~f:Cluster_image.of_cluster
+        String.Map.of_hashtbl_exn clusters
+        |> Map.map ~f:(fun x -> Cluster_image.of_cluster x)
     ; img_active_cluster = !active_cluster_ref
     }
   ;;
 
   let to_env
+      (type a)
+      (module Provider : Application_class.Provider with type t = a)
       ~working_directory
       { img_assignments; img_exports; img_clusters; img_active_cluster }
     =
@@ -175,9 +155,10 @@ module Image = struct
         Hashtbl.of_alist_exn (module String) (String.Map.to_alist img_assignments)
     ; exports = Hash_set.of_list (module String) (String.Set.to_list img_exports)
     ; clusters =
-        Map.map ~f:Cluster_image.to_cluster img_clusters
+        Map.map ~f:(fun x -> Cluster_image.to_cluster (module Provider) x) img_clusters
         |> String.Map.to_alist
         |> Hashtbl.of_alist_exn (module String)
+    ; provider = (module Provider)
     ; active_cluster_ref = ref img_active_cluster
     ; working_directory_ref = ref working_directory
     ; job_group = Job.Job_group.create ()
@@ -260,10 +241,11 @@ let cluster_print { clusters; _ } cluster_names ~write_callback =
                  (print_escape (Remote_target.to_string remote))))))
 ;;
 
-let cluster_set_active t maybe_name =
+let cluster_set_active (type a) t maybe_name =
   let name = Option.value ~default:default_cluster maybe_name in
-  let { clusters; active_cluster_ref; _ } = t in
-  Hashtbl.add clusters ~key:name ~data:(Cluster.create ()) |> ignore;
+  let { clusters; active_cluster_ref; provider; _ } = t in
+  let (module Provider : Application_class.Provider with type t = a) = provider in
+  Hashtbl.add clusters ~key:name ~data:(Cluster.create (module Provider)) |> ignore;
   active_cluster_ref := name
 ;;
 
@@ -277,13 +259,13 @@ let cluster_get_active t =
 
 let cluster_resolve t cluster_or_host =
   let { clusters; _ } = t in
-  let target, setting = split_remote_target_setting cluster_or_host in
+  let target, setting = Remote_target.split_remote_target_setting cluster_or_host in
   match Hashtbl.find clusters target with
   | Some cluster ->
     Cluster.get_remotes cluster
     |> List.map ~f:(fun remote -> Remote_target.with_setting remote ~setting)
   | None ->
-    (match resolve cluster_or_host with
+    (match Remote_target.resolve cluster_or_host with
     | Some host_and_port -> [ host_and_port ]
     | None -> raise_s [%message "Failed to resolve cluster or host: %s" cluster_or_host])
 ;;

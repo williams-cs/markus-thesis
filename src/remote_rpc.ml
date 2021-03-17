@@ -125,8 +125,8 @@ let remote_run ~remote_target ~program ~env ~verbose ~stdin ~stdout ~stderr =
   let sconn = ref None in
   let rconn = ref None in
   (* UUID key should be unique *)
-  let host = Env.Remote_target.host remote_target in
-  let port = Env.Remote_target.port remote_target in
+  let host = Remote_target.host remote_target in
+  let port = Remote_target.port remote_target in
   let%bind res1d =
     (let%bind.Deferred.Or_error sender_conn, receiver_conn =
        setup_rpc_service ~host ~port ~stderr ~verbose ~job

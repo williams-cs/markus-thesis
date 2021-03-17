@@ -3,7 +3,7 @@ open Async
 
 type t =
   | Function of
-      (env:Env.t
+      (env:Cluster_type.t Env.t
        -> stdout:Writer.t
        -> stderr:Writer.t
        -> args:string list

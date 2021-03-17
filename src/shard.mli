@@ -1,15 +1,18 @@
 open Async
 module Ast = Ast
+module Cluster_type = Cluster_type
 module Env = Env
 module Eval = Eval
 module Remote_rpc = Remote_rpc
 module Remote_ssh = Remote_ssh
 module Util = Util
 
+val create_env : working_directory:string -> Cluster_type.t Env.t
+
 val run_with_io
   :  ?verbose:bool
   -> prog_input:Eval.Prog_input.t
-  -> env:Env.t
+  -> env:Cluster_type.t Env.t
   -> eval_args_stdin:Reader.t option
   -> stdout:Writer.t
   -> stderr:Writer.t

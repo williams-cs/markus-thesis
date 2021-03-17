@@ -21,7 +21,7 @@ let run_test_no_timeout input =
       ast
       ~eval_args:
         (Eval.Eval_args.create
-           ~env:(Env.create ~working_directory:test_cwd)
+           ~env:(create_env ~working_directory:test_cwd)
            ~stdin:None
            ~stdout
            ~stderr

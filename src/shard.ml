@@ -2,6 +2,7 @@ open Core
 open Async
 open Eval
 module Ast = Ast
+module Cluster_type = Cluster_type
 module Env = Env
 module Eval = Eval
 module Remote_rpc = Remote_rpc
@@ -43,6 +44,13 @@ let run_with_io ?verbose ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isat
   exit_code
 ;;
 
+let create_env ~working_directory =
+  let (module Provider : Application_class.Provider with type t = Cluster_type.t) =
+    Cluster_type.provider
+  in
+  Env.create (module Provider) ~working_directory
+;;
+
 let run ?sexp_mode ?filename ?verbose () =
   let stdin = force Reader.stdin in
   let stdout = force Writer.stdout in
@@ -68,6 +76,6 @@ let run ?sexp_mode ?filename ?verbose () =
         | Some b -> if b then Sexp else Not_sexp )
   in
   let%bind cwd = Unix.getcwd () in
-  let env = Env.create ~working_directory:cwd in
+  let env = create_env ~working_directory:cwd in
   run_with_io ?verbose ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isatty ()
 ;;

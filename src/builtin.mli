@@ -3,7 +3,7 @@ open Async
 
 type t =
   | Function of
-      (env:Env.t
+      (env:Cluster_type.t Env.t
        -> stdout:Writer.t
        -> stderr:Writer.t
        -> args:string list
@@ -11,4 +11,4 @@ type t =
   | Source
 
 val builtins : t String.Map.t
-val export_single : string -> env:Env.t -> unit
+val export_single : string -> env:Cluster_type.t Env.t -> unit

@@ -5,7 +5,7 @@ module Eval_args : sig
 
   (* If no input, leave stdin as None. Otherwise, supply a Reader.t. *)
   val create
-    :  env:Env.t
+    :  env:Cluster_type.t Env.t
     -> stdin:Reader.t option
     -> stdout:Writer.t
     -> stderr:Writer.t

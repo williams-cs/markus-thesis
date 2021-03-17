@@ -1,12 +1,13 @@
 open Async
 
 val start_remote_sender
-  :  verbose:bool
+  :  (module Application_class.Provider with type t = 'a)
+  -> verbose:bool
   -> remote_port:int
   -> runner:
        (verbose:bool
         -> prog:Sexp.t
-        -> env:Env.t
+        -> env:'a Env.t
         -> eval_args_stdin:Reader.t option
         -> stdout:Writer.t
         -> stderr:Writer.t

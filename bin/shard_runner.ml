@@ -76,8 +76,10 @@ let run_command =
             in
             log_remote rerror
           | Remote_sender remote_port ->
+            let (module M) = Shard.Cluster_type.provider in
             let%bind.Deferred rerror =
               Shard.Remote_rpc.start_remote_sender
+                (module M)
                 ~verbose
                 ~remote_port
                 ~runner:(fun ~verbose ~prog ~env ~eval_args_stdin ~stdout ~stderr ->

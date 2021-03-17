@@ -17,7 +17,7 @@ module Eval_args = struct
   end
 
   type t =
-    { env : Env.t
+    { env : Cluster_type.t Env.t
     ; stdin : Stdin.t
     ; stdout : Writer.t Deferred.t
     ; stderr : Writer.t

@@ -10,7 +10,13 @@ let run_client host port =
   Deferred.Result.map_error ~f:(fun exn -> Error.of_exn exn) conn
 ;;
 
-let start_remote_sender ~verbose ~remote_port ~runner =
+let start_remote_sender
+    (type a)
+    (module Provider : Application_class.Provider with type t = a)
+    ~verbose
+    ~remote_port
+    ~runner
+  =
   Async.try_with (fun () ->
       let%bind `Reader read_fd, `Writer write_fd =
         Unix.pipe (Info.of_string "remote_rpc")
@@ -40,7 +46,7 @@ let start_remote_sender ~verbose ~remote_port ~runner =
       let prog = Rpc_common.Header.program header in
       let env_image = Rpc_common.Header.env_image header in
       let%bind cwd = Unix.getcwd () in
-      let env = Env.Image.to_env ~working_directory:cwd env_image in
+      let env = Env.Image.to_env (module Provider) ~working_directory:cwd env_image in
       runner ~verbose ~prog ~env ~eval_args_stdin:(Some reader) ~stdout ~stderr)
   |> Deferred.map ~f:(fun x -> Result.map_error x ~f:Error.of_exn |> Or_error.join)
 ;;
