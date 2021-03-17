@@ -91,11 +91,7 @@ let copy
 
 module Image = struct
   module Cluster_image = struct
-    type t =
-      { img_remotes : Remote_target.t list
-      ; img_cluster_type : string
-      }
-    [@@deriving sexp, bin_io]
+    type t = Env_image.Private.Cluster_image.t_private [@@deriving sexp, bin_io]
 
     (* Potentially transfer backend info? *)
     let of_cluster
@@ -105,7 +101,7 @@ module Image = struct
       =
       let (module Provider : Application_class.Provider with type t = a) = provider in
       let cluster_type = !cluster_type in
-      { img_remotes = Hash_set.to_list remotes
+      { Env_image.Private.Cluster_image.img_remotes = Hash_set.to_list remotes
       ; img_cluster_type = Provider.string_of_t cluster_type
       }
     ;;
@@ -113,7 +109,7 @@ module Image = struct
     let to_cluster
         (type a)
         (module Provider : Application_class.Provider with type t = a)
-        { img_remotes; img_cluster_type }
+        { Env_image.Private.Cluster_image.img_remotes; img_cluster_type }
       =
       let maybe_cluster_type = Provider.maybe_t_of_string img_cluster_type in
       let cluster_type = Option.value_exn maybe_cluster_type in
@@ -125,18 +121,11 @@ module Image = struct
     ;;
   end
 
-  type t_inner =
-    { img_assignments : string String.Map.t
-    ; img_exports : String.Set.t
-    ; img_clusters : Cluster_image.t String.Map.t
-    ; img_active_cluster : string
-    }
-  [@@deriving sexp, bin_io]
-
-  type t = t_inner [@@deriving sexp, bin_io]
+  type t = Env_image.Private.t_private [@@deriving sexp, bin_io]
+  type t_inner = t
 
   let of_env { assignments; exports; clusters; active_cluster_ref; _ } =
-    { img_assignments = String.Map.of_hashtbl_exn assignments
+    { Env_image.Private.img_assignments = String.Map.of_hashtbl_exn assignments
     ; img_exports = String.Set.of_hash_set exports
     ; img_clusters =
         String.Map.of_hashtbl_exn clusters
@@ -149,7 +138,7 @@ module Image = struct
       (type a)
       (module Provider : Application_class.Provider with type t = a)
       ~working_directory
-      { img_assignments; img_exports; img_clusters; img_active_cluster }
+      { Env_image.Private.img_assignments; img_exports; img_clusters; img_active_cluster }
     =
     { assignments =
         Hashtbl.of_alist_exn (module String) (String.Map.to_alist img_assignments)
@@ -164,6 +153,9 @@ module Image = struct
     ; job_group = Job.Job_group.create ()
     }
   ;;
+
+  let of_public = Env_image.Private.private_of_t
+  let to_public = Env_image.Private.t_of_private
 end
 
 let assign_get t ~key =
@@ -257,16 +249,39 @@ let cluster_get_active t =
   | None -> raise_s [%message "Active cluster should always exist"]
 ;;
 
+module Cluster_target = struct
+  type t =
+    { backend : (module Application_class.Backend)
+    ; setting : string
+    ; remotes : Remote_target.t list
+    }
+  [@@deriving fields]
+
+  let create (module Backend : Application_class.Backend) ~setting ~remotes =
+    { backend = (module Backend); setting; remotes }
+  ;;
+end
+
+module Cluster_resolution = struct
+  type t =
+    | Cluster of Cluster_target.t
+    | Remote of Remote_target.t
+end
+
 let cluster_resolve t cluster_or_host =
   let { clusters; _ } = t in
   let target, setting = Remote_target.split_remote_target_setting cluster_or_host in
   match Hashtbl.find clusters target with
   | Some cluster ->
-    Cluster.get_remotes cluster
-    |> List.map ~f:(fun remote -> Remote_target.with_setting remote ~setting)
+    let remotes = Cluster.get_remotes cluster in
+    let target =
+      Cluster_target.create (Cluster.application_class_backend cluster) ~setting ~remotes
+    in
+    Cluster_resolution.Cluster target
+    (* |> List.map ~f:(fun remote -> Remote_target.with_setting remote ~setting)  *)
   | None ->
     (match Remote_target.resolve cluster_or_host with
-    | Some host_and_port -> [ host_and_port ]
+    | Some host_and_port -> Cluster_resolution.Remote host_and_port
     | None -> raise_s [%message "Failed to resolve cluster or host: %s" cluster_or_host])
 ;;
 

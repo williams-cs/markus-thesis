@@ -21,6 +21,9 @@ module Image : sig
     -> t_inner
     -> 'a t
 
+  val of_public : Env_image.t -> t_inner
+  val to_public : t_inner -> Env_image.t
+
   type t = t_inner [@@deriving sexp, bin_io]
 end
 
@@ -51,10 +54,31 @@ val exports : 'a t -> string list
 val exports_print : 'a t -> write_callback:(string -> unit) -> unit
 
 (* Functions to support the builtin "cluster"*)
+module Cluster_target : sig
+  type t =
+    { backend : (module Application_class.Backend)
+    ; setting : string
+    ; remotes : Remote_target.t list
+    }
+  [@@deriving fields]
+
+  val create
+    :  (module Application_class.Backend)
+    -> setting:string
+    -> remotes:Remote_target.t list
+    -> t
+end
+
+module Cluster_resolution : sig
+  type t =
+    | Cluster of Cluster_target.t
+    | Remote of Remote_target.t
+end
+
 val clusters : 'a t -> (string, 'a Cluster.t) Hashtbl.t
 val cluster_get : 'a t -> string -> 'a Cluster.t option
 val cluster_print : 'a t -> string list -> write_callback:(string -> unit) -> unit
 val cluster_set_active : 'a t -> string option -> unit
 val cluster_get_active : 'a t -> 'a Cluster.t
-val cluster_resolve : 'a t -> string -> Remote_target.t list
+val cluster_resolve : 'a t -> string -> Cluster_resolution.t
 val job_group : 'a t -> Job.Job_group.t

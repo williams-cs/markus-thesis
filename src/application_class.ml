@@ -1,12 +1,11 @@
 open Async
 
 module type Backend = sig
-  type 'a env_type
-
   val remote_run
-    :  remote_target:Remote_target.t
+    :  remote_targets:Remote_target.t list
+    -> setting:string
     -> program:Sexp.t
-    -> env:'a env_type
+    -> env_image:Env_image.t
     -> verbose:bool
     -> stdin:Reader.t
     -> stdout:Writer.t

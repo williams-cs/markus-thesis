@@ -2,8 +2,6 @@ open Core
 open Async
 
 module Application_class_impl = struct
-  type 'a env_type = 'a Env.t
-
   let deferred_or_error_swap v =
     match v with
     | Ok x ->
@@ -12,7 +10,17 @@ module Application_class_impl = struct
     | Error err -> return (Result.fail err)
   ;;
 
-  let remote_run ~remote_target ~program ~env ~verbose ~stdin ~stdout ~stderr =
+  let remote_run_single
+      ~remote_target
+      ~setting
+      ~program
+      ~env_image
+      ~verbose
+      ~stdin
+      ~stdout
+      ~stderr
+    =
+    let _setting = setting in
     let job = Job.create () in
     let sconn = ref None in
     let rconn = ref None in
@@ -26,7 +34,7 @@ module Application_class_impl = struct
        sconn := Some sender_conn;
        rconn := Some receiver_conn;
        let%bind.Deferred.Or_error remote_port =
-         Rpc_local_sender.dispatch_open sender_conn ~host ~port ~program ~env
+         Rpc_local_sender.dispatch_open sender_conn ~host ~port ~program ~env_image
        in
        let%map.Deferred.Or_error resp =
          Rpc_local_receiver.dispatch receiver_conn ~host ~port ~remote_port
@@ -70,6 +78,31 @@ module Application_class_impl = struct
     let%bind res2d = res2
     and res3d = res3 in
     Or_error.combine_errors [ res1d; res2d; res3d ] |> Or_error.map ~f:ignore |> return
+  ;;
+
+  let remote_run
+      ~remote_targets
+      ~setting
+      ~program
+      ~env_image
+      ~verbose
+      ~stdin
+      ~stdout
+      ~stderr
+    =
+    let%map errors =
+      Deferred.List.map ~how:`Parallel remote_targets ~f:(fun remote_target ->
+          remote_run_single
+            ~remote_target
+            ~setting
+            ~program
+            ~env_image
+            ~verbose
+            ~stdin
+            ~stdout
+            ~stderr)
+    in
+    Or_error.combine_errors errors |> Or_error.map ~f:ignore
   ;;
 end
 

@@ -10,7 +10,7 @@ val dispatch_open
   -> host:string
   -> port:int option
   -> program:Sexp.t
-  -> env:'a Env.t
+  -> env_image:Env_image.t
   -> int Deferred.Or_error.t
 
 val dispatch_write : t -> buf:bytes -> amt:int -> unit Deferred.Or_error.t

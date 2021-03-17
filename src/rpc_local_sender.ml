@@ -144,8 +144,8 @@ let start_local_sender ~verbose =
   Ivar.read ivar
 ;;
 
-let dispatch_open conn ~host ~port ~program ~env =
-  let env_image = Env.Image.of_env env in
+let dispatch_open conn ~host ~port ~program ~env_image =
+  let env_image = Env.Image.of_public env_image in
   let header = { Header.program; env_image } in
   let query = { Open_query.host; port; header } in
   let%map response = Rpc.dispatch open_rpc conn query in

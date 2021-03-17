@@ -313,12 +313,22 @@ and eval_remote_command t cluster ~eval_args =
   else (
     let program = t |> Ast.sexp_of_t in
     let%bind stdout = Eval_args.stdout eval_args in
-    let remote_run_one remote_target =
+    let remote_run_one (module Backend : Application_class.Backend) setting remote_targets
+      =
       let verbose = Eval_args.verbose eval_args in
       let%bind stdin = Eval_args.stdin_reader eval_args in
       let stderr = Eval_args.stderr eval_args in
+      let env_image = Env.Image.of_env env |> Env.Image.to_public in
       let%bind result =
-        Remote_rpc.remote_run ~remote_target ~program ~env ~stdin ~stdout ~stderr ~verbose
+        Backend.remote_run
+          ~setting
+          ~remote_targets
+          ~program
+          ~env_image
+          ~stdin
+          ~stdout
+          ~stderr
+          ~verbose
       in
       match result with
       | Ok () -> return 0
@@ -328,11 +338,23 @@ and eval_remote_command t cluster ~eval_args =
     in
     let env = Eval_args.env eval_args in
     let remotes = Env.cluster_resolve env cluster in
-    let%bind exit_codes =
-      Deferred.List.map ~how:`Parallel remotes ~f:(fun remote -> remote_run_one remote)
+    let%bind exit_code =
+      match remotes with
+      | Cluster cluster_target ->
+        let (module Backend : Application_class.Backend) =
+          Env.Cluster_target.backend cluster_target
+        in
+        let setting = Env.Cluster_target.setting cluster_target in
+        let remotes = Env.Cluster_target.remotes cluster_target in
+        remote_run_one (module Backend : Application_class.Backend) setting remotes
+      | Remote remote_target ->
+        let (module Backend : Application_class.Backend) =
+          Single_command_backend.create ()
+        in
+        let setting = "" in
+        let remotes = [ remote_target ] in
+        remote_run_one (module Backend : Application_class.Backend) setting remotes
     in
-    let nonzero = List.find exit_codes ~f:(fun x -> not (x = 0)) in
-    let exit_code = Option.value nonzero ~default:0 in
     return exit_code)
 
 and eval_if_clause if_elif_blocks maybe_else ~eval_args =
