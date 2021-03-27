@@ -35,8 +35,12 @@ let run_with_io ?verbose ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isat
     | None -> false
     | Some b -> b
   in
-  let eval_args = Eval_args.create ~env ~stdin:eval_args_stdin ~stdout ~stderr ~verbose in
+  let eval_args =
+    Eval_args.create_from_stdio ~env ~stdin:eval_args_stdin ~stdout ~stderr ~verbose
+  in
   active_job_group := Some (Env.job_group env);
+  let stdout = Writer.fd stdout in
+  let stderr = Writer.fd stderr in
   let%map exit_code =
     eval_lines ~interactive:isatty ~prog_input ~stdout ~stderr ~eval_args ()
   in
@@ -63,7 +67,7 @@ let run ?sexp_mode ?filename ?verbose () =
   in
   let prog_stdin, eval_args_stdin, isatty =
     match filename with
-    | None -> return stdin, None, Unix.isatty (Fd.stdin ())
+    | None -> return stdin, Some stdin, Unix.isatty (Fd.stdin ())
     | Some name -> Reader.open_file name, Some stdin, return false
   in
   let%bind prog_stdin = prog_stdin in

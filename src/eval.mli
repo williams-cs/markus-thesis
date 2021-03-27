@@ -4,13 +4,23 @@ module Eval_args : sig
   type t
 
   (* If no input, leave stdin as None. Otherwise, supply a Reader.t. *)
-  val create
+  val create_from_stdio
     :  env:Cluster_type.t Env.t
     -> stdin:Reader.t option
     -> stdout:Writer.t
     -> stderr:Writer.t
     -> verbose:bool
     -> t
+
+  val create
+    :  env:Cluster_type.t Env.t
+    -> stdin:Fd.t
+    -> stdout:Fd.t
+    -> stderr:Fd.t
+    -> verbose:bool
+    -> t
+
+  val to_string : t -> string
 end
 
 val eval : Ast.t -> eval_args:Eval_args.t -> int Deferred.t
@@ -31,8 +41,8 @@ end
 val eval_lines
   :  ?interactive:bool
   -> prog_input:Prog_input.t
-  -> stdout:Writer.t
-  -> stderr:Writer.t
+  -> stdout:Fd.t
+  -> stderr:Fd.t
   -> eval_args:Eval_args.t
   -> unit
   -> int Deferred.t

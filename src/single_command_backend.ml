@@ -11,15 +11,17 @@ module Application_class_impl = struct
   ;;
 
   let remote_run_single
+      ~cluster_id
       ~remote_target
       ~setting
       ~program
       ~env_image
       ~verbose
-      ~stdin
+      ~stdin:_
       ~stdout
       ~stderr
     =
+    let _cluster_id = cluster_id in
     let _setting = setting in
     let job = Job.create () in
     let sconn = ref None in
@@ -40,15 +42,18 @@ module Application_class_impl = struct
          Rpc_local_receiver.dispatch receiver_conn ~host ~port ~remote_port
        in
        let reader, _metadata = resp in
-       let _send =
-         Reader.pipe stdin
+       (* let _send =
+         let s = Reader.read stdin in
+         let buf = Bytes.of_string s in
+         Rpc_local_sender.dispatch_write sender_conn ~buf ~amt:(Bytes.length buf) *)
+       (* Reader.pipe stdin
          |> Pipe.fold ~init:(Or_error.return ()) ~f:(fun accum s ->
                 match accum with
                 | Error error -> return (Error error)
                 | Ok () ->
                   let buf = Bytes.of_string s in
-                  Rpc_local_sender.dispatch_write sender_conn ~buf ~amt:(Bytes.length buf))
-       in
+                  Rpc_local_sender.dispatch_write sender_conn ~buf ~amt:(Bytes.length buf)) *)
+       (* in *)
        let%bind maybe_error =
          Pipe.fold reader ~init:(Ok ()) ~f:(fun accum response ->
              match response with
@@ -81,6 +86,7 @@ module Application_class_impl = struct
   ;;
 
   let remote_run
+      ~cluster_id
       ~remote_targets
       ~setting
       ~program
@@ -93,6 +99,7 @@ module Application_class_impl = struct
     let%map errors =
       Deferred.List.map ~how:`Parallel remote_targets ~f:(fun remote_target ->
           remote_run_single
+            ~cluster_id
             ~remote_target
             ~setting
             ~program

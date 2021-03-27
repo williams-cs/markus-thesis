@@ -242,7 +242,7 @@ let remote_command_io ssh command ~header ~read_callback ~write_callback =
      let complete = ref false in
      while not !complete do
        let amt = read_callback buf bufsize in
-       if Int.equal amt 0
+       if Int.equal amt (-1)
        then complete := true
        else (
          let write_amt = channel#write buf 0 amt in

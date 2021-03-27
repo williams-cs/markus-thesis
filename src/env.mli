@@ -56,7 +56,8 @@ val exports_print : 'a t -> write_callback:(string -> unit) -> unit
 (* Functions to support the builtin "cluster"*)
 module Cluster_target : sig
   type t =
-    { backend : (module Application_class.Backend)
+    { cluster_id : string
+    ; backend : (module Application_class.Backend)
     ; setting : string
     ; remotes : Remote_target.t list
     }
@@ -64,6 +65,7 @@ module Cluster_target : sig
 
   val create
     :  (module Application_class.Backend)
+    -> cluster_id:string
     -> setting:string
     -> remotes:Remote_target.t list
     -> t

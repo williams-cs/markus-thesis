@@ -122,7 +122,7 @@ Options:
 If more than one option is specified, command is invalid.
 *)
 let builtin_cluster ~env ~stdout ~stderr ~args =
-  match separate_flags args ~valid_flags:[ "a"; "p"; "s" ] with
+  match separate_flags args ~valid_flags:[ "a"; "p"; "s"; "t" ] with
   | Ok (flags, args) ->
     (match flags with
     | [] | [ "p" ] ->

@@ -1,32 +1,29 @@
 open Core
 open Async
-open Util
 
 module Eval_args = struct
-  module Stdin = struct
-    type t =
-      | Stdin_none
-      | Stdin_reader of Reader.t Deferred.t
-      | Stdin_pipe of (Writer.t -> unit Deferred.t)
-
-    let create ~stdin =
-      match stdin with
-      | None -> Stdin_none
-      | Some reader -> Stdin_reader (return reader)
-    ;;
-  end
-
   type t =
     { env : Cluster_type.t Env.t
-    ; stdin : Stdin.t
-    ; stdout : Writer.t Deferred.t
-    ; stderr : Writer.t
+    ; stdin : Fd.t
+    ; stdout : Fd.t
+    ; stderr : Fd.t
     ; verbose : bool
     }
   [@@deriving fields]
 
   let create ~env ~stdin ~stdout ~stderr ~verbose =
-    { env; stdin = Stdin.create ~stdin; stdout = return stdout; stderr; verbose }
+    { env; stdin; stdout; stderr; verbose }
+  ;;
+
+  let create_from_stdio ~env ~stdin ~stdout ~stderr ~verbose =
+    let stdin_fd =
+      match stdin with
+      | None -> Pipe_process.closed_read_fd ()
+      | Some s -> Reader.fd s
+    in
+    let stdout_fd = Writer.fd stdout in
+    let stderr_fd = Writer.fd stderr in
+    { env; stdin = stdin_fd; stdout = stdout_fd; stderr = stderr_fd; verbose }
   ;;
 
   let with_env { env = _; stdin; stdout; stderr; verbose } ~env =
@@ -34,23 +31,37 @@ module Eval_args = struct
   ;;
 
   let stdin_reader t =
-    let empty_reader () =
-      Reader.of_pipe
-        (Info.of_string "empty_reader")
-        (Pipe.create_reader ~close_on_exception:false (fun writer ->
-             let%bind writer, _ = Writer.of_pipe (Info.of_string "empty_writer") writer in
-             Writer.close writer))
-    in
     let stdin = stdin t in
-    match stdin with
-    | Stdin_none -> empty_reader ()
-    | Stdin_reader reader -> reader
-    | Stdin_pipe fn ->
-      let%bind `Reader reader, `Writer writer =
-        Unix.pipe (Info.of_string "read_write_pipe")
-      in
-      let _write_deferred = fn (Writer.create writer) in
-      Reader.create reader |> return
+    Reader.create stdin
+  ;;
+
+  let stdout_writer t =
+    let stdout = stdout t in
+    Writer.create stdout
+  ;;
+
+  let stderr_writer t =
+    let stderr = stderr t in
+    Writer.create stderr
+  ;;
+
+  let to_string t =
+    let fd_to_string fd =
+      Fd.file_descr_exn fd |> Core.Unix.File_descr.to_int |> Int.to_string
+    in
+    let stdin = stdin t |> fd_to_string in
+    let stdout = stdout t |> fd_to_string in
+    let stderr = stderr t |> fd_to_string in
+    let verbose = verbose t in
+    (* TODO env string *)
+    let env = "[env]" in
+    sprintf
+      "stdin: %s\nstdout: %s\nstderr: %s\nverbose: %b\nenv: %s"
+      stdin
+      stdout
+      stderr
+      verbose
+      env
   ;;
 end
 
@@ -67,7 +78,7 @@ module Prog_input = struct
 end
 
 let wait_until_exit process =
-  let%bind wait_result = Process.wait process in
+  let%bind wait_result = Pipe_process.wait process in
   match wait_result with
   | Error err ->
     (match err with
@@ -94,6 +105,8 @@ let deferred_iter l =
 ;;
 
 let rec eval_command prog args ~eval_args =
+  (* TODO debug *)
+  (* printf "%s\n" (Eval_args.to_string eval_args); *)
   let job_group = eval_args |> Eval_args.env |> Env.job_group in
   if Job.Job_group.canceled job_group
   then return 1
@@ -105,13 +118,15 @@ let rec eval_command prog args ~eval_args =
       (match builtin with
       | Function fn ->
         let env = Eval_args.env eval_args in
-        let%bind stdout = Eval_args.stdout eval_args in
-        let stderr = Eval_args.stderr eval_args in
+        let stdout = Eval_args.stdout_writer eval_args in
+        let stderr = Eval_args.stderr_writer eval_args in
         fn ~env ~stdout ~stderr ~args
       | Source ->
         (match args with
         | [] ->
-          fprintf (Eval_args.stderr eval_args) "source: filename argument required\n";
+          fprintf
+            (Eval_args.stderr_writer eval_args)
+            "source: filename argument required\n";
           return 1
         | arg :: _ ->
           let%bind () = update_dir () in
@@ -119,59 +134,24 @@ let rec eval_command prog args ~eval_args =
     | None ->
       let job = Job.create ~groups:[ job_group ] () in
       let%bind () = update_dir () in
-      let%bind process = Process.create ~prog ~args ~stdin:"" () in
+      let in_fd = Eval_args.stdin eval_args in
+      let out_fd = Eval_args.stdout eval_args in
+      let err_fd = Eval_args.stderr eval_args in
+      let%bind process = Pipe_process.create ~prog ~args ~in_fd ~out_fd ~err_fd () in
       (match process with
       | Error err ->
         Job.cancel_without_signal job;
-        fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
-        let%bind () =
-          (* drain input *)
-          match Eval_args.stdin eval_args with
-          | Stdin_none -> return ()
-          | Stdin_reader reader ->
-            let%bind reader = reader in
-            Reader.drain reader
-          | Stdin_pipe pipe ->
-            let%bind writer, _ =
-              Writer.of_pipe
-                (Info.of_string "empty_writer")
-                (Pipe.create_writer (fun reader -> Pipe.drain reader))
-            in
-            pipe writer
-        in
+        fprintf (Eval_args.stderr_writer eval_args) "%s\n" (Error.to_string_hum err);
         return (-1)
       | Ok process ->
-        Job.connect job ~process;
-        let pid = Pid.to_int (Process.pid process) in
-        let child_stdin = Process.stdin process in
-        let child_stdout = Process.stdout process in
-        let child_stderr = Process.stderr process in
-        let in_deferred =
-          match Eval_args.stdin eval_args with
-          | Stdin_none -> return ()
-          | Stdin_reader reader -> glue ~reader ~writer:(return child_stdin)
-          | Stdin_pipe pipe -> pipe child_stdin
-        in
-        let out_deferred =
-          glue ~reader:(return child_stdout) ~writer:(Eval_args.stdout eval_args)
-        in
-        let err_deferred =
-          glue ~reader:(return child_stderr) ~writer:(return (Eval_args.stderr eval_args))
-        in
+        (* Job.connect job ~process; *)
+        let pid = Pid.to_int (Pipe_process.pid process) in
         let%bind exit_code = wait_until_exit process in
-        let%bind () =
-          if Job.canceled job
-          then return ()
-          else (
-            let%bind () = in_deferred in
-            let%bind () = out_deferred in
-            let%bind () = err_deferred in
-            return ())
-        in
+        let%bind () = if Job.canceled job then return () else return () in
         if Eval_args.verbose eval_args
         then
           fprintf
-            (Eval_args.stderr eval_args)
+            (Eval_args.stderr_writer eval_args)
             "Child process %i exited with status %i\n"
             pid
             exit_code;
@@ -180,7 +160,7 @@ let rec eval_command prog args ~eval_args =
 
 and eval_source file ~eval_args =
   let%bind stdin = Reader.open_file file in
-  let%bind stdout = Eval_args.stdout eval_args in
+  let stdout = Eval_args.stdout eval_args in
   let stderr = Eval_args.stderr eval_args in
   eval_lines
     ~interactive:false
@@ -235,35 +215,21 @@ and eval_pipeline pipeline ~eval_args =
   match pipeline with
   | [] -> return 0
   | x :: xs ->
-    let next_stdin = Ivar.create () in
-    let deferred_code =
-      eval_pipeline_part
-        x
-        ~eval_args:{ eval_args with Eval_args.stdout = Ivar.read next_stdin }
-    in
     (* Currently do not support pipe status code; returns the final command's code. *)
     (match xs with
-    | [] ->
-      let%bind stdout = Eval_args.stdout eval_args in
-      Ivar.fill next_stdin stdout;
-      deferred_code
+    | [] -> eval_pipeline_part x ~eval_args
     | _ ->
+      let pipe_read, pipe_write = Pipe_process.pipe () in
+      let deferred_code =
+        eval_pipeline_part x ~eval_args:{ eval_args with Eval_args.stdout = pipe_write }
+      in
       let new_deferred_code =
-        eval_pipeline
-          xs
-          ~eval_args:
-            { eval_args with
-              Eval_args.stdin =
-                Stdin_pipe
-                  (fun stdin ->
-                    Ivar.fill next_stdin stdin;
-                    return ())
-            }
+        eval_pipeline xs ~eval_args:{ eval_args with Eval_args.stdin = pipe_read }
       in
       let%bind _code = deferred_code in
-      let%bind stdout = Ivar.read next_stdin in
-      let%bind () = Writer.close stdout in
-      new_deferred_code)
+      let%bind () = Fd.close pipe_write in
+      let%bind new_code = new_deferred_code in
+      return new_code)
 
 and eval_pipeline_part ~eval_args =
   let open Ast in
@@ -312,15 +278,20 @@ and eval_remote_command t cluster ~eval_args =
   then return 1
   else (
     let program = t |> Ast.sexp_of_t in
-    let%bind stdout = Eval_args.stdout eval_args in
-    let remote_run_one (module Backend : Application_class.Backend) setting remote_targets
+    let stdout = Eval_args.stdout_writer eval_args in
+    let remote_run_one
+        (module Backend : Application_class.Backend)
+        cluster_id
+        setting
+        remote_targets
       =
       let verbose = Eval_args.verbose eval_args in
-      let%bind stdin = Eval_args.stdin_reader eval_args in
-      let stderr = Eval_args.stderr eval_args in
+      let stdin = Eval_args.stdin_reader eval_args in
+      let stderr = Eval_args.stderr_writer eval_args in
       let env_image = Env.Image.of_env env |> Env.Image.to_public in
       let%bind result =
         Backend.remote_run
+          ~cluster_id
           ~setting
           ~remote_targets
           ~program
@@ -333,7 +304,7 @@ and eval_remote_command t cluster ~eval_args =
       match result with
       | Ok () -> return 0
       | Error err ->
-        fprintf (Eval_args.stderr eval_args) "%s\n" (Error.to_string_hum err);
+        fprintf (Eval_args.stderr_writer eval_args) "%s\n" (Error.to_string_hum err);
         return 1
     in
     let env = Eval_args.env eval_args in
@@ -346,14 +317,24 @@ and eval_remote_command t cluster ~eval_args =
         in
         let setting = Env.Cluster_target.setting cluster_target in
         let remotes = Env.Cluster_target.remotes cluster_target in
-        remote_run_one (module Backend : Application_class.Backend) setting remotes
+        let cluster_id = Env.Cluster_target.cluster_id cluster_target in
+        remote_run_one
+          (module Backend : Application_class.Backend)
+          cluster_id
+          setting
+          remotes
       | Remote remote_target ->
         let (module Backend : Application_class.Backend) =
           Single_command_backend.create ()
         in
         let setting = "" in
         let remotes = [ remote_target ] in
-        remote_run_one (module Backend : Application_class.Backend) setting remotes
+        let cluster_id = "" in
+        remote_run_one
+          (module Backend : Application_class.Backend)
+          cluster_id
+          setting
+          remotes
     in
     return exit_code)
 
@@ -387,8 +368,9 @@ and eval_token_part ~eval_args =
           Ivar.fill ivar clean_res)
     in
     let%bind writer, _ = Writer.of_pipe (Info.of_string "eval pipe writer") pipe in
+    let writer_fd = Writer.fd writer in
     let%bind () =
-      eval_subshell ss ~eval_args:{ eval_args with stdout = return writer }
+      eval_subshell ss ~eval_args:{ eval_args with stdout = writer_fd }
       |> Deferred.ignore_m
     in
     let%bind () = Writer.close writer in
@@ -433,6 +415,8 @@ and eval_token token_parts ~eval_args : string list Deferred.t =
   z
 
 and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args () =
+  let stdout_writer = Writer.create stdout in
+  let stderr_writer = Writer.create stderr in
   let rec repl ?state ?prior_input () =
     let interactive =
       match interactive with
@@ -440,25 +424,24 @@ and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args () =
       | Some b -> b
     in
     let eval_run ast =
+      let env = Eval_args.env eval_args in
       if interactive
       then (
-        let env = Eval_args.env eval_args in
         let job_group = Env.job_group env in
-        Job.Job_group.reset job_group;
-        let%map res = Async.try_with (fun () -> eval ast ~eval_args) in
-        match res with
-        | Ok exit_code ->
-          let last_exit_code_var = "?" in
-          Env.assign_set env ~key:last_exit_code_var ~data:(Int.to_string exit_code)
-          |> ignore;
-          ()
-        | Error exn -> fprintf stderr "%s\n" (Exn.to_string exn))
-      else eval ast ~eval_args |> Deferred.ignore_m
+        Job.Job_group.reset job_group);
+      let%map res = Async.try_with (fun () -> eval ast ~eval_args) in
+      match res with
+      | Ok exit_code ->
+        let last_exit_code_var = "?" in
+        Env.assign_set env ~key:last_exit_code_var ~data:(Int.to_string exit_code)
+        |> ignore;
+        ()
+      | Error exn -> fprintf stderr_writer "%s\n" (Exn.to_string exn)
     in
     if interactive
     then (
       let prompt = if Option.is_none state then "$ " else "> " in
-      Writer.write stdout prompt);
+      Writer.write stdout_writer prompt);
     let eval_sexp sexp = Ast.t_of_sexp sexp |> eval_run |> Deferred.ignore_m in
     match prog_input with
     | Sexp sexp ->
@@ -480,7 +463,7 @@ and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args () =
         | Ok cont -> if cont then repl () else return 0
         | Error err ->
           fprintf
-            stderr
+            stderr_writer
             "Sexp parse error: %s\n"
             (err |> Error.of_exn |> Error.to_string_hum);
           if interactive then repl () else return 1)
@@ -509,13 +492,13 @@ and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args () =
                 if unconsumed.len > 0
                 then (
                   let msg = "Unconsumed input remaining!" in
-                  fprintf stderr "Parse error: %s\n" msg;
+                  fprintf stderr_writer "Parse error: %s\n" msg;
                   return ())
                 else eval_run ast |> Deferred.ignore_m
               in
               if interactive then repl () else return 1
             | Fail (_unconsumed, _marks, msg) ->
-              fprintf stderr "Parse error: %s\n" msg;
+              fprintf stderr_writer "Parse error: %s\n" msg;
               if interactive then repl () else return 1))))
   in
   repl ()

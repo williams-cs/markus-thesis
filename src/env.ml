@@ -1,20 +1,34 @@
 open Core
 
 module Cluster = struct
+  let ids : string Hash_set.t = Hash_set.create (module String)
+
   type 'a t =
-    { remotes : Remote_target.t Hash_set.t
+    { id : string
+    ; remotes : Remote_target.t Hash_set.t
     ; provider : (module Application_class.Provider with type t = 'a)
     ; cluster_type : 'a ref
-    ; application_class_backend : (module Application_class.Backend)
+    ; application_class_backend : (module Application_class.Backend) ref
     }
   [@@deriving fields]
 
+  let rec generate_cluster_id () =
+    let id = Uuid.create_random (Util.random_state ()) |> Uuid.to_string in
+    if Hash_set.exists ids ~f:(fun x -> String.equal x id)
+    then generate_cluster_id ()
+    else (
+      Hash_set.add ids id;
+      id)
+  ;;
+
   let create (type a) (module Provider : Application_class.Provider with type t = a) =
     let cluster_type = Provider.default in
-    { remotes = Hash_set.create (module Remote_target)
+    { id = generate_cluster_id ()
+    ; remotes = Hash_set.create (module Remote_target)
     ; provider = (module Provider)
     ; cluster_type = ref cluster_type
-    ; application_class_backend = Provider.application_class_backend_of_t cluster_type
+    ; application_class_backend =
+        ref (Provider.application_class_backend_of_t cluster_type)
     }
   ;;
 
@@ -35,7 +49,13 @@ module Cluster = struct
   ;;
 
   let get_remotes t = Hash_set.to_list (remotes t)
-  let set_type t new_type = cluster_type t := new_type
+
+  let set_type (type a) t new_type =
+    cluster_type t := new_type;
+    let (module Provider : Application_class.Provider with type t = a) = provider t in
+    application_class_backend t := Provider.application_class_backend_of_t new_type
+  ;;
+
   let get_type t = !(cluster_type t)
 end
 
@@ -96,27 +116,30 @@ module Image = struct
     (* Potentially transfer backend info? *)
     let of_cluster
         (type a)
-        ({ Cluster.remotes; cluster_type; provider; application_class_backend = _ } :
+        ({ Cluster.remotes; cluster_type; provider; id; application_class_backend = _ } :
           a Cluster.t)
       =
       let (module Provider : Application_class.Provider with type t = a) = provider in
       let cluster_type = !cluster_type in
       { Env_image.Private.Cluster_image.img_remotes = Hash_set.to_list remotes
       ; img_cluster_type = Provider.string_of_t cluster_type
+      ; img_id = id
       }
     ;;
 
     let to_cluster
         (type a)
         (module Provider : Application_class.Provider with type t = a)
-        { Env_image.Private.Cluster_image.img_remotes; img_cluster_type }
+        { Env_image.Private.Cluster_image.img_remotes; img_cluster_type; img_id }
       =
       let maybe_cluster_type = Provider.maybe_t_of_string img_cluster_type in
       let cluster_type = Option.value_exn maybe_cluster_type in
-      { Cluster.remotes = Hash_set.of_list (module Remote_target) img_remotes
+      { id = img_id
+      ; Cluster.remotes = Hash_set.of_list (module Remote_target) img_remotes
       ; provider = (module Provider)
       ; cluster_type = ref cluster_type
-      ; application_class_backend = Provider.application_class_backend_of_t cluster_type
+      ; application_class_backend =
+          ref (Provider.application_class_backend_of_t cluster_type)
       }
     ;;
   end
@@ -251,14 +274,15 @@ let cluster_get_active t =
 
 module Cluster_target = struct
   type t =
-    { backend : (module Application_class.Backend)
+    { cluster_id : string
+    ; backend : (module Application_class.Backend)
     ; setting : string
     ; remotes : Remote_target.t list
     }
   [@@deriving fields]
 
-  let create (module Backend : Application_class.Backend) ~setting ~remotes =
-    { backend = (module Backend); setting; remotes }
+  let create (module Backend : Application_class.Backend) ~cluster_id ~setting ~remotes =
+    { cluster_id; backend = (module Backend); setting; remotes }
   ;;
 end
 
@@ -274,8 +298,13 @@ let cluster_resolve t cluster_or_host =
   match Hashtbl.find clusters target with
   | Some cluster ->
     let remotes = Cluster.get_remotes cluster in
+    let cluster_id = Cluster.id cluster in
     let target =
-      Cluster_target.create (Cluster.application_class_backend cluster) ~setting ~remotes
+      Cluster_target.create
+        !(Cluster.application_class_backend cluster)
+        ~cluster_id
+        ~setting
+        ~remotes
     in
     Cluster_resolution.Cluster target
     (* |> List.map ~f:(fun remote -> Remote_target.with_setting remote ~setting)  *)

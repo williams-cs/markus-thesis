@@ -1,5 +1,24 @@
 # Research Log
 
+## 2020-03-27
+- Implementation
+  - Rewrite pipe/file descriptor implementation
+  - Data parallel application class implementation
+    - Working, but not consistently
+
+## 2020-03-17
+- TODO
+  - Beta/Thompson sampling
+  - Text for application classes
+  - Data parallel implementation
+  - Mock out failures
+  - Make a graph of a data parallel workload: observed reliability
+    - Number of completions vs time
+    - Different lines on chart = failure
+    - Idea: reallocate vs no reallocate
+    - Low latency application class -> keep track of waste
+    - Setting: run some stuff locally - could be much faster?
+
 ## 2020-03-11
 - Outline
   - Thesis template

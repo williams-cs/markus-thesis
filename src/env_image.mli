@@ -6,10 +6,13 @@ end
 
 type t [@@deriving sexp, bin_io]
 
+val add_assignment : t -> key:string -> data:string -> t
+
 module Private : sig
   module Cluster_image : sig
     type t_private =
-      { img_remotes : Remote_target.t list
+      { img_id : string
+      ; img_remotes : Remote_target.t list
       ; img_cluster_type : string
       }
     [@@deriving sexp, bin_io]

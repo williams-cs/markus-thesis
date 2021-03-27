@@ -6,15 +6,15 @@ module Stable = struct
 
   let maybe_t_of_string s =
     match s with
-    | "adhoc" -> Some AdHoc
-    | "mapreduce" -> Some MapReduce
+    | "single_command" -> Some AdHoc
+    | "data_parallel" -> Some MapReduce
     | _ -> None
   ;;
 
   let string_of_t t =
     match t with
-    | AdHoc -> "adhoc"
-    | MapReduce -> "mapreduce"
+    | AdHoc -> "single_command"
+    | MapReduce -> "data_parallel"
   ;;
 
   let default = AdHoc
@@ -22,7 +22,7 @@ module Stable = struct
   let application_class_backend_of_t t =
     match t with
     | AdHoc -> Single_command_backend.create ()
-    | MapReduce -> Single_command_backend.create ()
+    | MapReduce -> Data_parallel_backend.create ()
   ;;
 end
 

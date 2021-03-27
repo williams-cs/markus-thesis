@@ -2,7 +2,8 @@ open Async
 
 module type Backend = sig
   val remote_run
-    :  remote_targets:Remote_target.t list
+    :  cluster_id:string
+    -> remote_targets:Remote_target.t list
     -> setting:string
     -> program:Sexp.t
     -> env_image:Env_image.t

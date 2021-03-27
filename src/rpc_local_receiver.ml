@@ -73,6 +73,7 @@ let handle_query state query =
                  ~remote_port
                  ~verbose
                  ~write_callback:(fun b len ->
+                   let b = Bytes.copy b in
                    Pipe.write_without_pushback pipe (Response.Write_callback (b, len)))
                  ~close_callback:(fun () ->
                    Pipe.write_without_pushback pipe (Response.Close_callback (Ok ())))
