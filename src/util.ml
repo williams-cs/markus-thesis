@@ -13,6 +13,22 @@ let random_state () =
     state
 ;;
 
+let rec generate_uuid_list existing =
+  let id = Uuid.create_random (random_state ()) |> Uuid.to_string in
+  if List.exists existing ~f:(fun x -> String.equal x id)
+  then generate_uuid_list existing
+  else id
+;;
+
+let rec generate_uuid_hash_set existing =
+  let id = Uuid.create_random (random_state ()) |> Uuid.to_string in
+  if Hash_set.exists existing ~f:(fun x -> String.equal x id)
+  then generate_uuid_hash_set existing
+  else (
+    Hash_set.add existing id;
+    id)
+;;
+
 let glue' ~reader ~writer =
   let rpipe = Reader.pipe reader in
   let wpipe = Writer.pipe writer in

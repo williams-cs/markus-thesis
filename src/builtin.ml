@@ -119,10 +119,11 @@ Options:
   -a Add the specified ssh profile to the cluster
   -p (or no argument) Prints out the details of the cluster
   -t Set the type of the cluster (options: adhoc, mapreduce; default: adhoc)
+  -c (no arg) Reset the cluster
 If more than one option is specified, command is invalid.
 *)
 let builtin_cluster ~env ~stdout ~stderr ~args =
-  match separate_flags args ~valid_flags:[ "a"; "p"; "s"; "t" ] with
+  match separate_flags args ~valid_flags:[ "a"; "c"; "p"; "s"; "t" ] with
   | Ok (flags, args) ->
     (match flags with
     | [] | [ "p" ] ->
@@ -154,6 +155,10 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
       | _ ->
         fprintf stderr "cluster: incorrect number of arguments for cluster type\n";
         return 1)
+    | [ "c" ] ->
+      let active_cluster = Env.cluster_get_active env in
+      Env.Cluster.clear_remotes active_cluster;
+      return 0
     | _ ->
       fprintf stderr "cluster: too many options\n";
       return 1)

@@ -8,6 +8,7 @@ module Cluster : sig
   val add : 'a t -> string list -> (unit, string list) Result.t
   val set_type : 'a t -> 'a -> unit
   val get_type : 'a t -> 'a
+  val clear_remotes : 'a t -> unit
 end
 
 module Image : sig

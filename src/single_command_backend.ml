@@ -26,7 +26,6 @@ module Application_class_impl = struct
     let job = Job.create () in
     let sconn = ref None in
     let rconn = ref None in
-    (* UUID key should be unique *)
     let host = Remote_target.host remote_target in
     let port = Remote_target.port remote_target in
     let%bind res1d =
@@ -35,9 +34,11 @@ module Application_class_impl = struct
        in
        sconn := Some sender_conn;
        rconn := Some receiver_conn;
-       let%bind.Deferred.Or_error remote_port =
+       let%bind.Deferred.Or_error sender_data =
          Rpc_local_sender.dispatch_open sender_conn ~host ~port ~program ~env_image
        in
+       let remote_port = Rpc_local_sender.Open_response.Data.port sender_data in
+       let _id = Rpc_local_sender.Open_response.Data.id sender_data in
        let%map.Deferred.Or_error resp =
          Rpc_local_receiver.dispatch receiver_conn ~host ~port ~remote_port
        in
@@ -45,7 +46,8 @@ module Application_class_impl = struct
        (* let _send =
          let s = Reader.read stdin in
          let buf = Bytes.of_string s in
-         Rpc_local_sender.dispatch_write sender_conn ~buf ~amt:(Bytes.length buf) *)
+         Rpc_local_sender.dispatch_write sender_conn ~id ~buf ~amt:(Bytes.length buf)
+       in *)
        (* Reader.pipe stdin
          |> Pipe.fold ~init:(Or_error.return ()) ~f:(fun accum s ->
                 match accum with

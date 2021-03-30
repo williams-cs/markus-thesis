@@ -472,7 +472,7 @@ and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args () =
         (match maybe_line with
         | `Eof -> return 0
         | `Ok line ->
-          let line = line ^ "\n" in
+          (* let line = line ^ "\n" in *)
           let prior_input =
             match prior_input with
             | None -> ""

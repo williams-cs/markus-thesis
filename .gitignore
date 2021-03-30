@@ -27,4 +27,6 @@ _build
 src/angstrom_extended_async
 local
 *.shard
+*.input
+*.output
 							

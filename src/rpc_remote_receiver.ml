@@ -50,10 +50,12 @@ let handle_query state () =
                  let header = Rpc_common.Header.t_of_sexp header_sexp in
                  let%bind () = Pipe.write pipe (Response.Header header) in
                  let stdin_pipe = Reader.pipe stdin in
+                 let i = ref 0 in
                  let%bind () =
-                   Pipe.iter stdin_pipe ~f:(fun s -> Pipe.write pipe (Response.Message s))
+                   Pipe.iter stdin_pipe ~f:(fun s ->
+                       i := !i + 1;
+                       Pipe.write pipe (Response.Message s))
                  in
-                 Pipe.close pipe;
                  return ())
          in
          let close_ivar = State.close_ivar state in

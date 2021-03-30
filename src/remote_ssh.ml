@@ -269,7 +269,7 @@ let remote_run_sender_unsafe ~host ~port ~verbose ~header ~port_callback ~read_c
     ~stderr
     ~host
     ~port
-    "Connecting to remote...";
+    "!!!!!!Connecting to remote...";
   let ssh = connect ~host ~port ~verbose in
   (* Check for remote copy of Shard *)
   Util.verbose_println
@@ -326,7 +326,7 @@ let remote_run_sender_unsafe ~host ~port ~verbose ~header ~port_callback ~read_c
     ~host
     ~port
     "Starting receiver on remote Shard...";
-  let command = sprintf "%s -Rrr 2>> %s" shard_exe rrlog in
+  let command = sprintf "%s -Rrr 2>>%s | tee -a %s" shard_exe rrlog rrlog in
   remote_command_io ssh command ~header ~read_callback ~write_callback:(fun b amt ->
       let sub = Bytes.sub ~pos:0 ~len:amt b in
       let port_string = Bytes.to_string sub in
@@ -360,7 +360,9 @@ let remote_run_receiver_unsafe
     ~host
     ~port
     "Starting sender on remote Shard...";
-  let command = sprintf "%s -Rrs %d -s 2>> %s" shard_exe remote_port rslog in
+  let command =
+    sprintf "%s -Rrs %d -s 2>> %s | tee -a %s" shard_exe remote_port rslog rslog
+  in
   remote_command_output ssh command ~write_callback;
   close_callback ();
   Util.verbose_println ~name:(source `Receiver) ~verbose ~stderr ~host ~port "Complete!"

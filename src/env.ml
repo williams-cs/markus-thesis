@@ -12,14 +12,7 @@ module Cluster = struct
     }
   [@@deriving fields]
 
-  let rec generate_cluster_id () =
-    let id = Uuid.create_random (Util.random_state ()) |> Uuid.to_string in
-    if Hash_set.exists ids ~f:(fun x -> String.equal x id)
-    then generate_cluster_id ()
-    else (
-      Hash_set.add ids id;
-      id)
-  ;;
+  let generate_cluster_id () = Util.generate_uuid_hash_set ids
 
   let create (type a) (module Provider : Application_class.Provider with type t = a) =
     let cluster_type = Provider.default in
@@ -57,6 +50,11 @@ module Cluster = struct
   ;;
 
   let get_type t = !(cluster_type t)
+
+  let clear_remotes t =
+    let remotes = remotes t in
+    Hash_set.clear remotes
+  ;;
 end
 
 type 'a t =

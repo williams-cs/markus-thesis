@@ -32,7 +32,7 @@ let start_remote_sender
         Rpc_remote_receiver.dispatch conn
       in
       let header : Rpc_common.Header.t Ivar.t = Ivar.create () in
-      let _write_deferred =
+      let write_deferred =
         Pipe.iter pipe_reader ~f:(fun x ->
             match x with
             | Header h ->
@@ -47,6 +47,10 @@ let start_remote_sender
       let env_image = Rpc_common.Header.env_image header in
       let%bind cwd = Unix.getcwd () in
       let env = Env.Image.to_env (module Provider) ~working_directory:cwd env_image in
-      runner ~verbose ~prog ~env ~eval_args_stdin:(Some reader) ~stdout ~stderr)
+      let run =
+        runner ~verbose ~prog ~env ~eval_args_stdin:(Some reader) ~stdout ~stderr
+      in
+      let%bind () = write_deferred in
+      run)
   |> Deferred.map ~f:(fun x -> Result.map_error x ~f:Error.of_exn |> Or_error.join)
 ;;
