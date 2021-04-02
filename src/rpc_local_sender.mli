@@ -1,27 +1,17 @@
 open Async
 
-module Open_response : sig
-  module Data : sig
-    type t =
-      { id : string
-      ; port : int
-      }
-    [@@deriving fields]
-  end
-end
-
 type t
 
 val create : Rpc.Connection.t -> t
 val start_local_sender : verbose:bool -> unit Deferred.t
+val dispatch_open : t -> host:string -> port:int option -> int Deferred.Or_error.t
 
-val dispatch_open
+val dispatch_header
   :  t
-  -> host:string
-  -> port:int option
   -> program:Sexp.t
   -> env_image:Env_image.t
-  -> Open_response.Data.t Deferred.Or_error.t
+  -> string Deferred.Or_error.t
 
 val dispatch_write : t -> id:string -> buf:bytes -> amt:int -> unit Deferred.Or_error.t
+val dispatch_close_single : t -> id:string -> unit Deferred.Or_error.t
 val dispatch_close : t -> unit Deferred.Or_error.t

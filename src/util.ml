@@ -29,11 +29,14 @@ let rec generate_uuid_hash_set existing =
     id)
 ;;
 
-let glue' ~reader ~writer =
+let glue_transform ~reader ~writer ~transform =
   let rpipe = Reader.pipe reader in
   let wpipe = Writer.pipe writer in
-  Pipe.transfer' rpipe wpipe ~f:Deferred.return
+  let map_rpipe = Pipe.map rpipe ~f:transform in
+  Pipe.transfer' map_rpipe wpipe ~f:Deferred.return
 ;;
+
+let glue' ~reader ~writer = glue_transform ~reader ~writer ~transform:Fn.id
 
 (* let rec print_until_done () = *)
 (* printf "pud\n";
@@ -50,7 +53,7 @@ let glue' ~reader ~writer =
 let glue ~reader ~writer =
   let%bind reader = reader in
   let%bind writer = writer in
-  glue' ~reader ~writer
+  glue_transform ~reader ~writer ~transform:Fn.id
 ;;
 
 let simple_hash s =

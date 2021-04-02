@@ -7,9 +7,14 @@ module Open_query = struct
   type t =
     { host : string
     ; port : int option
-    ; header : Header.t
     }
   [@@deriving bin_io, fields]
+end
+
+module Header_query = struct
+  type t = Header.t [@@deriving sexp, bin_io]
+
+  let to_sender_query t ~id = { Sender_query.id; data = Sender_data.Header t }
 end
 
 module Write_query = struct
@@ -17,7 +22,15 @@ module Write_query = struct
     { id : string
     ; buf : bytes
     }
-  [@@deriving bin_io, fields]
+  [@@deriving sexp, bin_io, fields]
+
+  let to_sender_query { id; buf } = { Sender_query.id; data = Sender_data.Message buf }
+end
+
+module Close_single_query = struct
+  type t = string [@@deriving bin_io]
+
+  let to_sender_query id = { Sender_query.id; data = Sender_data.Close }
 end
 
 module Close_query = struct
@@ -25,15 +38,11 @@ module Close_query = struct
 end
 
 module Open_response = struct
-  module Data = struct
-    type t =
-      { id : string
-      ; port : int
-      }
-    [@@deriving bin_io, fields]
-  end
+  type t = int Or_error.t [@@deriving bin_io]
+end
 
-  type t = Data.t Or_error.t [@@deriving bin_io]
+module Header_response = struct
+  type t = string Or_error.t [@@deriving bin_io]
 end
 
 module Response = struct
@@ -41,31 +50,62 @@ module Response = struct
 end
 
 module State = struct
-  module Connection = struct
-    type t =
-      { read_fd : Core.Unix.File_descr.t
-      ; write_fd : Core.Unix.File_descr.t
-      }
-    [@@deriving fields]
-
-    let create ~read_fd ~write_fd = { read_fd; write_fd }
-  end
-
   type t =
-    { connections : Connection.t String.Table.t
+    { ids : string Hash_set.t
+    ; read_fd : Core.Unix.File_descr.t
+    ; writer : Writer.t
     ; verbose : bool
     ; close_ivar : unit Ivar.t
     }
   [@@deriving fields]
 
-  let create ~verbose =
-    { verbose; connections = String.Table.create (); close_ivar = Ivar.create () }
+  let create ~read_fd ~writer ~verbose =
+    { ids = Hash_set.create (module String)
+    ; verbose
+    ; read_fd
+    ; writer
+    ; close_ivar = Ivar.create ()
+    }
   ;;
 end
 
 type t = Connection.t
 
 let create = Fn.id
+
+let write_sender_query sender_query writer =
+  let bufsize = 1024 in
+  let buf = Buffer.create bufsize in
+  let sexp = Sender_query.sexp_of_t sender_query in
+  Sexp.to_buffer_mach ~buf sexp;
+  let bs = Buffer.contents_bytes buf in
+  Writer.write_bytes writer bs;
+  Writer.flushed writer
+;;
+
+let header_rpc =
+  Rpc.create
+    ~name:"shard_ssh_local_sender_header"
+    ~version:1
+    ~bin_query:Header_query.bin_t
+    ~bin_response:Header_response.bin_t
+;;
+
+let handle_header state query =
+  let ids = State.ids state in
+  let id = Util.generate_uuid_hash_set ids in
+  let writer = State.writer state in
+  let { Header.program; env_image } = query in
+  let env_image =
+    Env.Image.to_public env_image
+    |> Env_image.add_assignment ~key:"id" ~data:id
+    |> Env.Image.of_public
+  in
+  let query = { Header.program; env_image } in
+  let sender_query = Header_query.to_sender_query query ~id in
+  let%map () = write_sender_query sender_query writer in
+  id |> Or_error.return
+;;
 
 let write_rpc =
   Rpc.create
@@ -76,14 +116,9 @@ let write_rpc =
 ;;
 
 let handle_write state query =
-  let id = Write_query.id query in
-  let conns = State.connections state in
-  match String.Table.find conns id with
-  | None -> Deferred.Or_error.errorf "connection with id %s not found" id
-  | Some { read_fd = _; write_fd } ->
-    let buf = Write_query.buf query in
-    In_thread.run (fun () ->
-        Or_error.try_with (fun () -> Core.Unix.single_write write_fd ~buf |> ignore))
+  let writer = State.writer state in
+  let sender_query = Write_query.to_sender_query query in
+  write_sender_query sender_query writer |> Deferred.map ~f:Or_error.return
 ;;
 
 let open_rpc =
@@ -96,16 +131,9 @@ let open_rpc =
 
 let handle_open state query =
   let verbose = State.verbose state in
-  let connections = State.connections state in
+  let read_fd = State.read_fd state in
   let host = Open_query.host query in
   let port = Open_query.port query in
-  let header = Open_query.header query |> Header.sexp_of_t |> Sexp.to_string_mach in
-  let id = Util.generate_uuid_list (String.Table.keys connections) in
-  let read_fd, write_fd = Core.Unix.pipe () in
-  String.Table.add_exn
-    connections
-    ~key:id
-    ~data:(State.Connection.create ~read_fd ~write_fd);
   let ivar : int Or_error.t Ivar.t = Ivar.create () in
   let _x =
     In_thread.run (fun () ->
@@ -114,7 +142,6 @@ let handle_open state query =
             ~host
             ~port
             ~verbose
-            ~header
             ~port_callback:(fun port -> Ivar.fill ivar (Ok port))
             ~read_callback:(fun buf len -> Core.Unix.read read_fd ~len ~buf)
         in
@@ -130,7 +157,21 @@ let handle_open state query =
               (Error.to_string_hum err)))
   in
   let%bind.Deferred.Or_error port = Ivar.read ivar in
-  { Open_response.Data.id; port } |> Deferred.Or_error.return
+  port |> Deferred.Or_error.return
+;;
+
+let close_single_rpc =
+  Rpc.create
+    ~name:"shard_ssh_local_sender_close_single"
+    ~version:1
+    ~bin_query:Close_single_query.bin_t
+    ~bin_response:Response.bin_t
+;;
+
+let handle_close_single state query =
+  let writer = State.writer state in
+  let sender_query = Close_single_query.to_sender_query query in
+  write_sender_query sender_query writer |> Deferred.map ~f:Or_error.return
 ;;
 
 let close_rpc =
@@ -150,8 +191,10 @@ let handle_close state _query =
 let implementations =
   Implementations.create_exn
     ~implementations:
-      [ Rpc.implement write_rpc handle_write
+      [ Rpc.implement header_rpc handle_header
+      ; Rpc.implement write_rpc handle_write
       ; Rpc.implement open_rpc handle_open
+      ; Rpc.implement close_single_rpc handle_close_single
       ; Rpc.implement close_rpc handle_close
       ]
     ~on_unknown_rpc:`Raise
@@ -166,7 +209,11 @@ let run_server state =
 ;;
 
 let start_local_sender ~verbose =
-  let state = State.create ~verbose in
+  let read_fd, write_fd = Core.Unix.pipe () in
+  let writer =
+    Fd.create Fd.Kind.Fifo write_fd (Info.of_string "sender_writer") |> Writer.create
+  in
+  let state = State.create ~read_fd ~writer ~verbose in
   let%bind tcp = run_server state in
   (* Signal to the client that the connection is ready *)
   let port = Tcp.Server.listening_on tcp in
@@ -175,11 +222,16 @@ let start_local_sender ~verbose =
   Ivar.read ivar
 ;;
 
-let dispatch_open conn ~host ~port ~program ~env_image =
+let dispatch_open conn ~host ~port =
+  let query = { Open_query.host; port } in
+  let%map response = Rpc.dispatch open_rpc conn query in
+  Or_error.join response
+;;
+
+let dispatch_header conn ~program ~env_image =
   let env_image = Env.Image.of_public env_image in
   let header = { Header.program; env_image } in
-  let query = { Open_query.host; port; header } in
-  let%map response = Rpc.dispatch open_rpc conn query in
+  let%map response = Rpc.dispatch header_rpc conn header in
   Or_error.join response
 ;;
 
@@ -187,6 +239,12 @@ let dispatch_write conn ~id ~buf ~amt =
   let buf = Bytes.sub ~len:amt ~pos:0 buf in
   let query = { Write_query.id; buf } in
   let%map response = Rpc.dispatch write_rpc conn query in
+  Or_error.join response
+;;
+
+let dispatch_close_single conn ~id =
+  let query = id in
+  let%map response = Rpc.dispatch close_single_rpc conn query in
   Or_error.join response
 ;;
 

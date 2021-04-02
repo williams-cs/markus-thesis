@@ -34,11 +34,12 @@ module Application_class_impl = struct
        in
        sconn := Some sender_conn;
        rconn := Some receiver_conn;
-       let%bind.Deferred.Or_error sender_data =
-         Rpc_local_sender.dispatch_open sender_conn ~host ~port ~program ~env_image
+       let%bind.Deferred.Or_error remote_port =
+         Rpc_local_sender.dispatch_open sender_conn ~host ~port
        in
-       let remote_port = Rpc_local_sender.Open_response.Data.port sender_data in
-       let _id = Rpc_local_sender.Open_response.Data.id sender_data in
+       let%bind.Deferred.Or_error _id =
+         Rpc_local_sender.dispatch_header sender_conn ~program ~env_image
+       in
        let%map.Deferred.Or_error resp =
          Rpc_local_receiver.dispatch receiver_conn ~host ~port ~remote_port
        in
@@ -56,20 +57,25 @@ module Application_class_impl = struct
                   let buf = Bytes.of_string s in
                   Rpc_local_sender.dispatch_write sender_conn ~buf ~amt:(Bytes.length buf)) *)
        (* in *)
-       let%bind maybe_error =
-         Pipe.fold reader ~init:(Ok ()) ~f:(fun accum response ->
+       let close_ivar = Ivar.create () in
+       let _resp =
+         Pipe.iter reader ~f:(fun response ->
              match response with
-             | Write_callback (b, len) ->
-               let write_callback b len = return (Writer.write_bytes stdout b ~len) in
-               let%bind.Deferred () = write_callback b len in
-               return accum
-             | Close_callback err ->
-               let close_callback () = return () in
-               let%bind.Deferred () = close_callback () in
-               return err)
+             | Write_callback receiver_query ->
+               (match receiver_query with
+               | Data { Rpc_common.Receiver_data.id = _; data } ->
+                 Writer.write stdout data;
+                 return ()
+               | Close _ ->
+                 Ivar.fill close_ivar ();
+                 return ())
+             | Close_callback _ ->
+               (* placeholder , error handling ??? *)
+               return ())
        in
        Job.complete job;
-       return maybe_error)
+       let%bind () = Ivar.read close_ivar in
+       Deferred.Or_error.return ())
       |> Deferred.map ~f:deferred_or_error_swap
       |> Deferred.join
       |> Deferred.map ~f:Or_error.join

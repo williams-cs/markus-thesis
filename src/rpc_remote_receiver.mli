@@ -1,13 +1,8 @@
 open Async
-
-module Response : sig
-  type t =
-    | Header of Rpc_common.Header.t
-    | Message of string
-end
+open Rpc_common
 
 val start_remote_receiver : verbose:bool -> unit Deferred.t
 
 val dispatch
   :  Rpc.Connection.t
-  -> (Response.t Pipe.Reader.t * Rpc.Pipe_rpc.Metadata.t) Deferred.Or_error.t
+  -> (Sender_query.t Pipe.Reader.t * Rpc.Pipe_rpc.Metadata.t) Deferred.Or_error.t

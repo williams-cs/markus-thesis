@@ -105,8 +105,6 @@ let deferred_iter l =
 ;;
 
 let rec eval_command prog args ~eval_args =
-  (* TODO debug *)
-  (* printf "%s\n" (Eval_args.to_string eval_args); *)
   let job_group = eval_args |> Eval_args.env |> Env.job_group in
   if Job.Job_group.canceled job_group
   then return 1
@@ -142,11 +140,19 @@ let rec eval_command prog args ~eval_args =
       | Error err ->
         Job.cancel_without_signal job;
         fprintf (Eval_args.stderr_writer eval_args) "%s\n" (Error.to_string_hum err);
+        (* TODO debug *)
+        (* let s = Eval_args.env eval_args |> Env.assign_get ~key:"id" in
+        fprintf
+          (force Writer.stderr)
+          "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!eval: %s (%s)\n"
+          prog
+          s; *)
         return (-1)
       | Ok process ->
         (* Job.connect job ~process; *)
         let pid = Pid.to_int (Pipe_process.pid process) in
         let%bind exit_code = wait_until_exit process in
+        let%bind () = Writer.flushed (Eval_args.stdout_writer eval_args) in
         let%bind () = if Job.canceled job then return () else return () in
         if Eval_args.verbose eval_args
         then
@@ -156,19 +162,37 @@ let rec eval_command prog args ~eval_args =
             pid
             exit_code;
         Job.complete job;
+        (* TODO debug *)
+        (* let s = Eval_args.env eval_args |> Env.assign_get ~key:"id" in
+        let ifd = Eval_args.stdin_reader eval_args |> Reader.fd |> Fd.to_int_exn in
+        let ofd = Eval_args.stdout_writer eval_args |> Writer.fd |> Fd.to_int_exn in
+        let efd = Eval_args.stderr_writer eval_args |> Writer.fd |> Fd.to_int_exn in
+        fprintf
+          (force Writer.stderr)
+          "eval: %s (%d,%d,%d) (%d) (%s)\n"
+          prog
+          ifd
+          ofd
+          efd
+          exit_code
+          s; *)
         return exit_code))
 
 and eval_source file ~eval_args =
   let%bind stdin = Reader.open_file file in
   let stdout = Eval_args.stdout eval_args in
   let stderr = Eval_args.stderr eval_args in
-  eval_lines
-    ~interactive:false
-    ~prog_input:(Prog_input.Stream (stdin, Not_sexp))
-    ~stdout
-    ~stderr
-    ~eval_args
-    ()
+  let%bind res =
+    eval_lines
+      ~interactive:false
+      ~prog_input:(Prog_input.Stream (stdin, Not_sexp))
+      ~stdout
+      ~stderr
+      ~eval_args
+      ()
+  in
+  let%bind () = Reader.close stdin in
+  return res
 
 and eval (ast : Ast.t) ~eval_args =
   let open Ast in
@@ -229,6 +253,7 @@ and eval_pipeline pipeline ~eval_args =
       let%bind _code = deferred_code in
       let%bind () = Fd.close pipe_write in
       let%bind new_code = new_deferred_code in
+      let%bind () = Fd.close pipe_read in
       return new_code)
 
 and eval_pipeline_part ~eval_args =

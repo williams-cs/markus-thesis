@@ -7,6 +7,7 @@ end
 type t [@@deriving sexp, bin_io]
 
 val add_assignment : t -> key:string -> data:string -> t
+val get_assignments : t -> string String.Map.t
 
 module Private : sig
   module Cluster_image : sig

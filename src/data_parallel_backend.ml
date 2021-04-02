@@ -2,9 +2,17 @@ open Core
 open Async
 
 module Cluster_info = struct
-  type t =
-    { connections : (Rpc_local_sender.t * Rpc_local_receiver.t) Deferred.t String.Table.t
-    }
+  module Connection = struct
+    type t =
+      { sender_conn : Rpc_local_sender.t
+      ; receiver_conn : Rpc_local_receiver.t
+      ; remote_port : int
+      ; reader_map : id:string -> Reader.t Deferred.t
+      }
+    [@@deriving fields]
+  end
+
+  type t = { connections : Connection.t Deferred.t String.Table.t } [@@deriving fields]
 
   let create () = { connections = String.Table.create () }
   let get_conn { connections } conn = String.Table.find connections conn
@@ -62,80 +70,60 @@ module Application_class_impl = struct
             Cluster_info.add_conn cluster_info target_string (Ivar.read ivar);
             let host = Remote_target.host target in
             let port = Remote_target.port target in
-            let%map.Deferred.Or_error sender_conn, receiver_conn =
+            let%bind.Deferred.Or_error sender_conn, receiver_conn =
               Remote_rpc.setup_rpc_service ~host ~port ~stderr ~verbose ~job
             in
-            Ivar.fill ivar (sender_conn, receiver_conn))
+            let%bind.Deferred.Or_error remote_port =
+              Rpc_local_sender.dispatch_open sender_conn ~host ~port
+            in
+            let%map.Deferred.Or_error resp =
+              Rpc_local_receiver.dispatch' receiver_conn ~host ~port ~remote_port
+            in
+            let reader_map, _metadata, _deferred = resp in
+            Ivar.fill
+              ivar
+              { Cluster_info.Connection.sender_conn
+              ; receiver_conn
+              ; remote_port
+              ; reader_map
+              })
     in
-    let dispatch_command_raw
-        sender_conn
-        receiver_conn
-        host
-        port
-        program
-        send_lines
-        env_image
-      =
+    let dispatch_command_raw connection program send_lines env_image =
+      let sender_conn = Cluster_info.Connection.sender_conn connection in
       let bufsize = 1024 in
       let resp_buf = Buffer.create bufsize in
-      let%bind.Deferred.Or_error sender_data =
-        Rpc_local_sender.dispatch_open sender_conn ~host ~port ~program ~env_image
+      let%bind.Deferred.Or_error id =
+        Rpc_local_sender.dispatch_header sender_conn ~program ~env_image
       in
-      let remote_port = Rpc_local_sender.Open_response.Data.port sender_data in
-      let id = Rpc_local_sender.Open_response.Data.id sender_data in
-      let%bind.Deferred.Or_error resp =
-        Rpc_local_receiver.dispatch receiver_conn ~host ~port ~remote_port
+      let send =
+        let%bind _res =
+          Deferred.List.fold send_lines ~init:(Or_error.return ()) ~f:(fun accum s ->
+              match accum with
+              | Error error -> return (Error error)
+              | Ok () ->
+                let buf = Bytes.of_string (s ^ "\n") in
+                Rpc_local_sender.dispatch_write
+                  sender_conn
+                  ~id
+                  ~buf
+                  ~amt:(Bytes.length buf))
+        in
+        Rpc_local_sender.dispatch_close_single sender_conn ~id
       in
-      let reader, _metadata = resp in
-      let _send =
-        Deferred.List.fold send_lines ~init:(Or_error.return ()) ~f:(fun accum s ->
-            match accum with
-            | Error error -> return (Error error)
-            | Ok () ->
-              let buf = Bytes.of_string s in
-              Rpc_local_sender.dispatch_write sender_conn ~id ~buf ~amt:(Bytes.length buf))
+      let reader_map = Cluster_info.Connection.reader_map connection in
+      let%bind reader = reader_map ~id in
+      let reader_pipe = Reader.pipe reader in
+      let%bind () =
+        Pipe.iter_without_pushback reader_pipe ~f:(fun s -> Buffer.add_string resp_buf s)
       in
-      let%bind maybe_error =
-        Pipe.fold reader ~init:(Ok ()) ~f:(fun accum response ->
-            match response with
-            | Write_callback (b, len) ->
-              let write_callback b len =
-                let bs = Bytes.sub b ~pos:0 ~len in
-                Buffer.add_bytes resp_buf bs;
-                return ()
-              in
-              let%bind.Deferred () = write_callback b len in
-              return accum
-            | Close_callback err ->
-              let close_callback () = return () in
-              let%bind.Deferred () = close_callback () in
-              return err)
-      in
-      let contents_with_maybe_error = Or_error.map ~f:(fun () -> resp_buf) maybe_error in
-      Deferred.return contents_with_maybe_error
+      let%bind _send = send in
+      Deferred.Or_error.return resp_buf
     in
     let dispatch_map_reduce program env_image write_lines remote_target_string =
-      let parse_remote_target_string s =
-        let sl = String.split remote_target_string ~on:':' in
-        match sl with
-        | [ h ] -> Ok (h, None)
-        | [ h; p ] -> Ok (h, Some (Int.of_string p))
-        | _ -> Error (Error.raise_s [%message "Invalid remote target string" s])
-      in
-      let%bind.Deferred.Or_error host, port =
-        Deferred.return (parse_remote_target_string remote_target_string)
-      in
-      let%bind sender_conn, receiver_conn =
+      let%bind connection =
         Option.value_exn (Cluster_info.get_conn cluster_info remote_target_string)
       in
-      dispatch_command_raw
-        sender_conn
-        receiver_conn
-        host
-        port
-        program
-        write_lines
-        env_image
+      dispatch_command_raw connection program write_lines env_image
     in
     match setting with
     | "map" ->
@@ -143,32 +131,42 @@ module Application_class_impl = struct
          for processing. Repeat until done. Stream back data line by line in
          key,value format.*)
       (* For now, iterate through the remote targets *)
-      let rec loop remote_target_index =
+      let rec loop remote_target_index deferreds =
         let%bind line = Reader.read_line stdin in
         match line with
-        | `Eof -> Deferred.Or_error.return ()
+        | `Eof -> return deferreds
         | `Ok line ->
           let remote_target = List.nth_exn remote_targets remote_target_index in
           let program = program in
           let env_image = Env_image.add_assignment env_image ~key:"in" ~data:line in
-          let%bind.Deferred.Or_error res_raw =
-            dispatch_map_reduce program env_image [] (remote_target_string remote_target)
+          let process =
+            let%bind.Deferred.Or_error res_raw =
+              dispatch_map_reduce
+                program
+                env_image
+                []
+                (remote_target_string remote_target)
+            in
+            let res_string = Buffer.contents res_raw in
+            (* TODO better escaping? *)
+            let dispatch_res =
+              String.split res_string ~on:'\n'
+              |> List.drop_last
+              |> Option.value ~default:[]
+              |> String.concat ~sep:","
+            in
+            Writer.write_line stdout dispatch_res;
+            Writer.flushed stdout |> Deferred.map ~f:Or_error.return
           in
-          let res_string = Buffer.contents res_raw in
-          (* TODO better escaping? *)
-          let dispatch_res =
-            String.split res_string ~on:'\n'
-            |> List.drop_last
-            |> Option.value ~default:[]
-            |> String.concat ~sep:","
-          in
-          let () = Writer.write_line stdout dispatch_res in
           let next_remote_target =
             (remote_target_index + 1) % List.length remote_targets
           in
-          loop next_remote_target
+          loop next_remote_target (process :: deferreds)
       in
-      loop 0
+      let%bind deferreds = loop 0 [] in
+      let%map or_errors = Deferred.all deferreds in
+      let%map.Or_error units = Or_error.combine_errors or_errors in
+      ignore units
     | "reduce" ->
       (* Process inputs: For each line, send to host in cluster depending on
          key. When all lines are sent, send 'start' signal to hosts. Gather all
@@ -196,22 +194,36 @@ module Application_class_impl = struct
       in
       let%bind.Deferred.Or_error () = loop () in
       let l = Hashtbl.to_alist inputs in
-      Deferred.Or_error.List.iter l ~f:(fun (key, data) ->
-          let remote_target_index = Util.simple_hash key % List.length remote_targets in
-          let remote_target = List.nth_exn remote_targets remote_target_index in
-          let program = program in
-          let env_image = Env_image.add_assignment env_image ~key:"key" ~data:key in
-          let%bind.Deferred.Or_error res_raw =
-            dispatch_map_reduce
-              program
-              env_image
-              data
-              (remote_target_string remote_target)
-          in
-          let res = Buffer.contents res_raw in
-          let res_lines = String.split_lines res in
-          List.iter res_lines ~f:(fun line -> fprintf stdout "%s,%s\n" key line);
-          Deferred.Or_error.return ())
+      let deferreds =
+        List.fold l ~init:[] ~f:(fun accum (key, data) ->
+            let remote_target_index = Util.simple_hash key % List.length remote_targets in
+            let remote_target = List.nth_exn remote_targets remote_target_index in
+            let program = program in
+            let env_image = Env_image.add_assignment env_image ~key:"key" ~data:key in
+            let process =
+              let%bind.Deferred.Or_error res_raw =
+                dispatch_map_reduce
+                  program
+                  env_image
+                  data
+                  (remote_target_string remote_target)
+              in
+              let res = Buffer.contents res_raw in
+              (* let res_lines = String.split_lines res in *)
+              (* List.iter res_lines ~f:(fun line -> fprintf stdout "%s,%s\n" key line); *)
+              Deferred.Or_error.return (key, res)
+            in
+            process :: accum)
+      in
+      let%map or_errors = Deferred.all deferreds in
+      let%map.Or_error pairs = Or_error.combine_errors or_errors in
+      let sorted =
+        List.fold pairs ~init:String.Map.empty ~f:(fun accum (key, data) ->
+            Map.add_exn accum ~key ~data)
+      in
+      Map.iteri sorted ~f:(fun ~key ~data ->
+          let res_lines = String.split_lines data in
+          List.iter res_lines ~f:(fun line -> fprintf stdout "%s,%s\n" key line))
     | _ ->
       return
         (Error.raise_s

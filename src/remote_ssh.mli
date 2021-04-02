@@ -16,7 +16,6 @@ val remote_run_sender
   :  host:string
   -> port:int option
   -> verbose:bool
-  -> header:string
   -> port_callback:(int -> unit)
   -> read_callback:(bytes -> int -> int)
   -> unit Or_error.t

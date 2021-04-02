@@ -38,3 +38,9 @@ let add_assignment env_image ~key ~data =
   let new_priv = { priv with img_assignments = new_assigments } in
   Private.t_of_private new_priv
 ;;
+
+let get_assignments env_image =
+  let priv = Private.private_of_t env_image in
+  let { Private.img_assignments; _ } = priv in
+  img_assignments
+;;

@@ -344,8 +344,8 @@ CAMLprim value ocaml_libssh_ssh_channel_poll(value chanv, value is_stderrv, valu
   int ret;
 
   ret = timeoutv == Val_int(0)
-    ? ssh_channel_poll(chan, Optbool_val(timeoutv, false))  /* None */
-    : ssh_channel_poll_timeout(chan, Int_val(Field(timeoutv, 0)), Optbool_val(timeoutv, false));  /* Some int */
+    ? ssh_channel_poll(chan, Optbool_val(is_stderrv, false))  /* None */
+    : ssh_channel_poll_timeout(chan, Int_val(Field(timeoutv, 0)), Optbool_val(is_stderrv, false));  /* Some int */
   check_ssh_error_return_code(session, ret);
 
   CAMLreturn(Int_val(ret));

@@ -1,16 +1,14 @@
 open Core
 open Async
 open Rpc
+open Rpc_common
 
 module Query = struct
   type t = unit [@@deriving bin_io]
 end
 
 module Response = struct
-  type t =
-    | Header of Rpc_common.Header.t
-    | Message of string
-  [@@deriving bin_io]
+  type t = Sender_query.t [@@deriving bin_io]
 end
 
 module State = struct
@@ -43,20 +41,24 @@ let handle_query state () =
          let%bind res =
            Async.try_with (fun () ->
                let stdin = force Reader.stdin in
-               let%bind header_sexp = Reader.read_sexp stdin in
-               match header_sexp with
-               | `Eof -> raise_s [%message "Bad header"]
-               | `Ok header_sexp ->
-                 let header = Rpc_common.Header.t_of_sexp header_sexp in
-                 let%bind () = Pipe.write pipe (Response.Header header) in
-                 let stdin_pipe = Reader.pipe stdin in
-                 let i = ref 0 in
-                 let%bind () =
-                   Pipe.iter stdin_pipe ~f:(fun s ->
-                       i := !i + 1;
-                       Pipe.write pipe (Response.Message s))
-                 in
-                 return ())
+               let sexp_pipe = Reader.read_sexps stdin in
+               Pipe.iter sexp_pipe ~f:(fun sexp ->
+                   let sender_sexp = Sender_query.t_of_sexp sexp in
+                   let id = Sender_query.id sender_sexp in
+                   let sz =
+                     match Sender_query.data sender_sexp with
+                     | Header h ->
+                       let env_image = Header.env_image h in
+                       let public_image = Env.Image.to_public env_image in
+                       let assign = Env_image.get_assignments public_image in
+                       (match String.Map.find assign "in" with
+                       | None -> sprintf "[Header (%s)]" id
+                       | Some map_in -> sprintf "[Header: %s (%s)]" map_in id)
+                     | Message m -> sprintf "[Message: %s (%s)]" (Bytes.to_string m) id
+                     | Close -> sprintf "[Close (%s)]" id
+                   in
+                   fprintf (force Writer.stderr) "Send: %s\n" sz;
+                   Pipe.write pipe sender_sexp))
          in
          let close_ivar = State.close_ivar state in
          Ivar.fill close_ivar ();

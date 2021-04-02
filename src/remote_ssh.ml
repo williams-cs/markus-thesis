@@ -198,23 +198,43 @@ let remote_command_output ssh command ~write_callback =
   channel#request_exec command;
   let bufsize = 1024 in
   let buf = Bytes.make bufsize Char.min_value in
-  (try
-     while true do
-       let amt = channel#read buf 0 (Bytes.length buf) in
-       write_callback buf amt
-       (* if amt <> bufsize then () else loop () *)
-     done
-   with
-  | End_of_file | Libssh.LibsshError _ -> ());
+  let timeout_ms = ref 10 in
+  let do_break = ref false in
+  while not !do_break do
+    try
+      while true do
+        (* Async.fprintf (force Async.Writer.stderr) "RCO-POLL \n"; *)
+        (* let amt = channel#poll ~timeout:1000 () in *)
+        (* Async.fprintf (force Async.Writer.stderr) "RCO-AMT: %s\n" (Int.to_string amt); *)
+        (* if amt > 0 *)
+        (* then ( *)
+        (* let amt_capped = Int.min amt (Bytes.length buf) in *)
+        (* Polling doesnt work *)
+        let amt = channel#read ~timeout:!timeout_ms buf 0 (Bytes.length buf) in
+        write_callback buf amt;
+        timeout_ms := 10
+        (* if amt <> bufsize then () else loop () *)
+      done
+    with
+    | End_of_file as exn ->
+      (* Async.fprintf (force Async.Writer.stderr) "RCO-EOF: %s\n" (Exn.to_string exn); *)
+      if !timeout_ms < 500 then timeout_ms := !timeout_ms + 5;
+      ignore exn
+    | Libssh.LibsshError _ as exn ->
+      Async.fprintf
+        (force Async.Writer.stderr)
+        "LocalReceiver-LibsshError: %s\n"
+        (Exn.to_string exn);
+      do_break := true
+  done;
   channel#send_eof ();
   channel#close ()
 ;;
 
-let remote_command_io ssh command ~header ~read_callback ~write_callback =
+let remote_command_io ssh command ~read_callback ~write_callback =
   let channel = new Libssh.channel ssh in
   channel#open_session ();
   channel#request_exec command;
-  let header_bytes = Bytes.of_string header in
   let bufsize = 1024 in
   let buf = Bytes.make bufsize Char.min_value in
   (* Read header response (single read) *)
@@ -224,32 +244,28 @@ let remote_command_io ssh command ~header ~read_callback ~write_callback =
      (* if amt <> bufsize then () else loop () *)
    with
   | End_of_file | Libssh.LibsshError _ -> ());
-  (* Send headers *)
-  (try
-     let index = ref 0 in
-     let header_len = Bytes.length header_bytes in
-     while !index < header_len do
-       let max_amt = header_len - !index in
-       let amt = Int.min (Bytes.length buf) max_amt in
-       Bytes.blit ~src:header_bytes ~src_pos:!index ~dst:buf ~dst_pos:0 ~len:amt;
-       channel#write buf 0 amt |> ignore;
-       index := !index + amt
-     done
-   with
-  | End_of_file | Libssh.LibsshError _ -> ());
   (* Stream writes *)
-  (try
-     let complete = ref false in
-     while not !complete do
-       let amt = read_callback buf bufsize in
-       if Int.equal amt (-1)
-       then complete := true
-       else (
-         let write_amt = channel#write buf 0 amt in
-         if not (Int.equal amt write_amt) then complete := true)
-     done
-   with
-  | End_of_file | Libssh.LibsshError _ -> ());
+  while true do
+    try
+      let complete = ref false in
+      while not !complete do
+        let amt = read_callback buf bufsize in
+        if Int.equal amt (-1)
+        then complete := true
+        else (
+          let write_amt = channel#write buf 0 amt in
+          if not (Int.equal amt write_amt) then complete := true)
+      done
+    with
+    | End_of_file as exn ->
+      (* Async.fprintf (force Async.Writer.stderr) "RCI-EOF: %s\n" (Exn.to_string exn) *)
+      ignore exn
+    | Libssh.LibsshError _ as exn ->
+      Async.fprintf
+        (force Async.Writer.stderr)
+        "LocalSender-LibsshError: %s\n"
+        (Exn.to_string exn)
+  done;
   channel#send_eof ();
   channel#close ()
 ;;
@@ -259,7 +275,7 @@ let shard_exe = sprintf "%s/shard.exe" shard_dir
 let rslog = sprintf "%s/rslog.txt" shard_dir
 let rrlog = sprintf "%s/rrlog.txt" shard_dir
 
-let remote_run_sender_unsafe ~host ~port ~verbose ~header ~port_callback ~read_callback =
+let remote_run_sender_unsafe ~host ~port ~verbose ~port_callback ~read_callback =
   let stderr = force Async.Writer.stderr in
   let _local_path, program_hash = local_copy ~verbose ~host ~port in
   debug_println ~verbose program_hash;
@@ -269,7 +285,7 @@ let remote_run_sender_unsafe ~host ~port ~verbose ~header ~port_callback ~read_c
     ~stderr
     ~host
     ~port
-    "!!!!!!Connecting to remote...";
+    "Connecting to remote...";
   let ssh = connect ~host ~port ~verbose in
   (* Check for remote copy of Shard *)
   Util.verbose_println
@@ -327,7 +343,7 @@ let remote_run_sender_unsafe ~host ~port ~verbose ~header ~port_callback ~read_c
     ~port
     "Starting receiver on remote Shard...";
   let command = sprintf "%s -Rrr 2>>%s | tee -a %s" shard_exe rrlog rrlog in
-  remote_command_io ssh command ~header ~read_callback ~write_callback:(fun b amt ->
+  remote_command_io ssh command ~read_callback ~write_callback:(fun b amt ->
       let sub = Bytes.sub ~pos:0 ~len:amt b in
       let port_string = Bytes.to_string sub in
       let port_string = String.chop_suffix_if_exists ~suffix:"\n" port_string in
@@ -368,9 +384,9 @@ let remote_run_receiver_unsafe
   Util.verbose_println ~name:(source `Receiver) ~verbose ~stderr ~host ~port "Complete!"
 ;;
 
-let remote_run_sender ~host ~port ~verbose ~header ~port_callback ~read_callback =
+let remote_run_sender ~host ~port ~verbose ~port_callback ~read_callback =
   Or_error.try_with (fun () ->
-      remote_run_sender_unsafe ~host ~port ~verbose ~header ~port_callback ~read_callback)
+      remote_run_sender_unsafe ~host ~port ~verbose ~port_callback ~read_callback)
 ;;
 
 let remote_run_receiver ~host ~port ~verbose ~remote_port ~write_callback ~close_callback =

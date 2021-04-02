@@ -1,5 +1,15 @@
 # Research Log
 
+## 2020-04-01
+- Implementation
+  - Rewrite data parallel implementation to use one ssh per remote rather than per task
+  - Able to "reasonably" complete tasks (~1800-word word count in 12 seconds with localhost)
+
+## 2020-03-30
+- Implementation
+  - Consistently working data parallel
+    - TODO: Rewrite so that we are using one ssh per remote, not per task
+
 ## 2020-03-27
 - Implementation
   - Rewrite pipe/file descriptor implementation
