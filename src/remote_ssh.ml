@@ -245,27 +245,27 @@ let remote_command_io ssh command ~read_callback ~write_callback =
    with
   | End_of_file | Libssh.LibsshError _ -> ());
   (* Stream writes *)
-  while true do
-    try
-      let complete = ref false in
-      while not !complete do
-        let amt = read_callback buf bufsize in
-        if Int.equal amt (-1)
-        then complete := true
-        else (
-          let write_amt = channel#write buf 0 amt in
-          if not (Int.equal amt write_amt) then complete := true)
-      done
-    with
-    | End_of_file as exn ->
-      (* Async.fprintf (force Async.Writer.stderr) "RCI-EOF: %s\n" (Exn.to_string exn) *)
-      ignore exn
-    | Libssh.LibsshError _ as exn ->
-      Async.fprintf
-        (force Async.Writer.stderr)
-        "LocalSender-LibsshError: %s\n"
-        (Exn.to_string exn)
-  done;
+  (* while true do *)
+  (try
+     let complete = ref false in
+     while not !complete do
+       let amt = read_callback buf bufsize in
+       if Int.equal amt (-1)
+       then complete := true
+       else (
+         let write_amt = channel#write buf 0 amt in
+         if not (Int.equal amt write_amt) then complete := true)
+     done
+   with
+  | End_of_file as exn ->
+    (* Async.fprintf (force Async.Writer.stderr) "RCI-EOF: %s\n" (Exn.to_string exn) *)
+    ignore exn
+  | Libssh.LibsshError _ as exn ->
+    Async.fprintf
+      (force Async.Writer.stderr)
+      "LocalSender-LibsshError: %s\n"
+      (Exn.to_string exn));
+  (* done; *)
   channel#send_eof ();
   channel#close ()
 ;;

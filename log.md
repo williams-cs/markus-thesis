@@ -1,5 +1,10 @@
 # Research Log
 
+## 2020-04-02
+- TODO
+  - Error handling/failures
+  - Braindump on architecture
+
 ## 2020-04-01
 - Implementation
   - Rewrite data parallel implementation to use one ssh per remote rather than per task

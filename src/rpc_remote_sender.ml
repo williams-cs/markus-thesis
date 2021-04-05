@@ -101,6 +101,10 @@ let start_remote_sender
                           ~stdout
                           ~stderr
                       in
+                      (* let%bind () = Writer.fsync stdout in
+                      let%bind () = Writer.fsync stderr in
+                      let%bind () = Writer.fsync global_stdout in
+                      let%bind () = Writer.fsync global_stderr in *)
                       let%bind () = Writer.flushed stdout in
                       let%bind () = Writer.flushed stderr in
                       let%bind () = Writer.flushed global_stdout in
