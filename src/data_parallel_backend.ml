@@ -16,7 +16,6 @@ module Application_class_impl = struct
       ~stderr
     =
     let _start_time = Time_ns.now () in
-    let job = Job.create () in
     (* Set up connection to hosts in cluster as necessary*)
     let cluster_info = String.Table.find clusters cluster_id in
     let cluster_info =
@@ -28,12 +27,7 @@ module Application_class_impl = struct
       | Some info -> info
     in
     let%bind.Deferred.Or_error () =
-      Remote_cluster.init_targets
-        cluster_info
-        ~targets:remote_targets
-        ~verbose
-        ~stderr
-        ~job
+      Remote_cluster.init_targets cluster_info ~targets:remote_targets ~verbose ~stderr
     in
     match setting with
     | "map" ->

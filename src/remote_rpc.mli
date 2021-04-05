@@ -25,5 +25,5 @@ val setup_rpc_service
   -> port:int option
   -> stderr:Writer.t
   -> verbose:bool
-  -> job:Job.t
+  -> job:Job.t option
   -> (Rpc_local_sender.t * Rpc_local_receiver.t, Error.t) result Deferred.t

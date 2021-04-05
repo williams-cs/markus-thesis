@@ -37,5 +37,6 @@ module Receiver_query = struct
   type t =
     | Data of Receiver_data.t
     | Close of string
+    | Heartbeat of string * int
   [@@deriving sexp, bin_io]
 end

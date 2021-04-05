@@ -9,7 +9,6 @@ val init_targets
   -> targets:Remote_target.t list
   -> stderr:Writer.t
   -> verbose:bool
-  -> job:Job.t
   -> unit Deferred.Or_error.t
 
 val run_task

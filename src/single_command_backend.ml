@@ -30,7 +30,7 @@ module Application_class_impl = struct
     let port = Remote_target.port remote_target in
     let%bind res1d =
       (let%bind.Deferred.Or_error sender_conn, receiver_conn =
-         Remote_rpc.setup_rpc_service ~host ~port ~stderr ~verbose ~job
+         Remote_rpc.setup_rpc_service ~host ~port ~stderr ~verbose ~job:(Some job)
        in
        sconn := Some sender_conn;
        rconn := Some receiver_conn;
@@ -68,7 +68,8 @@ module Application_class_impl = struct
                  return ()
                | Close _ ->
                  Ivar.fill close_ivar ();
-                 return ())
+                 return ()
+               | Heartbeat _ -> return ())
              | Close_callback _ ->
                (* placeholder , error handling ??? *)
                return ())

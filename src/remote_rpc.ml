@@ -10,14 +10,20 @@ let run_client host port =
   Deferred.Result.map_error ~f:(fun exn -> Error.of_exn exn) conn
 ;;
 
-let rpc_create_child ~name ~prog ~args ~host ~port ~stderr ~verbose ~job =
-  let continue_if_should_connect f =
-    if Job.should_connect job
-    then f ()
-    else Deferred.Or_error.error_string "Should not connect on attempted connection!"
+let continue_if_should_connect job f =
+  let should_connect =
+    match job with
+    | None -> true
+    | Some job -> Job.should_connect job
   in
+  if should_connect
+  then f ()
+  else Deferred.Or_error.error_string "Should not connect on attempted connection!"
+;;
+
+let rpc_create_child ~name ~prog ~args ~host ~port ~stderr ~verbose ~job =
   (* run copied executable with command line argument, which runs the server *)
-  continue_if_should_connect (fun () ->
+  continue_if_should_connect job (fun () ->
       Util.verbose_println
         ~name:"Shard_rpc"
         ~stderr
@@ -29,7 +35,9 @@ let rpc_create_child ~name ~prog ~args ~host ~port ~stderr ~verbose ~job =
       let%bind.Deferred.Or_error sender_process =
         Process.create ~prog ~args ~stdin:"" ()
       in
-      Job.attach job ~process:sender_process;
+      (match job with
+      | Some job -> Job.attach job ~process:sender_process
+      | None -> ());
       let sender_stdout = Process.stdout sender_process in
       let sender_stderr = Process.stderr sender_process in
       let _err_deferred = Util.glue' ~reader:sender_stderr ~writer:stderr in
@@ -50,12 +58,7 @@ let rpc_create_child ~name ~prog ~args ~host ~port ~stderr ~verbose ~job =
 ;;
 
 let setup_rpc_service ~host ~port ~stderr ~verbose ~job =
-  let continue_if_should_connect f =
-    if Job.should_connect job
-    then f ()
-    else Deferred.Or_error.error_string "Should not connect on attempted connection!"
-  in
-  continue_if_should_connect (fun () ->
+  continue_if_should_connect job (fun () ->
       Util.verbose_println
         ~name:"Shard_rpc"
         ~stderr
@@ -69,7 +72,9 @@ let setup_rpc_service ~host ~port ~stderr ~verbose ~job =
             let local_path, _hash = Remote_ssh.local_copy ~verbose ~host ~port in
             local_path)
       in
-      Job.connect job;
+      (match job with
+      | Some job -> Job.connect job
+      | None -> ());
       let%bind.Deferred.Or_error sender_port =
         rpc_create_child
           ~name:"RPC local sender"

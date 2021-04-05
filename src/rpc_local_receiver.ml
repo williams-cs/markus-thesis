@@ -185,6 +185,10 @@ let dispatch' conn ~host ~port ~remote_port =
                 let%bind writer = lazy_writer ~id in
                 Writer.close writer
               in
+              return (Deferred.map deferred ~f:Or_error.return :: accum)
+            | Receiver_query.Heartbeat (_id, _index) ->
+              (* TODO heartbeat *)
+              let deferred = Deferred.return () in
               return (Deferred.map deferred ~f:Or_error.return :: accum))
           | Close_callback x -> return (return x :: accum))
     in
