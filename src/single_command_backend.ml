@@ -59,24 +59,28 @@ module Application_class_impl = struct
        (* in *)
        let close_ivar = Ivar.create () in
        let _resp =
-         Pipe.iter reader ~f:(fun response ->
-             match response with
-             | Write_callback receiver_query ->
-               (* placeholder, sequence number handling? *)
-               let { Rpc_common.Receiver_query.id = _; sequence_number = _; data } =
-                 receiver_query
-               in
-               (match data with
-               | Message str ->
-                 Writer.write stdout str;
-                 return ()
-               | Close ->
-                 Ivar.fill close_ivar ();
-                 return ()
-               | Heartbeat _id -> (* placeholder, heartbeat handling ? *) return ())
-             | Close_callback _ ->
-               (* placeholder , error handling ??? *)
-               return ())
+         let%bind () =
+           Pipe.iter reader ~f:(fun response ->
+               match response with
+               | Write_callback receiver_query ->
+                 (* placeholder, sequence number handling? *)
+                 let { Rpc_common.Receiver_query.id = _; sequence_number = _; data } =
+                   receiver_query
+                 in
+                 (match data with
+                 | Message str ->
+                   Writer.write stdout str;
+                   return ()
+                 | Close ->
+                   Ivar.fill close_ivar ();
+                   return ()
+                 | Heartbeat _id -> (* placeholder, heartbeat handling ? *) return ())
+               | Close_callback _ ->
+                 (* placeholder , error handling ??? *)
+                 Ivar.fill_if_empty close_ivar ();
+                 return ())
+         in
+         return (Ivar.fill_if_empty close_ivar ())
        in
        Job.complete job;
        let%bind () = Ivar.read close_ivar in
