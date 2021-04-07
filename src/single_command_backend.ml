@@ -62,14 +62,18 @@ module Application_class_impl = struct
          Pipe.iter reader ~f:(fun response ->
              match response with
              | Write_callback receiver_query ->
-               (match receiver_query with
-               | Data { Rpc_common.Receiver_data.id = _; data } ->
-                 Writer.write stdout data;
+               (* placeholder, sequence number handling? *)
+               let { Rpc_common.Receiver_query.id = _; sequence_number = _; data } =
+                 receiver_query
+               in
+               (match data with
+               | Message str ->
+                 Writer.write stdout str;
                  return ()
-               | Close _ ->
+               | Close ->
                  Ivar.fill close_ivar ();
                  return ()
-               | Heartbeat _ -> return ())
+               | Heartbeat _id -> (* placeholder, heartbeat handling ? *) return ())
              | Close_callback _ ->
                (* placeholder , error handling ??? *)
                return ())

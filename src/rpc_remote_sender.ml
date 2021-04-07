@@ -11,7 +11,7 @@ let run_client host port =
   Deferred.Result.map_error ~f:(fun exn -> Error.of_exn exn) conn
 ;;
 
-let debug_forced_failure_rate = 0.1
+let debug_forced_failure_rate = 0.0
 let heartbeat_span_ns = Time_ns.Span.of_int_ms 500
 
 let start_remote_sender
@@ -47,6 +47,12 @@ let start_remote_sender
                       Deferred.Or_error.return ())
                     else (
                       fprintf (force Writer.stderr) "TRY PROC %s\n" id;
+                      let sequence_number = ref 0 in
+                      let get_sequence_number () =
+                        let snum = !sequence_number in
+                        sequence_number := snum + 1;
+                        snum
+                      in
                       let make_pipe_and_get_writer info_string output_writer =
                         let%bind `Reader tmp_read_fd, `Writer tmp_write_fd =
                           Unix.pipe (Info.of_string info_string)
@@ -60,8 +66,11 @@ let start_remote_sender
                                 ~writer:output_writer
                                 ~transform:(fun s ->
                                   fprintf (force Writer.stderr) "[%s:%s]\n" s id;
-                                  let rdata = { Receiver_data.id; data = s } in
-                                  let rquery = Receiver_query.Data rdata in
+                                  let data = Receiver_data.Message s in
+                                  let snum = get_sequence_number () in
+                                  let rquery =
+                                    { Receiver_query.id; sequence_number = snum; data }
+                                  in
                                   let sexp = Receiver_query.sexp_of_t rquery in
                                   let sstr = Sexp.to_string sexp in
                                   sstr ^ "\n"))
@@ -69,7 +78,13 @@ let start_remote_sender
                         return (tmp_reader, tmp_writer, glued)
                       in
                       let close_for_id output_writer =
-                        let rquery = Receiver_query.Close id in
+                        let snum = get_sequence_number () in
+                        let rquery =
+                          { Receiver_query.id
+                          ; sequence_number = snum
+                          ; data = Receiver_data.Close
+                          }
+                        in
                         let sexp = Receiver_query.sexp_of_t rquery in
                         Writer.write_sexp output_writer sexp
                       in
@@ -83,10 +98,10 @@ let start_remote_sender
                       | None ->
                         let ivar = Ivar.create_full writer in
                         Hashtbl.add_exn writers ~key:id ~data:ivar);
-                      let%bind stdout_reader_for_close, stdout, _glue_wait_stdout =
+                      let%bind stdout_reader_for_close, stdout, glue_wait_stdout =
                         make_pipe_and_get_writer "stdout_pipe" global_stdout
                       in
-                      let%bind stderr_reader_for_close, stderr, _glue_wait_stderr =
+                      let%bind stderr_reader_for_close, stderr, glue_wait_stderr =
                         make_pipe_and_get_writer "stderr_pipe" global_stderr
                       in
                       let prog = Rpc_common.Header.program header in
@@ -118,7 +133,13 @@ let start_remote_sender
                           ~stop:(Deferred.ignore_m res)
                           heartbeat_span_ns
                           (fun () ->
-                            let rquery = Receiver_query.Heartbeat (id, !index) in
+                            let snum = get_sequence_number () in
+                            let rquery =
+                              { Receiver_query.id
+                              ; sequence_number = snum
+                              ; data = Receiver_data.Heartbeat !index
+                              }
+                            in
                             index := !index + 1;
                             let sexp = Receiver_query.sexp_of_t rquery in
                             Writer.write_sexp global_stdout sexp);
@@ -137,6 +158,8 @@ let start_remote_sender
                         let%bind () = Reader.close reader in
                         let%bind () = Reader.close stdout_reader_for_close in
                         let%bind () = Reader.close stderr_reader_for_close in
+                        let%bind _glue_stdout_res = glue_wait_stdout in
+                        let%bind _glue_stderr_res = glue_wait_stderr in
                         close_for_id global_stdout;
                         fprintf (force Writer.stderr) "PROC DONE %s\n" id;
                         return res

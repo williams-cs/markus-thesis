@@ -27,16 +27,17 @@ end
 
 module Receiver_data = struct
   type t =
-    { id : string
-    ; data : string
-    }
-  [@@deriving sexp, bin_io, fields]
+    | Message of string
+    | Close
+    | Heartbeat of int
+  [@@deriving sexp, bin_io]
 end
 
 module Receiver_query = struct
   type t =
-    | Data of Receiver_data.t
-    | Close of string
-    | Heartbeat of string * int
-  [@@deriving sexp, bin_io]
+    { id : string
+    ; sequence_number : int
+    ; data : Receiver_data.t
+    }
+  [@@deriving sexp, bin_io, fields]
 end

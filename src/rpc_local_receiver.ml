@@ -136,6 +136,21 @@ let dispatch conn ~host ~port ~remote_port =
   Or_error.join response
 ;;
 
+module Writer_info = struct
+  type t =
+    { writer : Writer.t
+    ; future_tasks : unit Ivar.t Int.Table.t
+    ; next_sequence_number : int ref
+    }
+  [@@deriving fields]
+
+  let create ~writer =
+    { writer; future_tasks = Int.Table.create (); next_sequence_number = ref 0 }
+  ;;
+end
+
+let use_sequence_numbers = true
+
 let dispatch' conn ~host ~port ~remote_port =
   (* potential race conditions? *)
   let%bind.Deferred.Or_error pipe, metadata = dispatch conn ~host ~port ~remote_port in
@@ -150,11 +165,12 @@ let dispatch' conn ~host ~port ~remote_port =
       in
       let reader = Reader.create read_fd in
       let writer = Writer.create write_fd in
+      let writer_info = Writer_info.create ~writer in
       Hashtbl.set readers ~key:id ~data:reader;
       (match Hashtbl.find writers id with
-      | Some ivar -> Ivar.fill ivar writer
+      | Some ivar -> Ivar.fill ivar writer_info
       | None ->
-        let ivar = Ivar.create_full writer in
+        let ivar = Ivar.create_full writer_info in
         Hashtbl.set writers ~key:id ~data:ivar);
       return reader
   in
@@ -171,24 +187,63 @@ let dispatch' conn ~host ~port ~remote_port =
       Pipe.fold pipe ~init:[] ~f:(fun accum resp ->
           match resp with
           | Write_callback query ->
-            (match query with
-            | Receiver_query.Data { Receiver_data.id; data } ->
+            let { Receiver_query.id; sequence_number; data } = query in
+            let perform_future_task writer_info fn =
+              match use_sequence_numbers with
+              | false ->
+                let writer = Writer_info.writer writer_info in
+                fn writer
+              | true ->
+                let fn_augmented () =
+                  let writer = Writer_info.writer writer_info in
+                  let%bind () = fn writer in
+                  Writer_info.next_sequence_number writer_info := sequence_number + 1;
+                  (match
+                     Int.Table.find
+                       (Writer_info.future_tasks writer_info)
+                       (sequence_number + 1)
+                   with
+                  | Some ivar -> Ivar.fill ivar ()
+                  | None -> ());
+                  return ()
+                in
+                if sequence_number = !(Writer_info.next_sequence_number writer_info)
+                then fn_augmented ()
+                else (
+                  let ivar = Ivar.create () in
+                  Int.Table.add_exn
+                    (Writer_info.future_tasks writer_info)
+                    ~key:sequence_number
+                    ~data:ivar;
+                  let%bind () = Ivar.read ivar in
+                  fn_augmented ())
+            in
+            (match data with
+            | Receiver_data.Message str ->
               let deferred =
-                let%bind writer = lazy_writer ~id in
-                (* printf "dat: %s\n" data; *)
-                Writer.write writer data;
-                Deferred.return ()
+                let%bind writer_info = lazy_writer ~id in
+                let perform_write writer =
+                  Writer.write writer str;
+                  return ()
+                in
+                (* printf "dat: %s\n" str; *)
+                perform_future_task writer_info perform_write
               in
               return (Deferred.map deferred ~f:Or_error.return :: accum)
-            | Receiver_query.Close id ->
+            | Receiver_data.Close ->
               let deferred =
-                let%bind writer = lazy_writer ~id in
-                Writer.close writer
+                let%bind writer_info = lazy_writer ~id in
+                let perform_close writer = Writer.close writer in
+                perform_future_task writer_info perform_close
               in
               return (Deferred.map deferred ~f:Or_error.return :: accum)
-            | Receiver_query.Heartbeat (_id, _index) ->
+            | Receiver_data.Heartbeat _index ->
               (* TODO heartbeat *)
-              let deferred = Deferred.return () in
+              let deferred =
+                let%bind writer_info = lazy_writer ~id in
+                let perform_heartbeat _writer = return () in
+                perform_future_task writer_info perform_heartbeat
+              in
               return (Deferred.map deferred ~f:Or_error.return :: accum))
           | Close_callback x -> return (return x :: accum))
     in

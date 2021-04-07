@@ -156,7 +156,8 @@ let dispatch_command t ~target ~program ~env_image ~send_lines =
   match res_raw with
   | Ok res -> Deferred.Or_error.return (Buffer.contents res)
   | Error err ->
-    fprintf (force Writer.stderr) "rt\n";
+    (* TODO debug *)
+    (* fprintf (force Writer.stderr) "rt\n"; *)
     let%bind itf_res = init_target t ~target:remote_target ~force_create:true in
     (match itf_res with
     | Ok () -> return (Error err)
@@ -213,7 +214,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
              || idle_time t > 1000
           then (
             (* TODO debug *)
-            fprintf (force Writer.stderr) "timeout %d %d\n" i !open_tasks;
+            (* fprintf (force Writer.stderr) "timeout %d %d\n" i !open_tasks; *)
             refresh_idle_time t;
             open_tasks_cache := !open_tasks;
             loop (i + 1) err new_deferreds)

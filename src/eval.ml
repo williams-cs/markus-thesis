@@ -279,7 +279,33 @@ and unassign assignment_cache ~eval_args =
     ~f:(fun (key, data) -> Env.assign_set env ~key ~data |> ignore)
     assignment_cache
 
-and eval_simple_command (tokens, assignments, _io_redirects) ~eval_args =
+and eval_simple_command (tokens, assignments, io_redirects) ~eval_args =
+  let eval_args_with_io_redirects =
+    Deferred.List.fold io_redirects ~init:eval_args ~f:(fun accum redirect ->
+        let maybe_fd, rd_info = redirect in
+        (match maybe_fd with
+        | None -> ()
+        | Some _fd_num ->
+          raise_s
+            [%message "Custom redirect file descriptors are not currently supported!"]);
+        match rd_info with
+        | Ast.Io_file (file_op, token) ->
+          let%bind token_s = eval_token token ~eval_args in
+          let fd_info = String.concat token_s in
+          (match file_op with
+          | Less ->
+            let%bind new_fd = Unix.openfile fd_info ~mode:[ `Rdonly ] in
+            return { accum with Eval_args.stdin = new_fd }
+          | Great ->
+            let%bind new_fd = Unix.openfile fd_info ~mode:[ `Wronly; `Creat ] in
+            return { accum with Eval_args.stdout = new_fd }
+          | Dgreat ->
+            let%bind new_fd = Unix.openfile fd_info ~mode:[ `Append; `Wronly; `Creat ] in
+            return { accum with Eval_args.stdout = new_fd }
+          | _ -> raise_s [%message "Some I/O redirects are not currently supported!"])
+        | Ast.Io_here (_here_op, _s) ->
+          raise_s [%message "Here-ops are not currently supported!"])
+  in
   let%bind cache =
     List.map ~f:(fun assignment () -> eval_assigment assignment ~eval_args) assignments
     |> deferred_iter
@@ -288,6 +314,7 @@ and eval_simple_command (tokens, assignments, _io_redirects) ~eval_args =
     List.map ~f:(fun token () -> eval_token token ~eval_args) tokens |> deferred_iter
   in
   let args = List.concat args in
+  let%bind eval_args = eval_args_with_io_redirects in
   let res =
     match args with
     | [] -> return 0
