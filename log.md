@@ -1,5 +1,38 @@
 # Research Log
 
+## 2020-04-13
+- Writing
+  - Introduction
+  - Implementation
+
+## 2020-04-10
+- Writing
+  - Introduction
+
+## 2020-04-07
+- Discussion
+  - Writing
+    - Heartbeats
+      - Vary depending on network
+      - Standard deviations
+    - Reallocation
+      - Which host to pick: latency? number of tasks completed?
+    - Don't worry about style, just write what I know
+    - 5 W's
+    - Cite problems and techniques
+    - LaTeX todo notes
+  - Plot reissued vs first
+  - Plot tasks vs error rate multiple lines
+  - Add "unreliable" application class
+  - Draft by Sunday night
+
+## 2020-04-06
+- Implementation
+  - Added error handling
+    - Retry
+    - Heartbeat
+    - Timeout
+
 ## 2020-04-02
 - TODO
   - Error handling/failures

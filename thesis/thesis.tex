@@ -18,6 +18,8 @@
 
 %% Used for TODO items
 \usepackage{color}
+\usepackage{todonotes}
+\newcommand{\todoi}[1]{\todo[inline, color=blue!20]{TODO: {#1}}}
 
 %% used for code listings.
 \usepackage{float}
@@ -92,7 +94,7 @@
 Performing tasks that are distributed among many systems currently fail to achieve each of the goals of being reliable, easy to set up, closely resembling an existing technology, and friendly to users without distributed systems knowledge.
 Because distributed systems are inherently unreliable, succeeding in these goals require the system to provide an abstraction for error handling and recovery that account for the many failure cases that may arise.
 This thesis project attempts to define a set of error handling semantics that is simple to use, but powerful enough to be applied to a diverse set of use cases.
-The project will also involve implementing a shell-based programming language, Dresh (standing for Distributed Reliable Easy shell), to demonstrate the usefulness of the error handling semantics as defined.
+The project will also involve implementing a shell-based programming language, Shard (standing for Shell - Ad hoc, Reliable, and Distributed), to demonstrate the usefulness of the error handling semantics as defined.
 Using this language, anyone with basic shell knowledge should be able to write and run scripts that runs over multiple machines reliably.
 This will greatly aid in increasing the accessibility and simplifying the process of running distributed programs in domains including systems administration and scientific computing.
 
@@ -101,62 +103,138 @@ This will greatly aid in increasing the accessibility and simplifying the proces
 
 I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbadical leaves, during a difficult time in the world, as we work through the COVID-19 pandemic in all facets of our lives.
 
-% TODO expand
+\todoi{Expand}
 
 %%%%%%%% Chapters %%%%%%%%%%%%
 
 %% Introduction
 \chapter{Introduction}
-\begin{itemize}
-  \item What my project is
-  \item What I've done
-  \item How I've done it
-  \item Measurement of success
-\end{itemize}
 
 \section{Motivation}
-\begin{itemize}
-  \item What makes this project unique (will elaborate in background)
-  \item Introduce three pillars (distributed, reliable, easy to use)
-\end{itemize}
+% \begin{itemize}
+%   \item What makes this project unique (will elaborate in background)
+%   \item Introduce three pillars (distributed, reliable, easy to use)
+% \end{itemize}
+
+The ability to run a program or task over a network is useful for programmers and computer users in many situations, particularly because of increasing popularity in moving computational resources to the cloud or remote datacenters.
+
+Many developments in distributed computing focus on designing and implementing systems that work well in a large-scale, complex, scalable, and highly performant enviornment, with more details about these systems in the \textbf{Distributed Computing} section of the \textbf{Background} chapter.
+
+Frequently, the tradeoff for these systems is that they involve  complicated configuration and handling to sure that they work in the first place, making it often take a disproportionate amount of effort to perform a simple task in a distributed manner.
+Examples of configuration needed in these systems include adding IP address whitelists, opening ports, installing the distributed platform on each machine, setting up external dependencies, creating a heavyweight project for each script, and tuning various parameters, just to name a few.
+
+This thesis describes the design and implementation of the Shard programming language, designed to make it easy for any programmer to create and run a distributed program with minimal configuration, regardless of the programmer's background in distributed systems. Shard extends the shell programming language by abstracting away the distributed system and handling any errors that may occur in the running of the program as a result of failures in the distributed system.
+
+We have defined three core pillars that combine to describe the goals of Shard: Distributed, Reliable, and Easy to use. Our claim is that Shard is specifically designed to achieve the goals set by each of the three core pillars, whereas most computing systems only satisfy at most two out of the three pillars.
+We will describe each of the core pillars in more detail, including why the core pillar is important in achieving the goals of Shard.
 
 \subsection{Distributed}
-\begin{itemize}
-  \item Why would someone want a distributed program?
-  \item What are some challenges of a distributed program?
-  \item Talk about error handling, segue into reliability
-\end{itemize}
+% \begin{itemize}
+%   \item Why would someone want a distributed program?
+%   \item What are some challenges of a distributed program?
+%   \item Talk about error handling, segue into reliability
+% \end{itemize}
+
+The first core pillar of Shard is that it is distributed.
+This means that a Shard program should be able to interact with a set of many computers, some of which may be located across a network boundary.
+Shard should be explicity designed in a way to make it easy for parts of a program to be distributed, with syntax-level support for running parts of the code on the distributed system that seamlessly integrate with language features.
+A typical Shard program that utilizes the distributed system should not be significantly more complex than a comparable program that performs all of its computations locally.
+
+There are many reasons why a distributed program may be wanted or beneficial.
+One example of why a program may want to be distributed is that a program wishes to use resources on other machines across a network, where the remote machine may have more abundance or even exclusive access to certain resources.
+These include hardware resources such as CPUs, GPUs, or special purpose hardware; software resources such as the presence of certain operating systems, programs, or libraries; and data resource such as databases and other data stores.
+
+Another example of a program that benefits from being distributed is a program that wishes to perform a certain task on a specific set of machines, such as installing packages, colleting logs, or configuring the system.
+
+Most programming languages are not designed to include distributed computing as a first-class citizen.
+Assumptions are made that the program is run entirely on one machine (and sometimes even a single core), and adding distributed features to an existing program may involve rewriting large parts of the original program, including clunky external dependencies, or restricting the program to limited functionality within the programming langauge.
+
+One reason why distributed computing support is limited among languages is that there are numerous difficulties that arise specifically in distributed systems. Some of these include discovery of remote systems, connecting to the system, data transfer, system state serialization, and concurrency.
+% cite from somewhere? unsure
+One difficulty in particular is the problem of error handling, as a distributed system is inherently unreliable. This will be addressed in more detail in the description of the next core pillar, reliability.
+
+A notable programming language that includes specific fault-tolerant distributed systems support is Erlang \cite{armstrong2010erlang}. Erlang uses the approach of message passing between processes as the method of inter-process communication, in which processes on a distributed network can participate in a single appliccation using this message passing approach, taclking both the issues of concurrency and parallelism.
+However, this approach requires programmers to learn a completely new style of programming when workin with distributed programs, and thus is not used in Shard.
+
+Instead, Shard builds on top of the shell programming language, specifically the POSIX shell, which is described in more detail in the \textbf{Command-line Shells} section of the \textbf{Background} chapter. Many extensions of the POSIX shell are widely used by system administrators, programmers, and other computer users.
+
+Notably, the POSIX shell does not contain special support for distributed computing. Shard is designed to be a superset of the POSIX shell, with additions to its syntax, semantics, and built-in functions that result in direct support for distributed computation, allowing Shard to satisfy the core pillar of being distributed.
 
 \subsection{Reliable}
-\begin{itemize}
-  \item Error handling
-  \item Why is reliability important?
-  \item Segue - how does it tie into being easy to use
-\end{itemize}
+% \begin{itemize}
+%   \item Error handling
+%   \item Why is reliability important?
+%   \item Segue - how does it tie into being easy to use
+% \end{itemize}
+
+The second core pillar of Shard is that it should be reliable.
+This means that Shard should make a best-effort attempt to complete the distributed computing task that is assigned to it.
+Shard should be able to internally handle any errors encountered during the execution of the distributed program, such as a temporary or permanent failure to connect to a host, or loss of data along the way, only exposing the error to the user when the failure cannot be overcome.
+This means that using Shard should result in a more reliable exprience than the reliability of the underlying distributed system itself.
+
+In general, this core pillar is much more difficult to satisfy for distributed programs compared to non-distributed programs, because while non-distributed computer programs are often treated as usually reliable in executing an average set of instructions, barring some exceptional circumstance, distributed programs work in the opposite manner, where reliability is assumed not to hold.
+
+The specific reasons why distributed systems are unreliable are explained in more detail in the \textbf{Distributed Computing} section of the \textbf{Background} chapter, but the basic summary is that distributed systems work on top of an ultimately unreliable network, and each machine in the system having a chance of failure means that it is exponentially more likely for the entire system to have one or more failures in total.
+
+This pillar needs to be addressed by Shard in particular because many simple computer systems that satisfy the other two pillars of being distributed and easy to use fail to satisfy this pillar, which causes the system to be much less useful in practice, where failures in the distributed system often do end up occuring.
+For example, the examples mentioned in the \textbf{Distributed Command-line Shells} section of the \textbf{Background} chapter generally focus on performing the distributed task on the machines in the distributed cluster, but do not provide special handling to circumstances when one or more of the tasks fail to complete.
+
+Reliability is important because it allows Shard programs to be more predictable and deterministic, characteristics that are desirable for most computer programs. If reliability were not a part of the a platform itself, then every program building on that platform would have to include extra code to cover for any problems that occur, which can end up being inefficient, time-consuming, and error-prone itself, whereas building error-handling mechanisms at the platform-level as Shard does can provide reliability to all programs on that platform without special work.
 
 \subsection{Easy to use}
-\begin{itemize}
-  \item Ease of use
-  \item Ad-hoc
-  \item Low knowledge barrier
-  \item Why is being easy to use important?
-  \item Distinguishes Shard from other projects
-\end{itemize}
+% \begin{itemize}
+%   \item Ease of use
+%   \item Ad-hoc
+%   \item Low knowledge barrier
+%   \item Why is being easy to use important?
+%   \item Distinguishes Shard from other projects
+% \end{itemize}
+
+The third core pillar of Shard is that it should be easy to use.
+This means that Shard should be useful in an ad-hoc situation for any programmer to run a distributed program.
+Shard should be easy to use for someone with little to no background knowledge in distributed computing and in Shard itself, so from a language design standpoint, it should be as clear as possible in both reading a Shard program to understand what it does, and in creating a Shard program to complete a certain task.
+Shard should be also be easy to use on any machine that is supported along with any cluster of machines to perform the distributed computation on, with minimal amounts of installation and configuration on both the machine starting the Shard program and the machines in the cluster, and this minimal configuration and installation should also not require much background knowledge to perform.
+It should be fast and easy to get from the point of Shard being installed to running the program on Shard, particularly for somone who has already used Shard before.
+
+There are clear benefits to a computer system for being easy to use.
+From the standpoint of having a low knowledge barrier, ease of use can mean that the system is useful to a larger audience of users, since the barrier of learning a new tool or its prerequisite background knowledge may stop larger numbers of people from trying it out in the first place, resulting in the system only being useful for a small niche of trained experts, even if the ultimate benefit of using the system is greater than the learning cost.
+In addition, Shard being easy to use may mean that it is the better tool in ad-hoc situations, where the goal is to solve a problem of running a distributed program using some combination of the least effort and the least time, which can give it a significant edge over more powerful but heavyweight distributed systems, where time is wasted setting up the system or writing the distribued program.
+
+The core pillar of being easy to use is what separates Shard from many traditional distributed systems that will be described in the \textbf{Distributed Computing} section of the \textbf{Background} chapter, and which do follow the other two core pillars of being distributed and reliable. For many of those systems, it is plausible that the time it takes to get the system up and running is many times longer than the time it takes to install Shard, write the Shard program, run the Shard program, and complete the task.
 
 \section{Summary}
-\begin{itemize}
-  \item Explain the layout of the rest of my thesis
-\end{itemize}
+% \begin{itemize}
+%   \item What my project is
+%   \item What I've done
+%   \item How I've done it
+%   \item Measurement of success
+% \end{itemize}
+% \begin{itemize}
+%   \item Explain the layout of the rest of my thesis
+% \end{itemize}
+
+The Shard project's goal is to design and implement a distributed shell programming language that accomplishes the goals outlined by the three core pillars of being distributed, reliable, and easy to use.
+The work and evaluation of the Shard project will be described in the remainder of the thesis, separated into the following parts:
+
+\textbf{Chapter 2} describes the background of related computer systems, including other non-distributed and distributed command-line shells, and other distributed systems.
+
+\textbf{Chapter 3} describes the design of the Shard, introducing the concept of application classes and providing details about the design of both the Shard programming language and the protocol used in the communication of the distributed system.
+
+\textbf{Chapter 4} describes the implementation of Shard, separated into the, shell, language, protocol, and application class implementations.
+
+\textbf{Chapter 5} describes the evaluation of the Shard distributed system and how well it fits the goals of the three core pillars as described in this chapter.
+
+\textbf{Chapter 6} provides a conclusion to this thesis, summarizing the contributions and providing potential directions for future work.
 
 
 %% Background
 \chapter{Background}
 
-This thesis describes a set of error handling semantics for a distributed command-line shell, along with Dresh, an implementation of a distributed shell with those semantics.
+This thesis describes a set of error handling semantics for a distributed command-line shell, along with Shard, an implementation of a distributed shell with those semantics.
 This chapter starts with describing the background behind command-line shells, focusing in particular on their relationship with the UNIX operating system and the specification of the POSIX shell.
 After that, this chapter moves on providing an overview of distributed computing, with a deeper look at their fault tolerance properties that will guide the error handling semantics in this thesis, and several examples of distributed systems, including Hadoop, Ganglia, and Plush.
 Next, this chapter will talk about existing examples of distributed command line shells, including their features, implementations, and weaknesses.
-Finally, this chapter closes out with a summary of existing shells, distributed systems, and distributed shells, along with how the Dresh shell builds upon these existing systems.
+Finally, this chapter closes out with a summary of existing shells, distributed systems, and distributed shells, along with how the Shard shell builds upon these existing systems.
 
 \section{Command-line Shells}
 \subsection{UNIX Shell}
@@ -181,7 +259,7 @@ The POSIX shell is popular across computing platforms, including even platforms 
 \section{Distributed Computing}
 
 A distributed computing system, or a distributed system, is a computer system that consists of multiple processors one one or more machines that work together but do not directly share memory \cite{10.1145/72551.72552}.
-This thesis in particular focuses on multicomputer distributed systems that communicate over a network that is not guaranteed to be reliable. 
+This thesis in particular focuses on multicomputer distributed systems that communicate over a network that is not guaranteed to be reliable.
 As such, there may be errors or faults that occur during the operation of the system.
 
 \subsection{Fault Tolerance in Distributed Systems}
@@ -242,7 +320,7 @@ A distributed shell is a shell that supports command-line shell features over a 
 
 \subsection{Examples}
 The concept of distributed shells has been visited in the past in various forms.
-However, none of these shells fully realize the goals of the Dresh shell.
+However, none of these shells fully realize the goals of the Shard shell.
 In particular, unlike for many of the distributed systems mentioned above, the issue of distributed error handling and recovery is not well addressed by any of the solutions below.
 
 \subsubsection{SSH}
@@ -273,12 +351,15 @@ This thesis aims improve upon existing solutions by unifying the reliability bui
 
 \chapter{Design}
 
+In this chapter, we discuss the design of the Shard distributed system, which includes the Shard programming language, the Shard protocol, and the application classes supported by Shard.
+
+\section{Overview}
 \begin{itemize}
   \item High level design
-  \begin{itemize}
-    \item Satisfying the three pillars (ease of use, distributed, reliable)
-    \item Use language to solve problem
-  \end{itemize}
+        \begin{itemize}
+          \item Satisfying the three pillars (ease of use, distributed, reliable)
+          \item Use language to solve problem
+        \end{itemize}
 \end{itemize}
 
 \section{Application classes}
@@ -292,7 +373,7 @@ This thesis aims improve upon existing solutions by unifying the reliability bui
 \subsection{Application class: \texttt{single\_command}}
 
 \begin{itemize}
-  \item Application features 
+  \item Application features
   \item Error handling
   \item Give example of when to use
 \end{itemize}
@@ -306,11 +387,11 @@ This thesis aims improve upon existing solutions by unifying the reliability bui
   \item Describe the programming language
   \item Based on the POSIX shell standard
   \item Simple new syntax/semantics for distributed work
-  \begin{itemize}
-    \item Cluster management (builtin)
-    \item Application classes/error handling semantics support
-    \item Run on remote host (@@) 
-  \end{itemize}
+        \begin{itemize}
+          \item Cluster management (builtin)
+          \item Application classes/error handling semantics support
+          \item Run on remote host (@@)
+        \end{itemize}
 \end{itemize}
 
 \subsection{Example programs}
@@ -332,12 +413,68 @@ This thesis aims improve upon existing solutions by unifying the reliability bui
 
 \chapter{Implementation}
 
+In this chapter, we discuss the implementation of the Shard distributed system, which includes the implementation of the shell, the language, the protocol, and the application classes.
+
+\section{Overview}
+
+Shard is implemented in the OCaml programming language, as a single project that includes the shell, language, protocol, and application classes components of Shard, along with code that combines these components into a single application.
+OCaml was chosen for its conveinence in programming language implementation, high level of safety, direct access to UNIX system calls with a wrapper library, reasonable performance, and programmer familiarity of the language.
+
+When built, Shard is an executable invocable on the command line that can be used in a similar fashion as the executable other shell programs, by passing it a file containing a shard program (typically with the \texttt{.shard} extension), or by passing in no arguments to start Shard in interactive mode.
+Interactive mode allows Shard to function as a Read-Eval-Print-Loop, meaning that the user can input any Shard command followed by an \texttt{Enter} key press to execute it, giving back control to the user when the command execution completes.
+Like for some other shells, Shard allows the user to use the keyboard shortcut \texttt{Ctrl-C} to interrupt the current executing Shard command, and the keyboard shortcut \texttt{Ctrl-\\} to immediately exit Shard.
+Specific usage details can be found in the documentation of the project.
+
+Currently, Shard is specifically tested to support Ubuntu Linux version 20.04.2 LTS, but it should work with zero or few modifications on other Linux systems, depending on the requirements of the library dependencies of Shard.
+
+\subsection{Dependencies}
+The Shard project depends on various other OCaml libraries and OCaml wrappers for non-OCaml libraries for important pieces of existing funcionality.
+
+The entire project is written on top of Jane Street's open source libraries Core, Async, and Sexplib, along with the OCaml parser combinator library Angstrom and an OCaml wrapper for the SSH library libssh.
+
+Core is an alternative standard library for OCaml with many more features, including additional data structures and extensions to existing standard library modules.
+Core also provides full UNIX support in its \texttt{Core.Unix} module, including API wrappers for many of the system calls found on Linux and other UNIX machines.
+
+Core depends on the Jane Street library Sexplib, which contains functionality for working with S-expressions, a data representation format commonly used by the LISP family of languages. Sexplib allows automatic generation of functions to convert OCaml objects to and from S-expressions, and is used extensively to convert objects for serialization purposes.
+\todoi{Find a citation that describes what an S-expression is}
+
+Async provides promise-based asynchronous code support for OCaml, and includes its own \texttt{Async.Unix} that builds on top of \texttt{Core.Unix} to allow system calls and I/O operations to work asynchronously on top of an event queue, while still working under the OCaml language's single core restriction.
+
+\todoi{Add citation for Jane Street libraries}
+
+Shard's language parser depends on the OCaml parser combinator library Angstrom, which is designed to be an easy-to-use parser combinator library specifically for use with OCaml.
+Shard uses a forked version of Angstrom that adds a few more combinators to Angstrom's long list in order to support specific features of the shell grammar that would otherwise be more difficult to implement with Angstrom's existing interface.
+
+\todoi{Add citation for Angstrom}
+
+Shard's protocol depends on the SSH library libssh for all of its network communication.
+Libssh is a widely used SSH library implemented in C that includes compatibility with all of the SSH communication features needed by Shard.
+Because libssh is written in C, Shard uses an OCaml wrapper for libssh, mllibssh.
+Due to issues with mllibssh not being well maintained, the version of mllibssh used in Shard is forked and contains modifications including bugfixes and improvements to the wrapper code.
+
+\todoi{Add citation for libssh and mllibssh}
+
+
 \section{Architecture}
 
-\begin{itemize}
-  \item Split up into 4 parts: Shell, language, protocol, application class
-  \item Basic summary of each part, its purpose, and how they connect together
-\end{itemize}
+% \begin{itemize}
+%   \item Split up into 4 parts: Shell, language, protocol, application class
+%   \item Basic summary of each part, its purpose, and how they connect together
+% \end{itemize}
+
+The Shard project is split up into four parts: shell, language, protocol, and application classes. The split is informal, as all four parts belong to the same compilation unit, and reside in the same directory.
+
+The shell is the part of Shard connects the program and the interactive mode to the remaining parts of Shard. This is where the entry point of a Shard program is.
+
+The language is the part of Shard that provides the Shard programming language features, including a recursive descent parser and a tree-walk interpreter. The interpreter also communicates with the protocol and the application classes parts of Shard as needed by the command that it is currently executing, in additional to the operating system for a variety of shell features.
+
+The protocol is the part of Shard that provides all of the distributed systems functionality, including maintaining network connections to remote machines, spawning helper processes, and error detection/handling.
+
+The application class is the part of Shard that include the interfaces of the application class subsystem and the implementation of the specific application classes that are currently supported. Application classes are described in more detail in the \textbf{Application Classes} section of the \textbf{Design} chapter.
+
+In addition to these specific parts of the Shard project, there are also modules for common utility functions, unit testing, and command-line interfacing.
+
+\todoi{Add more info about application classes}
 
 \section{Shell implementation}
 
@@ -348,6 +485,21 @@ This thesis aims improve upon existing solutions by unifying the reliability bui
   \item Interactive and non-interactive mode
   \item Most features are written to work locally, and separated so that language/protocol/application class implementations are abstracted
 \end{itemize}
+
+The Shard shell is implemented in OCaml, directly on top of UNIX primitives from the OCaml libraries Core and Async.
+
+% TODO
+
+When the shell is invoked in interactive mode, it works as a Read-Eval-Print-Loop (REPL). The REPL reads a line from the standard input (stdin) for a Shard command or program. The shell sends the input to the parser, which results in either an abstract syntax tree (AST) corresponding to the input, an error in parsing, or an incomplete parse.
+In the case of a successful parse of an AST, the resulting AST is evaluated by the interpreter, and any output of the command is forwarded to the standard output (stdout) or standard error (stderr), before returning to REPL to wait for the input of a a new command.
+In the case of the incomplete parse, another line is read from standard input and added to the original input to try parsing again.
+In the case of a parse error, the error is printed back to the standard error (stderr), and the REPL waits for further input for a new command.
+
+Similarly, when the shell is invoked in non-interactive mode, the shell takes the input file or string to the parser, which results in either an AST corresponding to the input program, or an error if the input fails to parse, in which case the error is printed to stderr.
+
+The shell can be invoked with the \texttt{-s} command line flag to indicate that the input is an S-expression that represents an AST object rather than a string in the Shard language grammar. In this case, the step of parsing with an AST is bypassed, and the AST is directly evaluated by the interpreter, behaving identically to if it were parsed from a program in the langauge.
+
+\todoi{Finish up this section}
 
 \section{Language implementation}
 
