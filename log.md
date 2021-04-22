@@ -1,5 +1,21 @@
 # Research Log
 
+## 2020-04-22
+- Writing
+  - Implementation
+
+## 2020-04-14
+- Discussion
+  - Writing
+    - Story in intro
+    - Examples
+    - LISP citation
+    - Design: boxes and arrows
+    - Design justifications/gotchas
+    - Design: additions to the shell - table form
+  - Graphs: more applications
+  - Punch list: what needs to be done when
+
 ## 2020-04-13
 - Writing
   - Introduction

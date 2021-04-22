@@ -501,28 +501,20 @@ The Shard project depends on various other OCaml libraries and OCaml wrappers fo
 
 The entire project is written on top of Jane Street's open source libraries Core, Async, and Sexplib, along with the OCaml parser combinator library Angstrom and an OCaml wrapper for the SSH library libssh.
 
-Core is an alternative standard library for OCaml with many more features, including additional data structures and extensions to existing standard library modules.
+Core is an alternative standard library for OCaml with many more features, including additional data structures and extensions to existing standard library modules \cite{ocamlcore}.
 Core also provides full UNIX support in its \texttt{Core.Unix} module, including API wrappers for many of the system calls found on Linux and other UNIX machines.
 
-Core depends on the Jane Street library Sexplib, which contains functionality for working with S-expressions, a data representation format commonly used by the LISP family of languages. Sexplib allows automatic generation of functions to convert OCaml objects to and from S-expressions, and is used extensively to convert objects for serialization purposes.
-\todoi{Find a citation that describes what an S-expression is}
+Core depends on the Jane Street library Sexplib, which contains functionality for working with S-expressions, a human redable data representation format commonly used by the LISP family of languages \cite{mccarthy1960recursive}. Sexplib allows automatic generation of functions to convert OCaml objects to and from S-expressions, and is used extensively to convert objects for serialization purposes.
 
-Async provides promise-based asynchronous code support for OCaml, and includes its own \texttt{Async.Unix} that builds on top of \texttt{Core.Unix} to allow system calls and I/O operations to work asynchronously on top of an event queue, while still working under the OCaml language's single core restriction.
+Async provides promise-based asynchronous code support for OCaml, and includes its own \texttt{Async.Unix} that builds on top of \texttt{Core.Unix} to allow system calls and I/O operations to work asynchronously on top of an event queue, while still working under the OCaml language's single core restriction \cite{ocamlasync}.
 
-\todoi{Add citation for Jane Street libraries}
-
-Shard's language parser depends on the OCaml parser combinator library Angstrom, which is designed to be an easy-to-use parser combinator library specifically for use with OCaml.
+Shard's language parser depends on the OCaml parser combinator library Angstrom, which is designed to be an easy-to-use parser combinator library specifically for use with OCaml. \cite{ocamlangstrom}.
 Shard uses a forked version of Angstrom that adds a few more combinators to Angstrom's long list in order to support specific features of the shell grammar that would otherwise be more difficult to implement with Angstrom's existing interface.
 
-\todoi{Add citation for Angstrom}
-
-Shard's protocol depends on the SSH library libssh for all of its network communication.
+Shard's protocol depends on the SSH library libssh for all of its network communication \cite{libssh}.
 Libssh is a widely used SSH library implemented in C that includes compatibility with all of the SSH communication features needed by Shard.
-Because libssh is written in C, Shard uses an OCaml wrapper for libssh, mllibssh.
+Because libssh is written in C, Shard uses an OCaml wrapper for libssh, mllibssh \cite{mllibssh}.
 Due to issues with mllibssh not being well maintained, the version of mllibssh used in Shard is forked and contains modifications including bugfixes and improvements to the wrapper code.
-
-\todoi{Add citation for libssh and mllibssh}
-
 
 \section{Architecture}
 
@@ -532,6 +524,7 @@ Due to issues with mllibssh not being well maintained, the version of mllibssh u
 % \end{itemize}
 
 The Shard project is split up into four parts: shell, language, protocol, and application classes. The split is informal, as all four parts belong to the same compilation unit, and reside in the same directory.
+Each of the sections of the architecture are designed in a way to be easily extensible, in that more functionality can be added without significantly changes to existing code.
 
 The shell is the part of Shard connects the program and the interactive mode to the remaining parts of Shard. This is where the entry point of a Shard program is.
 
@@ -539,11 +532,9 @@ The language is the part of Shard that provides the Shard programming language f
 
 The protocol is the part of Shard that provides all of the distributed systems functionality, including maintaining network connections to remote machines, spawning helper processes, and error detection/handling.
 
-The application class is the part of Shard that include the interfaces of the application class subsystem and the implementation of the specific application classes that are currently supported. Application classes are described in more detail in the \textbf{Application Classes} section of the \textbf{Design} chapter.
+The application class is the part of Shard that include the interfaces of the application class subsystem and the implementation of the specific application classes that are currently supported, which are the \texttt{single\_application} and \texttt{data\_parallel} application classes. Application classes are described in more detail in the \textbf{Application Classes} section of the \textbf{Design} chapter.
 
 In addition to these specific parts of the Shard project, there are also modules for common utility functions, unit testing, and command-line interfacing.
-
-\todoi{Add more info about application classes}
 
 \section{Shell implementation}
 
@@ -563,12 +554,24 @@ When the shell is invoked in interactive mode, it works as a Read-Eval-Print-Loo
 In the case of a successful parse of an AST, the resulting AST is evaluated by the interpreter, and any output of the command is forwarded to the standard output (stdout) or standard error (stderr), before returning to REPL to wait for the input of a a new command.
 In the case of the incomplete parse, another line is read from standard input and added to the original input to try parsing again.
 In the case of a parse error, the error is printed back to the standard error (stderr), and the REPL waits for further input for a new command.
+The text below showcases an example of the output when running Shard interactively:
+
+\begin{lstlisting}[language=]
+$ echo "Hello, world!"
+Hello, world!
+$ hostname@@machine1
+remotename
+\end{lstlisting}
+\todoi{Potentially make these code snippets into proper figures with captions?}
 
 Similarly, when the shell is invoked in non-interactive mode, the shell takes the input file or string to the parser, which results in either an AST corresponding to the input program, or an error if the input fails to parse, in which case the error is printed to stderr.
 
 The shell can be invoked with the \texttt{-s} command line flag to indicate that the input is an S-expression that represents an AST object rather than a string in the Shard language grammar. In this case, the step of parsing with an AST is bypassed, and the AST is directly evaluated by the interpreter, behaving identically to if it were parsed from a program in the language.
 
-\todoi{Finish up this section: add a picture of the shell?}
+The shell also uses the concept of jobs to support the keyboard interrupt feature, which allows the user to cancel the currently running task.
+Shard uses a signal handler to catch the \texttt{SIGINT} interrupt signal when \texttt{Ctrl-C} is pressed during a running task.
+Rather than exiting Shard itself, instead, causes the Shard evaluation to stop, as each evaluation function checks to make sure that the job is active before performing the evaluation.
+If an external command is currently being executed, the signal is passed to that command, and if a remote command is currently being executed, further processes is stopped.
 
 \section{Language implementation}
 
@@ -583,13 +586,11 @@ The Shard programming language implementation is split up into two main parts - 
 
 \subsection{Shard parser}
 
-The parser is implemented using the parser combinator library Angstrom by following the grammar section in the POSIX shell specification, and extending it with the additional syntax found in the \textbf{Language design} section of the \textbf{Design} chapter.
+The parser is implemented using the parser combinator library Angstrom by following the grammar section in the POSIX shell specification, and extending it with the additional syntax found in the \textbf{Language design} section of the \textbf{Design} chapter \cite{ocamlangstrom} \cite{posix2017}.
 
 A successful parse transforms a \texttt{string} input to a \texttt{Ast.t} variant as output. The \texttt{Ast.t} variant is used to represent a Shard abstract syntrax tree, which is also used in the interpreter when walking through the AST.
 
-The OCaml variant type can be used very effectively to represent recursive structures with complex definitions, along with retrieving their data in a type-safe manner using pattern matching, which is one of the significant benefits to use OCaml for implementing programming languages.
-
-\todoi{Cite Real World Caml about variants}
+The OCaml variant type can be used very effectively to represent recursive structures with complex definitions, along with retrieving their data in a type-safe manner using pattern matching, which is one of the significant benefits to use OCaml for implementing programming languages \cite{realworldocaml}.
 
 In addition to allowing parsing of full strings that are defined by the Shard grammar, the parser also uses an Angstrom feature to support partial parsing, which uses a piece of state to describe whether a parse is complete (the input is a string in the grammar), incomplete (there exists some string that completes parse), or failed (there is no string that completes the parse).
 This allows the user to enter a new line after partially inputting their command in the interactive shell, and have the shell prompt for more input, rather than rejecting the input.
@@ -642,8 +643,6 @@ As we can see from this interface, the \texttt{parse} function is performs a reg
 In addition to the \texttt{parse} function, the interface also exposes the \texttt{parse\_partial} function, which corresponds to the partial parsing behavior as described above, taking in an optional partial parsing state and the input string, and spitting out a new partial parsing state corresponding to the status of the partial parse.
 
 Furthermore, from the definition of \texttt{Ast.t}, we can see that it includes the OCaml ppx (preprocessing instruction) \texttt{[@@deriving sexp]}, which autogenerates functions that allow conversion of the \texttt{Ast.t} variant to and from the \texttt{Sexp.t} variant representing an s-expression that losslessly encodes the AST and can be transmitted as a string.
-
-\todoi{Cite angstrom, POSIX spec}
 
 \subsection{Shard interpreter}
 
@@ -701,7 +700,6 @@ The basic building block of the shell is the simple command, made up of a comman
 The command name can either refer to a builtin or an external command.
 In the case of a builtin, the functionality is implemented in OCaml itself as a part of \texttt{builtin.ml}.
 In the case of an external command, it is executed using the Spawn library, a dependency of the OCaml Core library, behaving in a similar manner to the \texttt{exec} system call, taking in as input the command name, arguments, enviornment, and associated file descriptors for the standard I/O.
-\todoi{Cite the spawn library?}
 
 During evaluation, a record of the type \texttt{Eval.Eval\_args.t} is passed to each \texttt{eval\_PART} function to represent the input state required for the evaluation to succeed. The definition of the record is shown below:
 
@@ -788,17 +786,15 @@ The choices outlined in this section are chosen on based on a variety of criteri
 
 \subsection{Network transport}
 This implementation uses the Secure Shell (SSH) protocol as a basis for its data transportation over the network.
-SSH is a widely supported protocol for accessing a command line shell on a remote machine over a network.
-SSH supports security, authentication, and privacy, so those features can be leveraged by Shard and do not have to be built into the Shard protocol implementation from scratch.
+SSH is a widely supported protocol for accessing a command line shell on a remote machine over a network, with the popular implmentation OpenSSH available on many UNIX platforms \cite{openssh}.
+SSH supports security, authentication, and privacy, so those features can be leveraged by Shard and do not have to be built into the Shard protocol implementation from scratch \cite{rfc4251}.
 
 Shard uses the SSH library libssh by leveraging its implementation of the SSH client protocol.
 Currently, authentication is handled by using SSH key-pairs to automatically perform the authentication.
-For each remote machine in the cluster, the local user should have SSH access to that machine (with an SSH key, not a password), by adding the local user's public key to the \texttt{authorized\_keys} of the remote host.
-If the user has an SSH config file at the default location (at \texttt{~/.ssh/}), it is used to allow custom host names and private key names, which can be used for remote targets in the cluster definition.
-Otherwise, the user should make sure that the necessary keys are added to the SSH agent for automatic authentication.
+For each remote machine in the cluster, the local user should have key-based SSH access to that machine through OpenSSH, by adding the local user's public key to the \texttt{authorized\_keys} of the remote host.
+If the user has an OpenSSH configuration file (\texttt{sshd\_config}) at the default location (at \texttt{~/.ssh/}), it is used to allow custom host names and private key names, which can be used for remote targets in the cluster definition.
+Otherwise, the user should make sure that the necessary keys are added to their OpenSSH agent for automatic authentication.
 This authentication procedure is standard for regular SSH access, and Shard does not need anything extra in order for the SSH transport to work correctly.
-
-\todoi{Cite ssh, in particular citation should refer to features described here, and maybe also refer to ubiquity of SSH; also cite ssh config/ssh agent}
 
 \subsection{Data transfer framework}
 
@@ -809,7 +805,17 @@ Subsequent remote commands on the same remote host attempt to reuse the same fou
 
 These four instances each correspond to a role as specified by design of the Shard protocol, as specified in the \textbf{Data transfer design} section of the \textbf{Design} chapter.
 The four roles are Local Sender, Local Receiver, Remote Sender, and Remote Receiver, with the two local processes being on the local machine, and the two remote processes being on the remote machine.
-\todoi{Actually write this section of the design chapter to explain these}
+The procedure for executing a remote command is shown in Figure \ref{fig:protocol_impl}, and will be explained in more defail in the \textbf{Data transfer setup} and \textbf{Remote program execution flow} sections that follow.
+
+\begin{figure}[h]
+  \begin{center}
+    \includegraphics[scale=0.5]{img/shard_protocol_impl.png}
+    \caption{The procedure for executing a remote command with the Shard protocol}
+    \label{fig:protocol_impl}
+  \end{center}
+\end{figure}
+
+% \todoi{Actually write this section of the design chapter to explain these}
 % We explain each of the four ``roles'' in the Design section
 
 The processes on the same machine communicate with each other using remote procedure calls (RPC) from the RPC library Async\_rpc, which is a part of the OCaml Async library.
@@ -819,18 +825,24 @@ Although the RPC servers are not particularly lightweight, only two are used on 
 
 \subsection{Data transfer setup}
 
-\todoi{Add diagram with this workflow}
 The first step of the setup is making a copy of the local Shard executable to run the Local Sender and Local Receiver on.
 Note that all four processes use an identical executable to the original Shard executable, but with a command argument indicating which role the processes takes on.
 These command line arguments should only be used by remote execution mechanism for Shard, and not used by the end user.
 
-\begin{itemize}
-  \item The \texttt{-Rls} argument indicates the creation of a Local Sender.
-  \item The \texttt{-Rlr} argument indicates the creation of a Local Receiver.
-  \item The \texttt{-Rrs} argument indicates the creation of a Remote Sender. This also has an additional optional argument to indicate the port of the RPC server
-  \item The \texttt{-Rrr} argument indicates the creation of a Remote Receiver.
-\end{itemize}
-\todoi{Make this a table}
+\begin{figure}[h]
+  \begin{center}
+    \begin{tabular}{|l|l|l|l|}
+      \hline
+      Process role    & Connects to     & Argument & Additional arguments               \\ \hline
+      Local Sender    & Remote Receiver & -Rls     &                                    \\ \hline
+      Local Receiver  & Remote Sender   & -Rlr     &                                    \\ \hline
+      Remote Sender   & Local Receiver  & -Rrs     & Port of Remote Receiver RPC server \\ \hline
+      Remote Receiver & Local Sender    & -Rrr     &                                    \\ \hline
+    \end{tabular}
+    \caption{The command line arguments for running the executable as each of the four process roles}
+  \end{center}
+\end{figure}
+
 
 The local copy of Shard is made with a copy attempt with the source being the currently running executable, and the destination being a directory known as the Shard cache, with a fixed path (that may change in future versions of Shard).
 A copy attempt means checking whether a Shard executable exists at the destination location, and comparing a cryptographic hash value of the destination file's contents with the source file to make sure that if a file exists, it is the exact same version.
@@ -992,7 +1004,7 @@ At the current moment, the project needs to be modified directly to add builtin 
 
 \subsection{Single command}
 
-\todoi{Issue: this section is currently inaccurate at describing how the implementation actually works, because I haven't gotten around to converting the single command application class to using the remote cluster abstraction yet}
+\todoi{Needs work: this section is currently inaccurate at describing how the implementation actually works, because I haven't gotten around to converting the single command application class to using the remote cluster abstraction yet}
 
 The \texttt{single\_command} application class supports functionality for running a command that should be reliably executed on each of the machines in a cluster. The following example \texttt{single\_command} program gets the memory usage of each machine in a cluster named \texttt{csmachines}, and prints it along with the hostname of the machine to a local output:
 
@@ -1002,7 +1014,7 @@ The \texttt{single\_command} application class supports functionality for runnin
 
 The implementation of this application class is very simple, and does not require directly using the the Shard protocol RPC queries: it takes the program input, and uses the \texttt{remote\_cluster} abstraction to reliabily execute the program as a task on each machine in the cluster.
 The \texttt{remote\_cluster} guarantees reliability and error recovery, allowing the task to be retried on the same machine if it failed.
-\todoi{Functionality for tuning retries to be less aggressive?}
+% \todoi{Functionality for tuning retries to be less aggressive?}
 
 \subsection{Data parallel}
 
@@ -1040,7 +1052,7 @@ The backend's functionality is based on the setting of the call, and fails if th
 For the call with the ``map'' setting, the backend splits the input by the line, and creates a task for each line, where the task is to execute the remote execution payload specified by the \texttt{program} argument.
 The environment for this execution is a copy of the local environment with an addtional assignment of the variable \texttt{\$in} to the value of the line.
 This is sent to an arbitrary remote host for execution, using the \texttt{remote\_cluster} abstraction provided by the protocol to ensure that the task is reliably completed.
-\todoi{Describe remote host choosing mechanism}
+\todoi{Needs work: Describe and implement remote host choosing mechanism}
 The program is expected to output two lines: the first of which is the key, and the second of which is the value.
 This is printed to the local standardout as a key-value pair in a single line, with the key and value separated by a comma.
 
@@ -1058,19 +1070,19 @@ This achieves the separation of concerns for the functionality of the applicatio
 As with any real-world system, there are some trade-offs made in this implementation of Shard.
 
 \subsection{Performance}
-\begin{itemize}
-  \item Quantify performance tradeoffs? examples, stats, graphs, etc
-\end{itemize}
+% \begin{itemize}
+%   \item Quantify performance tradeoffs? examples, stats, graphs, etc
+% \end{itemize}
+\todoi{Needs work: Need to wait for a bit more data collection in the evaluation section before finishing up this section with some data and maybe comparisons}
 
-% The most obvious and significant trade-off to this implementation of Shard is the sacrifice of performance in return for ease of use and implementation.
+The most obvious and significant trade-off to this implementation of Shard is the sacrifice of performance in return for ease of use and implementation.
 
-% Out of the three core pillars of Shard (distributed, reliable, easy to use), performance does not directly fit in any of these.
-% At some level, performance matters for the usability, but
+Out of the three core pillars of Shard (distributed, reliable, easy to use), performance does not directly fit in any of these.
+At some level, performance matters for the usability, but Shard suffices in reaching its usability goal as long as Shard can complete tasks at a rate reasonable to its users.
 
-% The sacrifice to performance is justified by the targetted use-case of Shard.
-% Performance is of the highest priority in contexts where scalability matters, where
-
-\todoi{Finish this section}
+The sacrifice to performance is justified by the targetted use-case of Shard.
+Performance is of the highest priority in contexts where scalability matters, where ease of use may be less of a necessity, and other existing distributed systems better fit the niche.
+On the other hand, consumer computers today are powerful enough that a suboptimal implementation of Shard performance wise does not have as significant of an impact as it might have in the past.
 
 \subsection{Alternative Approaches}
 % \begin{itemize}
@@ -1092,10 +1104,17 @@ However, one problem is that this approach sacrifices some flexibility, especial
 For the purposes of Shard, it currently sufficies to use its own shell implementation, though future work may include considering substituting it for a fully-fledged existing shell implementation, as not all useful shell features or language semantics are currently available for Shard.
 \todoi{Cite examples of existing shells as libraries}
 
-% Another tradeoff already mentioned, this time in the \textbf{Data transfer framework} section, is the tradeoff of using processes rather than threads for additional .
-% One downside of OCaml is thatm by default, an OCaml process only supports OCaml execution on a single core.
-% \todoi{Cite lack of multi core support}
-\todoi{Tradeoff: threads vs processes}
+Another tradeoff already mentioned, this time in the \textbf{Data transfer framework} section, is the tradeoff of using processes rather than threads for creating the Local Sender and Local Receiver to be used in the Shard protocol implementation.
+Processes are more heavy weight than threads, both in terms of the performance hit when creating new processes, and in terms of memory usage while the process is alive.
+Additionally, inter-process communication requires specific support, as compared to inter-thread communication being facilitated by a shared memory space, which is the reasoning behind the heavy use of remote procedure calls in the Shard implementation.
+However, using processes also comes with the upside of separation.
+If a child processes crashes or hangs, the parent process can easily kill it and spawn another, leveraging the operating system to avoid a resource leak.
+On the other hand, a misbehaving thread can result in the whole program to fail, which would be a hit to the reliability of the overall Shard system.
+Also, the resource hit of using processes do not have as much of an impact, because the total number of processes created is not very large, scaling linearly with the number of remote hosts, which should remain as a relatively small fixed number through the course of the execution of a Shard program.
+
+\todoi{Maybe bring up the lack of multi-core support for OCaml? (OCaml threads allow concurrency but not parallelism)}
+
+Overall, the Shard implementation is able to meet the requirements of the design, while remaining aligned with the three core pillars of Shard: being distributed, reliable, and easy to use.
 
 \chapter{Evaluation}
 
