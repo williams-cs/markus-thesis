@@ -33,7 +33,76 @@
 \usepackage{algpseudocode}
 
 %% Nicely formatted listings.
+\usepackage{xcolor}
+\usepackage[defaultmono]{droidsansmono}
 \usepackage{listings}
+\usepackage{etoolbox}
+
+% Display language after listings box
+\makeatletter
+\AtEndEnvironment{lstlisting}{\xdef\xlang{\lst@language}}
+\AfterEndEnvironment{lstlisting}{\begin{flushright}\vspace{-8mm}\texttt{\xlang}\end{flushright}}
+\makeatother
+
+\newcommand{\ocamlcommentstyle}{\color{blue}}
+
+% OCaml listing definition: https://gitlab.inria.fr/fpottier/visitors/blob/c54b05ddf255ba50e89943f165b9da7de0ceb3f9/doc/listings-ocaml.tex
+\lstdefinelanguage{ocaml}[Objective]{Caml}{
+  % Fix errors in the default definition of ocaml.
+  deletekeywords={closed,ref},
+  morekeywords={initializer},
+  % General settings.
+  flexiblecolumns=false,
+  showstringspaces=false,
+  framesep=5pt,
+  commentstyle=\ocamlcommentstyle,
+  % By default, we use a small font.
+  basicstyle=\tt\small,
+  numberstyle=\footnotesize,
+  % LaTeX escape.
+  escapeinside={$}{$},
+}
+% Shell listing definition: https://tex.stackexchange.com/questions/310335/using-bash-listings-to-bold-variables-and-functions
+\lstdefinelanguage{shard}%
+  {morekeywords={awk,break,case,cat,cd,continue,do,done,echo,elif,else,%
+      env,esac,eval,exec,exit,export,expr,false,fi,for,function,getopts,%
+      hash,history,if,in,kill,login,newgrp,nice,nohup,ps,pwd,read,%
+      readonly,return,set,sed,shift,test,then,times,trap,true,type,%
+      ulimit,umask,unset,until,wait,while,
+      cluster},%
+   morecomment=[l]\#,%
+   morestring=[d]",%
+   alsoletter={*"'0123456789.},%
+   alsoother={\{\=\}},%
+   literate={{=}{{{=}}}1},%
+   literate={\$\{}{{{{\bfseries{}\$\{}}}}2,%
+   otherkeywords={ [, ], \{, \} }%
+  }[keywords,comments,strings]%
+
+\lstset{
+    language=ocaml,
+    basicstyle=\ttfamily\small,
+    aboveskip={1.0\baselineskip},
+    belowskip={1.0\baselineskip},
+    columns=fixed,
+    extendedchars=true,
+    breaklines=true,
+    tabsize=4,
+    prebreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
+    frame=lines,
+    showtabs=false,
+    showspaces=false,
+    showstringspaces=false,
+    keywordstyle=\color[rgb]{0.627,0.126,0.941},
+    commentstyle=\color[rgb]{0.133,0.545,0.133},
+    stringstyle=\color[rgb]{01,0,0},
+    numbers=left,
+    numberstyle=\small,
+    stepnumber=1,
+    numbersep=10pt,
+    captionpos=t,
+    escapeinside={\%*}{*)}
+}
 
 %% More kinds of arrow with stuff
 \usepackage{empheq}\usepackage{multicol}
@@ -147,7 +216,7 @@ These include hardware resources such as CPUs, GPUs, or special purpose hardware
 Another example of a program that benefits from being distributed is a program that wishes to perform a certain task on a specific set of machines, such as installing packages, colleting logs, or configuring the system.
 
 Most programming languages are not designed to include distributed computing as a first-class citizen.
-Assumptions are made that the program is run entirely on one machine (and sometimes even a single core), and adding distributed features to an existing program may involve rewriting large parts of the original program, including clunky external dependencies, or restricting the program to limited functionality within the programming langauge.
+Assumptions are made that the program is run entirely on one machine (and sometimes even a single core), and adding distributed features to an existing program may involve rewriting large parts of the original program, including clunky external dependencies, or restricting the program to limited functionality within the programming language.
 
 One reason why distributed computing support is limited among languages is that there are numerous difficulties that arise specifically in distributed systems. Some of these include discovery of remote systems, connecting to the system, data transfer, system state serialization, and concurrency.
 % cite from somewhere? unsure
@@ -478,17 +547,17 @@ In addition to these specific parts of the Shard project, there are also modules
 
 \section{Shell implementation}
 
-\begin{itemize}
-  \item In depth writing about how the shell is implemented
-  \item OCaml, directly on top of Unix primitives (rather than on an existing shell)
-  \item Invokable with command line
-  \item Interactive and non-interactive mode
-  \item Most features are written to work locally, and separated so that language/protocol/application class implementations are abstracted
-\end{itemize}
+% \begin{itemize}
+%   \item In depth writing about how the shell is implemented
+%   \item OCaml, directly on top of Unix primitives (rather than on an existing shell)
+%   \item Invokable with command line
+%   \item Interactive and non-interactive mode
+%   \item Most features are written to work locally, and separated so that language/protocol/application class implementations are abstracted
+% \end{itemize}
 
 The Shard shell is implemented in OCaml, directly on top of UNIX primitives from the OCaml libraries Core and Async.
-
-% TODO
+An alternative solution would be to take an existing Shell application and modify it to support the Shard programming language and platform, which would have the benefit of letting Shard support many additional Shell features for free, such as tab-compleition, Shell history, and custom colors, depending on the feature set of the Shell it extended.
+However, using a existing shell would also offer much less flexibility in terms of making changes that radically transform the behavior of the shell, such as making remote execution functionality seamlessly work alongside local functions in the shell.
 
 When the shell is invoked in interactive mode, it works as a Read-Eval-Print-Loop (REPL). The REPL reads a line from the standard input (stdin) for a Shard command or program. The shell sends the input to the parser, which results in either an abstract syntax tree (AST) corresponding to the input, an error in parsing, or an incomplete parse.
 In the case of a successful parse of an AST, the resulting AST is evaluated by the interpreter, and any output of the command is forwarded to the standard output (stdout) or standard error (stderr), before returning to REPL to wait for the input of a a new command.
@@ -497,49 +566,536 @@ In the case of a parse error, the error is printed back to the standard error (s
 
 Similarly, when the shell is invoked in non-interactive mode, the shell takes the input file or string to the parser, which results in either an AST corresponding to the input program, or an error if the input fails to parse, in which case the error is printed to stderr.
 
-The shell can be invoked with the \texttt{-s} command line flag to indicate that the input is an S-expression that represents an AST object rather than a string in the Shard language grammar. In this case, the step of parsing with an AST is bypassed, and the AST is directly evaluated by the interpreter, behaving identically to if it were parsed from a program in the langauge.
+The shell can be invoked with the \texttt{-s} command line flag to indicate that the input is an S-expression that represents an AST object rather than a string in the Shard language grammar. In this case, the step of parsing with an AST is bypassed, and the AST is directly evaluated by the interpreter, behaving identically to if it were parsed from a program in the language.
 
-\todoi{Finish up this section}
+\todoi{Finish up this section: add a picture of the shell?}
 
 \section{Language implementation}
 
-\begin{itemize}
-  \item Implemented by referring to POSIX shell specification
-  \item Parse: Use recursive parser combinator library Angstrom
-  \item Interpret: Interpret parsed objects in functions directly, with support for custom features needed by Shard
-  \item Some specification features are not yet supported, but there is no reason why support cannot be added if needed
-\end{itemize}
+% \begin{itemize}
+%   \item Implemented by referring to POSIX shell specification
+%   \item Parse: Use recursive parser combinator library Angstrom
+%   \item Interpret: Interpret parsed objects in functions directly, with support for custom features needed by Shard
+%   \item Some specification features are not yet supported, but there is no reason why support cannot be added if needed
+% \end{itemize}
+
+The Shard programming language implementation is split up into two main parts - the recursive descent parser and the tree-walk interpreter.
+
+\subsection{Shard parser}
+
+The parser is implemented using the parser combinator library Angstrom by following the grammar section in the POSIX shell specification, and extending it with the additional syntax found in the \textbf{Language design} section of the \textbf{Design} chapter.
+
+A successful parse transforms a \texttt{string} input to a \texttt{Ast.t} variant as output. The \texttt{Ast.t} variant is used to represent a Shard abstract syntrax tree, which is also used in the interpreter when walking through the AST.
+
+The OCaml variant type can be used very effectively to represent recursive structures with complex definitions, along with retrieving their data in a type-safe manner using pattern matching, which is one of the significant benefits to use OCaml for implementing programming languages.
+
+\todoi{Cite Real World Caml about variants}
+
+In addition to allowing parsing of full strings that are defined by the Shard grammar, the parser also uses an Angstrom feature to support partial parsing, which uses a piece of state to describe whether a parse is complete (the input is a string in the grammar), incomplete (there exists some string that completes parse), or failed (there is no string that completes the parse).
+This allows the user to enter a new line after partially inputting their command in the interactive shell, and have the shell prompt for more input, rather than rejecting the input.
+Note that inputting an empty line will force the parse to attempt to complete, which will in this case indicate that the parse failed.
+
+For example, inputting the Shard command gives a prompt of \texttt{>} to continue with the command, as the parser sees the unmatched open parenthases.
+\begin{lstlisting}[language=shard]
+$ (echo
+>
+\end{lstlisting}
+
+This command can be completed by adding some input and closing the parenthases.
+\begin{lstlisting}[language=shard]
+$ (echo
+>  hello)
+hello
+$
+\end{lstlisting}
+
+One notable distinction between Shard and other shell parsers is that nested shell environments such as subshells in Shard are parsed together with the entire command, rather than as needed.
+In the Bash shell, for example, if a subshell is defined in a branch of a boolean expression, and there is a syntax error in the subshell, the result would only be a syntax error if the branch gets evaluated.
+On the other hand, in Shard, the parser would fail to parse the entire expression due to failing to parse the subshell.
+
+As such, the following shell program would result in a syntax error in Shard, but not Bash, because the right-hand-side of the boolean expression is never evaluated:
+\begin{lstlisting}[language=shard]
+false && $(|)
+\end{lstlisting}
+
+\todoi{Do I need to cite subshell behavior for other shells?}
+
+The parser's interface exposes the functions that are called by the other parts of the program to convert between Shard programs as strings to its AST. The following OCaml interface describes the input and output types of the parser:
+
+\begin{lstlisting}
+(* Excerpt from ast.mli *)
+(* AST type definition omitted *)
+type t
+(* ... *)
+[@@deriving sexp]
+
+val parse : string -> t Or_error.t
+
+val parse_partial
+  :  ?state:t Angstrom_extended.Buffered.state
+  -> string
+  -> t Angstrom_extended.Buffered.state
+\end{lstlisting}
+
+As we can see from this interface, the \texttt{parse} function is performs a regular parse of any input string, and emits a \texttt{Ast.t Or\_error.t} variant, which either holds the value of an \texttt{Ast.t} variant (the representation of the AST itself), indicating a successful parse, or an \texttt{Error.t} record, indicating a failed one.
+
+In addition to the \texttt{parse} function, the interface also exposes the \texttt{parse\_partial} function, which corresponds to the partial parsing behavior as described above, taking in an optional partial parsing state and the input string, and spitting out a new partial parsing state corresponding to the status of the partial parse.
+
+Furthermore, from the definition of \texttt{Ast.t}, we can see that it includes the OCaml ppx (preprocessing instruction) \texttt{[@@deriving sexp]}, which autogenerates functions that allow conversion of the \texttt{Ast.t} variant to and from the \texttt{Sexp.t} variant representing an s-expression that losslessly encodes the AST and can be transmitted as a string.
+
+\todoi{Cite angstrom, POSIX spec}
+
+\subsection{Shard interpreter}
+
+The Shard interpreter is a tree-walk interpreter that crawls through the abstract syntax tree and evaluates it node-by-node.
+
+The interpreter is implemented with a set of mutually recursive functions, with each function taking the name \texttt{eval\_PART}, where \texttt{PART} indicates the node on the AST being evaluated by that function.
+Evaluating an AST node involves calling the \texttt{eval\_PART} functions corresponding to its children nodes, if any, and then performing an operation based on the type of node being evaluated.
+
+% A concrete example of a type of branch node of the AST is the type \texttt{Ast.pipeline}, with the following definition
+% \begin{lstlisting}
+% type t = (* ... *)
+% and pipeline = bang option * command list
+% and bang = Bang
+% \end{lstlisting}
+
+% The pipeline represents a chain of commands piped together in Shard, where the entire pipeline can be optionally negated by a bang (\texttt{!}) symbol to change the truthiness of its return code.
+% Here is a shell program that finds all of the lines of the input with the character `!':
+% \begin{lstlisting}[language=shard]
+
+% cat input.txt | grep "!"
+
+% \end{lstlisting}
+
+% This is represented by a \texttt{Ast.pipeline} made up of the \texttt{None} option}, followed by two \texttt{Ast.command}s.
+
+% The following excerpt from the \texttt{eval\_pipeline} function demonstrates evaluating an \texttt{Ast.pipeline}:
+
+% \begin{lstlisting}
+% (* Excerpt from eval.ml *)
+% and eval_pipeline pipeline ~eval_args =
+%   match pipeline with
+%   | [] -> return 0
+%   | x :: xs ->
+%     (match xs with
+%     | [] -> eval_pipeline_part x ~eval_args
+%     | _ ->
+%       let pipe_read, pipe_write = Pipe_process.pipe () in
+%       let deferred_code =
+%         eval_pipeline_part x ~eval_args:{ eval_args with Eval_args.stdout = pipe_write }
+%       in
+%       let new_deferred_code =
+%         eval_pipeline xs ~eval_args:{ eval_args with Eval_args.stdin = pipe_read }
+%       in
+%       let%bind _code = deferred_code in
+%       let%bind () = Fd.close pipe_write in
+%       let%bind new_code = new_deferred_code in
+%       let%bind () = Fd.close pipe_read in
+%       return new_code)
+% \end{lstlisting}
+
+% Most AST nodes behave as they would in other shell languages, and their implementation is based on following the semantics as defined by the POSIX specification.
+% Some notable examples of AST nodes that are treated differently in Shard are \texttt{Ast.subshell} and \texttt{Ast.remote\_command}.
+
+The basic building block of the shell is the simple command, made up of a command name and command arguments, along with any assignments and I/O redirection that are associated with the command.
+The command name can either refer to a builtin or an external command.
+In the case of a builtin, the functionality is implemented in OCaml itself as a part of \texttt{builtin.ml}.
+In the case of an external command, it is executed using the Spawn library, a dependency of the OCaml Core library, behaving in a similar manner to the \texttt{exec} system call, taking in as input the command name, arguments, enviornment, and associated file descriptors for the standard I/O.
+\todoi{Cite the spawn library?}
+
+During evaluation, a record of the type \texttt{Eval.Eval\_args.t} is passed to each \texttt{eval\_PART} function to represent the input state required for the evaluation to succeed. The definition of the record is shown below:
+
+\begin{lstlisting}
+(* Excerpt from eval.ml *)
+module Eval_args = struct
+  type t =
+    { env : Cluster_type.t Env.t
+    ; stdin : Fd.t
+    ; stdout : Fd.t
+    ; stderr : Fd.t
+    ; verbose : bool
+    }
+  [@@deriving fields]
+  (* some function definitions omitted *)
+end
+\end{lstlisting}
+
+The \texttt{Eval\_args.t} is made up of the shell environment (\texttt{Cluster\_type.t Env.t}), file descriptors for the standard I/O of the command being evaluated, and a verbose flag.
+By default, the standard I/O corresponds to the standard I/O of the Shard program itself.
+This is modified when pipelining and I/O redirecting are introduced.
+
+A pipeline indicates that the output of a command should be passed to the input of the next command with a pipe, as shown in the following example shell program that finds all of the lines of the input with the character `!':
+\begin{lstlisting}[language=shard]
+cat input.txt | grep "!"
+\end{lstlisting}
+Originally, this was achieved by manually transferring the data from one program to the next with a virtual pipe-like construct, but this resulted in many practical problems, such as producing the correct behavior when the pipe is closed on either end.
+
+Thus, the piping behavior was changed to use UNIX pipes.
+When a pipe operation occurs, a UNIX pipe is created.
+The environment's stdin is used as the first command's stdin file descriptor, the environment's stdout is used as the second command's stdout file descriptor, and the two ends of the UNIX pipe are used as the remaining two file descriptors to join the first command's output with the second command's input.
+This can be invoked recursively to easily extended to support arbitrarily many commands in a pipeline.
+When both programs exit, the pipe must be explicitly closed.
+Otherwise, a resource leak can occur, where the Shard runtime stops functioning due to reaching a limit on the number of open file descriptors.
+
+File I/O redirection works very similarly as pipelining, instead the stdio file descriptor with that of a file with the specified filename.
+Currently, the Shard interpreter does not support I/O redirection on custom file descriptors other than the standard I/O, but the \texttt{Eval\_args} can be augmented to support the additional redirection capabilities.
+
+A defining feature of Shard is its remote command execution capabilities, where an example of a remote command is shown in the following example command that prints out the host name of a remote machine:
+
+\begin{lstlisting}[language=shard]
+hostname@@machine1.cs.williams.edu
+\end{lstlisting}
+
+Evaluating a remote command is implemented in a similar fashion to evaluating a subshell.
+However, for remote execution, all of the pieces of information needed to evaluate the expression are serialized into s-expression form and sent across the network to a remote instance of the Shard runtime.
+
+If the target of the remote command is a cluster, the application class implementation associated with the cluster will be used for specifics on the implementation of the remote command.
+% which exposes the following public API to the interpreter:
+% \begin{lstlisting}
+% (* Excerpt from application_class.ml *)
+% val remote_run
+%   :  cluster_id:string
+%   -> remote_targets:Remote_target.t list
+%   -> setting:string
+%   -> program:Sexp.t
+%   -> env_image:Env_image.t
+%   -> verbose:bool
+%   -> stdin:Reader.t
+%   -> stdout:Writer.t
+%   -> stderr:Writer.t
+%   -> unit Deferred.Or_error.t
+% \end{lstlisting}
+On the other hand, if the target is a host (which is assumed to be the case when the cluster with the given name is not found), the default application class implementation behaving similarly the \texttt{single\_command} application class is used instead.
+More details of the remote execution will be specified in the \textbf{Protocol implementation} section.
+
+\todoi{Maybe include a section on asynchronous execution (shell ampersand operator)}
+
+As of the time of writing, some of the features in the POSIX shell specification are not supported by the parser or interpreter of the Shard shell.
+However, there is no reason why support for these features cannot be added if needed, with the primary constraint being that the POSIX shell specification is extremely long and contains many features that are not very commonly used by most users in practice.
 
 \section{Protocol implementation}
 
+% \begin{itemize}
+%   \item Model: copy executable to each remote machine, then use SSH to communicate between machines
+%   \item Support SSH config
+%   \item Each remote invocation spawns two processes locally and two processes remotely: justified by easy to separate remote invocations
+%   \item Use OCaml Async RPC for interprocess communication between processes on the same machine: strongly typed, serialization supported, etc
+%   \item Heavyweight but works well for ad-hoc programming
+% \end{itemize}
+
+Many choices can be made in terms of deciding on how to implement the protocol for Shard.
+The choices outlined in this section are chosen on based on a variety of criteria, including availability, usability, and ease of implementation, but a different set of choices can result in an equally good or even better implementation of Shard.
+
+\subsection{Network transport}
+This implementation uses the Secure Shell (SSH) protocol as a basis for its data transportation over the network.
+SSH is a widely supported protocol for accessing a command line shell on a remote machine over a network.
+SSH supports security, authentication, and privacy, so those features can be leveraged by Shard and do not have to be built into the Shard protocol implementation from scratch.
+
+Shard uses the SSH library libssh by leveraging its implementation of the SSH client protocol.
+Currently, authentication is handled by using SSH key-pairs to automatically perform the authentication.
+For each remote machine in the cluster, the local user should have SSH access to that machine (with an SSH key, not a password), by adding the local user's public key to the \texttt{authorized\_keys} of the remote host.
+If the user has an SSH config file at the default location (at \texttt{~/.ssh/}), it is used to allow custom host names and private key names, which can be used for remote targets in the cluster definition.
+Otherwise, the user should make sure that the necessary keys are added to the SSH agent for automatic authentication.
+This authentication procedure is standard for regular SSH access, and Shard does not need anything extra in order for the SSH transport to work correctly.
+
+\todoi{Cite ssh, in particular citation should refer to features described here, and maybe also refer to ubiquity of SSH; also cite ssh config/ssh agent}
+
+\subsection{Data transfer framework}
+
+The Shard protocol involves setting up two connections between four endpoints in order to perform all of the necessary data transfers.
+This is implemented by running four additional instances of Shard whenever a remote command is executed on a remote host, each on a separate process.
+Separate processes are used for each instance specifically to make it easier to support many simultanous remote connections while being able to recover from failures by killing processes and spinning up new ones as needed.
+Subsequent remote commands on the same remote host attempt to reuse the same four instances of Shard, as creating new instances is a relatively expensive operation.
+
+These four instances each correspond to a role as specified by design of the Shard protocol, as specified in the \textbf{Data transfer design} section of the \textbf{Design} chapter.
+The four roles are Local Sender, Local Receiver, Remote Sender, and Remote Receiver, with the two local processes being on the local machine, and the two remote processes being on the remote machine.
+\todoi{Actually write this section of the design chapter to explain these}
+% We explain each of the four ``roles'' in the Design section
+
+The processes on the same machine communicate with each other using remote procedure calls (RPC) from the RPC library Async\_rpc, which is a part of the OCaml Async library.
+This library allows the creation of type-safe RPCs that automatically serialize queries and responses with the help of OCaml annotations, making it very easy to set up an RPC service for all of the remote calling functionality necessary.
+The RPC servers are accessed by invoking an RPC dispatch call on a particular port on the machine, which is randomly generated and given to the program when the RPC server is created.
+Although the RPC servers are not particularly lightweight, only two are used on the local machine for each remote machine connection, so this does not cause a usability problem from a performance standpoint.
+
+\subsection{Data transfer setup}
+
+\todoi{Add diagram with this workflow}
+The first step of the setup is making a copy of the local Shard executable to run the Local Sender and Local Receiver on.
+Note that all four processes use an identical executable to the original Shard executable, but with a command argument indicating which role the processes takes on.
+These command line arguments should only be used by remote execution mechanism for Shard, and not used by the end user.
+
 \begin{itemize}
-  \item Model: copy executable to each remote machine, then use SSH to communicate between machines
-  \item Support SSH config
-  \item Each remote invocation spawns two processes locally and two processes remotely: justified by easy to separate remote invocations
-  \item Use OCaml Async RPC for interprocess communication between processes on the same machine: strongly typed, serialization supported, etc
-  \item Heavyweight but works well for ad-hoc programming
+  \item The \texttt{-Rls} argument indicates the creation of a Local Sender.
+  \item The \texttt{-Rlr} argument indicates the creation of a Local Receiver.
+  \item The \texttt{-Rrs} argument indicates the creation of a Remote Sender. This also has an additional optional argument to indicate the port of the RPC server
+  \item The \texttt{-Rrr} argument indicates the creation of a Remote Receiver.
 \end{itemize}
+\todoi{Make this a table}
+
+The local copy of Shard is made with a copy attempt with the source being the currently running executable, and the destination being a directory known as the Shard cache, with a fixed path (that may change in future versions of Shard).
+A copy attempt means checking whether a Shard executable exists at the destination location, and comparing a cryptographic hash value of the destination file's contents with the source file to make sure that if a file exists, it is the exact same version.
+If either no file exists or the destination file has a different hash from the source file, a copy is made.
+Once the local copy of Shard is successfully created, the Local Sender and Local Receiver processes are spawned.
+Upon spawning, RPC servers are created for the Local Sender and Local Receiver, and their ports are printed to standard output, so the parent processes is able to make dispatch RPC calls to the two processes.
+
+The second step of the Shard protocol is to distribute a copy of the Shard executable to the remote machine.
+This is done by dispatching an \texttt{Open} RPC query to the Local Sender, which has the following record type as its query type:
+\begin{lstlisting}
+(* Excerpt from rpc_local_sender.ml *)
+module Open_query = struct
+  type t =
+    { host : string
+    ; port : int option
+    }
+  [@@deriving bin_io, fields]
+end
+\end{lstlisting}
+The annotation \texttt{[@@deriving]} indicates that the compiler will autogenerate code for the record type, where \texttt{[@@deriving bin\_io]} autogenerates functions to serialize the record in binary form for the RPC, and \texttt{[@@deriving fields]} autogenerates getter functions for accessing individual fields.
+For this query, the Local Sender uses the SSH shell copy (SCP) functionality to make a copy attempt of the Shard executable to the remote machine.
+In this case, it is particularly imporant to check if the Shard executable already exists in the remote Shard cache, as transferring the executable every time can be very expensive in terms of bandwidth and time.
+
+Once the Shard executable is copied to the remote machine, the next step is to spawn the Remote Receiver processes on the remote machine from the Local Sender via SSH's shell execution mechanism.
+The Remote Receiver also creates and RPC server that is used to communicate with the Remote Sender at a later point.
+This Remote Receiver RPC server's port is passed back to the Local Sender, and the passed back to the parent process as the query response to the \texttt{Open} query.
+
+Now, the Local Receiver spawns the Remote Receiver sender processes on the remote machine, once again via SSH's shell execution mechanism, and passes in the port of the Remote Receiver RPC server, which allows the Remote Receiver to be connected to the Remote Sender with a pipe on top of the RPC service.
+
+Finally, the system is ready to accept a remote program execution.
+Note that future remote program executions on the same remote host can reuse the same four processes, so the earlier parts are only necessary when starting a remote program execution on a new host, or if the processes fail and re-execution is scheduled on a new set of processes.
+
+\subsection{Remote program execution flow}
+
+When a remote program is executed, the first step involves dispatching a \texttt{Header} RPC to the Local Sender, which has the following record type as its query type:
+\begin{lstlisting}
+(* Excerpt from rpc_common.ml *)
+module Header = struct
+  type t =
+    { program : Sexp.t
+    ; env_image : Env.Image.t
+    }
+  [@@deriving sexp, bin_io, fields]
+end
+\end{lstlisting}
+As shown here, the query for starting the remote program includes the program's AST representation \texttt{Ast.t} in s-expression form, as a \texttt{Sexp.t}, and a serializable image of the environment \texttt{Env.t}, which includes parts of the shell execution environment for this specific program's execution, such as assignments and cluster definitions.
+In addition to the \texttt{[@@deriving bin\_io]} and \texttt{[@@deriving fields]} mentioned in the previous section, this record type also contains the \texttt{[@@deriving sexp]} annotation to autogenerate functions for serialzing and deserializing the record as an s-expression, which is useful when sending the query as an s-expression string over SSH.
+% reasoning for remote sender/receiver will be explained in the design section
+The Local Sender uses SSH to send the entire query in s-expression form to the Remote Receiver, which passes the query on to the Remote Sender.
+The Remote Sender Shard processes is the one that actually performs the program execution, using the program and environment as specified by the query.
+In addition the the \texttt{Header.t} query, the Local Sender also generates a unique ID for this program execution that is sent to the Remote Receiver, and then Remote Sender.
+This ID helps keep track of the responses from the Remote Sender, as the Remote Sender may be running more than one remote program execution simultaneously, and the output from these programs may be interlaced.
+
+The output of the execution on the Remote Sender is sent over the SSH stream back to the Local Receiver with records of the \texttt{Receiver\_query} type serialized to s-expression form:
+\begin{lstlisting}
+(* Excerpt from rpc_common.ml *)
+module Receiver_data = struct
+  type t =
+    | Message of string
+    | Close
+    | Heartbeat of int
+  [@@deriving sexp, bin_io]
+end
+
+module Receiver_query = struct
+  type t =
+    { id : string
+    ; sequence_number : int
+    ; data : Receiver_data.t
+    }
+  [@@deriving sexp, bin_io, fields]
+end
+\end{lstlisting}
+
+A \texttt{Receiver\_query} record contains a \texttt{data} field of the \texttt{Receiver\_data} variant type, in addition to the ID of the program execution and a sequence number.
+The \texttt{Receiver\_data} variant shows the three types of data that can be delivered by the Remote Sender: a message for the standard output, a close notification indicating that execution is complete, and a heartbeat to indicate that the connection is still alive.
+When the Local Receiver gets the \texttt{Receiver\_query} record, it uses the RPC server to send this record back to the parent process.
+
+In addition to sending the program to be executed, the Local Sender is also responsible for sending standard input to the remote program, and notifying the remote program when the sender closes the writer writing to the standard input.
+The sender query type looks very similar to the receiver query type, except that the Local Sender has no control over the heartbeat and sequence number fields of receiver query, as they originate from the Remote Sender.
+
+\subsection{Heartbeat and sequence number handling}
+The Shard protocol exposes an interface for manually processing the \texttt{Receiver\_query} records from the Remote Sender.
+This makes sense for achieving greater control over handling the specifics pieces of functionality as provided by the protocol, such as the heartbeat, id, and sequence number, but most users of the protocl can opt to use the \texttt{remote\_cluster} interface that automatically handles reliablility and retries using these features:
+
+\begin{lstlisting}
+(* Excerpt from remote_cluster.mli *)
+type t
+
+val create : unit -> t
+
+val init_targets
+  :  t
+  -> targets:Remote_target.t list
+  -> stderr:Writer.t
+  -> verbose:bool
+  -> unit Deferred.Or_error.t
+
+val run_task
+  :  t
+  -> target:[ `Any | `Specific of Remote_target.t ]
+  -> program:Sexp.t
+  -> env_image:Env_image.t
+  -> send_lines:string list
+  -> string Deferred.Or_error.t
+\end{lstlisting}
+
+The \texttt{remote\_cluster} interface exposes the abstraction of tasks that need to be completed on a cluster.
+When a \texttt{remote\_cluster} is created, the set of possible remote targets need to be initialized with \texttt{init\_targets}, which performs the data transfer setup of getting the remote machine ready for accepting remote commands on each remote target passed in.
+
+When a task is created with \texttt{run\_task}, it is executed on an arbitrary or specific target, depending on what is desired by the caller.
+All of the information of the program execution are contained in the \texttt{program}, \texttt{env\_image}, and \texttt{send\_lines} parameter, the first two of which are sent as a \texttt{Header.t} record to start the remote computation, and the third parameter is the lines provided to the standard input of the program.
+This task is created with a timeout mechanism that will cause the task to be retried, that is based on various conditions: if the first heartbeat is not received after a set amount of time; if further heartbeats are not received after some time; or if the entire processes's execution takes too long.
+A retry is also invoked if an error occurs during the task's execution.
+In this case, a further error recovery mechanism is to reinitialize the remote target with a new set of processes, which allows the task to recover from Shard crashes.
+This retry mechanism can result in the same task being executed multiple times on different machines, until the task comes back with a successful result (a close message).
+
+In addition, the \texttt{remote\_cluster} keeps track of the sequence number of the \texttt{Receiver\_query}s being sent by the Remote Sender, to make sure to processes the queries in the correct order.
+It does so by keeping track of the highest sequence number currently seen, storing messages out of sequence in a hash table until they are the next message in sequence, and producing the final output string when the close query is received.
+This means that no output is lost, even if the close query reaches the local machine before some standard output message sent earlier by the Remote Sender.
+If a query is dropped, the close query will never be in sequence, so the timeout mechanism will time out the execution, and a retry will be invoked.
+
+Using the \texttt{remote\_cluster} abstraction, the caller can be confident that tasks will be continously reattempted until it completes sucessfully (or wait forever if the task always fails).
+Even though the many layers of abstraction used result in a more heavyweight protocol, it is a worthwhile tradeoff to ensure that Shard satisfies the core pillars of being reliable and easy to use, and generally works well enough for running ad-hoc programs, where it is less likely that all system resources are being utilized.
 
 \section{Application class implementation}
 
-\begin{itemize}
-  \item Each application class implementation conforms to a specific interface
-  \item Handles how new jobs are dispatched, how existing jobs are managed, retry, error handling, etc. as needed by the application class
-  \item Ability to plug in support for new application classes
-\end{itemize}
+% \begin{itemize}
+%   \item Each application class implementation conforms to a specific interface
+%   \item Handles how new jobs are dispatched, how existing jobs are managed, retry, error handling, etc. as needed by the application class
+%   \item Ability to plug in support for new application classes
+% \end{itemize}
+
+Application classes are implemented in the Shard project as instances of an application class module type, which specifies the following interface that needs to be conformed by each application class backend:
+
+\begin{lstlisting}
+(* Excerpt from application_class.ml *)
+module type Backend = sig
+  val remote_run
+    :  cluster_id:string
+    -> remote_targets:Remote_target.t list
+    -> setting:string
+    -> program:Sexp.t
+    -> env_image:Env_image.t
+    -> verbose:bool
+    -> stdin:Reader.t
+    -> stdout:Writer.t
+    -> stderr:Writer.t
+    -> unit Deferred.Or_error.t
+end
+\end{lstlisting}
+
+This function is called by the Shard evaluator's remote execution evaluation, which supplies the application class with each of the parameters of the \texttt{remote\_run} function as necessary to sucessfully perform the remote execution.
+The implementation of this function depends on the specific application class backend, but generally involves calling functions in one of the remote invocation abstractions provided by the Shard protocol implementation, which then performs the actual remote program execution.
+Repeated remote execution calls on the same cluster are guaranteed to use the same \texttt{cluster\_id} string, meaning that the backend can partition its inputs on a per-cluster basis, using global state to maintain a lookup for individual cluster data from its ID.
+
+Although there are currently only two application classes implemented in Shard, it is easy to create additional ones by creating modules that follow the specification of the module type, which should contain all of the information needed by the application class to support any unique features.
+At the current moment, the project needs to be modified directly to add builtin support for the application class, but it's possible with some minor changes to externally expose all of the controls for which application classes to use, meaning that Shard can be used as a platform to build additional remote capabilities on top of.
+
+\subsection{Single command}
+
+\todoi{Issue: this section is currently inaccurate at describing how the implementation actually works, because I haven't gotten around to converting the single command application class to using the remote cluster abstraction yet}
+
+The \texttt{single\_command} application class supports functionality for running a command that should be reliably executed on each of the machines in a cluster. The following example \texttt{single\_command} program gets the memory usage of each machine in a cluster named \texttt{csmachines}, and prints it along with the hostname of the machine to a local output:
+
+\begin{lstlisting}
+(h=$(hostname); echo -n "$h: "; free | awk "FNR == 2 {print \$3/\$2}") @@ default | tee memory_log.txt
+\end{lstlisting}
+
+The implementation of this application class is very simple, and does not require directly using the the Shard protocol RPC queries: it takes the program input, and uses the \texttt{remote\_cluster} abstraction to reliabily execute the program as a task on each machine in the cluster.
+The \texttt{remote\_cluster} guarantees reliability and error recovery, allowing the task to be retried on the same machine if it failed.
+\todoi{Functionality for tuning retries to be less aggressive?}
+
+\subsection{Data parallel}
+
+The \texttt{data\_parallel} application class supports MapReduce-style functionality for running intensive data-parallel applications.
+The following example \texttt{data\_parallel} program calculates the number of occurrences of each line length in an input file on the cluster named \texttt{testcluster}:
+
+\begin{lstlisting}[language=shard]
+cat input.txt | (echo $in | wc -c; echo 1)@@map/testcluster | (paste -sd+ - | bc)@@reduce/testcluster
+\end{lstlisting}
+
+% Move this to the Design section
+% For example, running the above program with the input text being Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet gives the following output:
+
+% \begin{lstlisting}[language=]
+% 29,1
+% 37,1
+% 38,2
+% 39,2
+% 40,3
+% 41,4
+% 42,3
+% 43,2
+% 44,4
+% 45,4
+% 46,1
+% 47,1
+% 48,1
+% 49,3
+% 52,1
+% \end{lstlisting}
+
+When the \texttt{data\_parallel} application class backend receives the \texttt{remote\_run} call, it gets two separate calls, one with the ``map'' setting and one with the ``reduce'' setting.
+The backend's functionality is based on the setting of the call, and fails if the setting is not either ``map'' or ``reduce'', as these are required by the \texttt{data\_parallel} application class backend.
+
+For the call with the ``map'' setting, the backend splits the input by the line, and creates a task for each line, where the task is to execute the remote execution payload specified by the \texttt{program} argument.
+The environment for this execution is a copy of the local environment with an addtional assignment of the variable \texttt{\$in} to the value of the line.
+This is sent to an arbitrary remote host for execution, using the \texttt{remote\_cluster} abstraction provided by the protocol to ensure that the task is reliably completed.
+\todoi{Describe remote host choosing mechanism}
+The program is expected to output two lines: the first of which is the key, and the second of which is the value.
+This is printed to the local standardout as a key-value pair in a single line, with the key and value separated by a comma.
+
+For the call with the ``reduce'' setting, it expects the input to be in the form of the ``map'' output, where each input's like is a key-value pair separated by a comma.
+The backend collects the inputs by the key, and sends all inputs with the same key to the same remote host.
+The program's standard input is now each of the values associated with the key, separated on a per-line basis, and this time, the \texttt{\$key} variable is assigned to the value of the key.
+The output is expected to be a single line.
+Finally, when all of the reduce tasks complete, the output is sorted by key and printed, with each line being a key-value pair, with the key and value separated by a comma.
+
+The specific implementation of the \texttt{data\_parallel} backend does not require in-depth knowledge about how the Shard protocol functions, as that is cleanly concealed by the \texttt{remote\_cluster} abstraction.
+This achieves the separation of concerns for the functionality of the application class itself and the Shard remote protocol, which also makes adding new application classes or improving the Shard protocol much easier.
 
 \section{Implementation trade-offs}
+
+As with any real-world system, there are some trade-offs made in this implementation of Shard.
 
 \subsection{Performance}
 \begin{itemize}
   \item Quantify performance tradeoffs? examples, stats, graphs, etc
 \end{itemize}
 
+% The most obvious and significant trade-off to this implementation of Shard is the sacrifice of performance in return for ease of use and implementation.
+
+% Out of the three core pillars of Shard (distributed, reliable, easy to use), performance does not directly fit in any of these.
+% At some level, performance matters for the usability, but
+
+% The sacrifice to performance is justified by the targetted use-case of Shard.
+% Performance is of the highest priority in contexts where scalability matters, where
+
+\todoi{Finish this section}
+
 \subsection{Alternative Approaches}
-\begin{itemize}
-  \item Other languages
-  \item Threads vs processes
-\end{itemize}
+% \begin{itemize}
+%   \item Other languages
+%   \item Threads vs processes
+% \end{itemize}
+
+The most unique choice made in the implementation of the Shard project was the choice to use the OCaml programming language for almost all of the code.
+OCaml has be benefit of being a statically typed, performant, garbage collected, high-level programming language, making it a suitable choice for writing safe and correct programs.
+The static typing in conjunction with the automatic code generation for serialization and deserialization is especially helpful for keeping track of records and variants passed across the network, since a type incompatibility problem that is only uncovered at runtime can be difficult to debug.
+Although not as widely used as some more popular programming languages, especially in computer systems programming, where C and C++ are traditionally dominant, OCaml still has a moderately developed ecosystem, with a handful of diverse and powerful libraries, such as the Jane Street Core and Async libraries used throughout the implementation, and the Angstrom library used in the Shard parser.
+
+SSH was a clear choice for the transport protocol, due to its plethora of features and widespread adoption.
+One notable part of SSH is that an SSH server is often already installed on
+Alternatives such as directly building on top of TCP can also be viable choices, for even more flexibility at the cost of implementation time and efforts, but may require additional steps or permissions for installation and configuration, losing out on part of the the core pillar of being easy of use.
+
+As mentioned in the \textbf{Shell implementation} section, rather than building a shell implementation from scratch, it is possible to leverage an existing shell implementation and get a much larger feature set.
+However, one problem is that this approach sacrifices some flexibility, especially because many existing shell libraries are not written in OCaml, so foreign language bindings would have to be used to connect with the OCaml code used for the remainder of the project.
+For the purposes of Shard, it currently sufficies to use its own shell implementation, though future work may include considering substituting it for a fully-fledged existing shell implementation, as not all useful shell features or language semantics are currently available for Shard.
+\todoi{Cite examples of existing shells as libraries}
+
+% Another tradeoff already mentioned, this time in the \textbf{Data transfer framework} section, is the tradeoff of using processes rather than threads for additional .
+% One downside of OCaml is thatm by default, an OCaml process only supports OCaml execution on a single core.
+% \todoi{Cite lack of multi core support}
+\todoi{Tradeoff: threads vs processes}
 
 \chapter{Evaluation}
 
