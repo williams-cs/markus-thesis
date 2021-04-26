@@ -69,7 +69,7 @@
       hash,history,if,in,kill,login,newgrp,nice,nohup,ps,pwd,read,%
       readonly,return,set,sed,shift,test,then,times,trap,true,type,%
       ulimit,umask,unset,until,wait,while,
-      cluster},%
+      cluster,source},%
    morecomment=[l]\#,%
    morestring=[d]",%
    alsoletter={*"'0123456789.},%
@@ -108,8 +108,12 @@
 \usepackage{empheq}\usepackage{multicol}
 \usepackage{subfigure}
 
-%% urls
+%% URLs
 \usepackage{hyperref}
+
+%% Advanced tables
+\usepackage{tabularx}
+\usepackage{multirow}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Thesis body %%
@@ -429,6 +433,99 @@ In this chapter, we discuss the design of the Shard distributed system, which in
           \item Satisfying the three pillars (ease of use, distributed, reliable)
           \item Use language to solve problem
         \end{itemize}
+  \item Separation of design and implementation
+\end{itemize}
+
+\todoi{Write this section}
+
+Fundamentally, the design philosophy of Shard is to create a computer system that best satisfies the three core pillars of Shard, as outlined in the \textbf{Introduction} chapter: being distributed, easy to use, and reliable.
+
+The central design choice of the Shard distributed system was creating a new programming language, rather than writing a library or a set of macros for an existing programming language.
+This is primarily due to the ability to provide better syntax level support for the remote execution capabilities of Shard, as the intent is to make writing a distributed program just as easy as writing a local program, in order to better satsify the ease of use program.
+The Shard programming language is built on top of the POSIX shell language, with Shard's syntax and semantics being a direct extension of the POSIX shell, since the POSIX shell is widely adopted by programmers on UNIX machines, and the level of familiarity with the language further reinforces Shard's ease of use \cite{posix2017}.
+Because of this, in a complete implementation of Shard, almost all valid POSIX shell programs would be also valid in the Shard programming language.
+
+The defining feature of the Shard programming language that separates it from the POSIX shell is the it provides the ability for programs to execute commands on a remote machine.
+The remote commands work similarly to how a subshell works, and are valid Shard programs themselves with the full functionality of the Shard code running locally.
+
+The remote command execution is facilitated by using the Shard protocol to facilitate the execution of the remote command, designed specifically to work with the Shard shell, and focusing on the core pillars of being distributed and being reliable.
+The Shard protocol works by using a pair of communication channels between the local machine where the Shard program originated, and the remote machine where the Shard command should be executed, with messages being passed along the channel to perform the executing of the Shard command on the remote machine, and to ensure this execution is performed in a reliable manner.
+A custom protocol is used because it affords Shard full control over ensuring reliability, with a combination of features such as heartbeats, sequence numbers, and retry mechanisms to maximize the reliability of .
+The Shard protocol also makes it possible to create
+
+% segue into application classes
+\todoi{Close out this section}
+
+\section{Language design}
+
+\begin{itemize}
+  \item Solves the problem of: ease of use/familiarity
+  \item Describe the programming language
+  \item Based on the POSIX shell standard
+  \item Simple new syntax/semantics for distributed work
+        \begin{itemize}
+          \item Cluster management (builtin)
+          \item Application classes/error handling semantics support
+          \item Run on remote host (@@)
+        \end{itemize}
+\end{itemize}
+
+The Shard programming language is designed primarily to satisfy the core pillar of being easy to use.
+
+\todoi{Write more in this section}
+
+The syntax of the new features of the Shard programming language are shown in Figure \ref{fig:pl_syntax}, and the parameters for the syntax is shown in \ref{fig:pl_syntax_parameters}.
+
+\begin{figure}[h]
+  \begin{center}
+    \begin{tabular}{|l|l|l|}
+      \hline
+      Feature                           & Syntax                    & Example                              \\ \hline
+      Cluster management                & cluster -OPTION ARGS ...  & cluster -a machine1.cs.williams.edu  \\ \hline
+      \multirow{4}{*}{Remote execution} & (PROGRAM)@@TARGET         & (cat file.txt)@@example              \\ \cline{2-3}
+                                        & PROGRAM@@TARGET           & hostname@@127.0.0.1                  \\ \cline{2-3}
+                                        & (PROGRAM)@@SETTING/TARGET & (echo \$in; echo 1)@@map/cluster1    \\ \cline{2-3}
+                                        & PROGRAM@@SETTING/TARGET   & (paste -sd+ - | bc)@@reduce/cluster1 \\ \hline
+    \end{tabular}
+    \caption{Syntax of the Shard programming language features}
+    \label{fig:pl_syntax}
+  \end{center}
+\end{figure}
+
+\begin{figure}
+  \begin{center}
+    \begin{tabularx}{\textwidth}{|l|X|}
+      \hline
+      Feature            & Parameters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      \\ \hline
+      Cluster management & The OPTION parameter specifies which cluster built-in command to use. \newline The ARGS parameter species the arguments to be passed to the specified cluster built-in command. \newline See Figure PLACEHOLDER for more details.                                                                                                                                                                                                                                                               \\ \hline
+      Remote execution   & The PROGRAM parameter is a legal Shard program, behaving similar to what is allowed in the subshell environment in the POSIX shell. \newline The TARGET parameter is either the name of a cluster defined by the cluster management, or a host as accepted by the underlying communication protocol. \newline The SETTING optional parameter may be used by the application class for the cluster; depending on the application class of the cluster, it may be required, optional, or ignored. \\ \hline
+    \end{tabularx}
+    \caption{Parameters for the syntax of the Shard programming language}
+    \label{fig:pl_syntax_parameters}
+  \end{center}
+\end{figure}
+
+\subsection{Cluster management}
+
+\subsection{Remote execution}
+
+
+\subsection{Example programs}
+
+\begin{itemize}
+  \item Give examples and explain in detail
+  \item Example program: Hello world
+  \item Example program: Memory usage in cluster
+  \item Example program: Word count in large file
+\end{itemize}
+
+\section{Protocol design}
+
+\begin{itemize}
+  \item Solves the problem of: distributed
+  \item Describe the distributed protocol
+  \item Four roles
+  \item Note that this is about the design of the protocol, rather than the implementation details
 \end{itemize}
 
 \section{Application classes}
@@ -449,35 +546,12 @@ In this chapter, we discuss the design of the Shard distributed system, which in
 
 \subsection{Application class: \texttt{data\_parallel}}
 
-\section{Language design}
-
+\section{Composability}
 \begin{itemize}
-  \item Solves the problem of: ease of use/familiarity
-  \item Describe the programming language
-  \item Based on the POSIX shell standard
-  \item Simple new syntax/semantics for distributed work
-        \begin{itemize}
-          \item Cluster management (builtin)
-          \item Application classes/error handling semantics support
-          \item Run on remote host (@@)
-        \end{itemize}
-\end{itemize}
-
-\subsection{Example programs}
-
-\begin{itemize}
-  \item Give examples and explain in detail
-  \item Example program: Hello world
-  \item Example program: Memory usage in cluster
-  \item Example program: Word count in large file
-\end{itemize}
-
-\section{Protocol design}
-
-\begin{itemize}
-  \item Solves the problem of: distributed
-  \item Describe the distributed protocol
-  \item Note that this is about the design of the protocol, rather than the implementation details
+  \item No constraints over program they can write
+  \item Shard pieces compose in nice way
+  \item Pipes compose by default
+  \item Will not make warts of Shell go away
 \end{itemize}
 
 \chapter{Implementation}
@@ -826,7 +900,7 @@ Although the RPC servers are not particularly lightweight, only two are used on 
 \subsection{Data transfer setup}
 
 The first step of the setup is making a copy of the local Shard executable to run the Local Sender and Local Receiver on.
-Note that all four processes use an identical executable to the original Shard executable, but with a command argument indicating which role the processes takes on.
+Note that all four processes use an identical executable to the original Shard executable, but with a command line argument indicating which role the processes takes on, as described in Figure \ref{fig:process_role_args}.
 These command line arguments should only be used by remote execution mechanism for Shard, and not used by the end user.
 
 \begin{figure}[h]
@@ -840,6 +914,7 @@ These command line arguments should only be used by remote execution mechanism f
       Remote Receiver & Local Sender    & -Rrr     &                                    \\ \hline
     \end{tabular}
     \caption{The command line arguments for running the executable as each of the four process roles}
+    \label{fig:process_role_args}
   \end{center}
 \end{figure}
 
@@ -1118,11 +1193,127 @@ Overall, the Shard implementation is able to meet the requirements of the design
 
 \chapter{Evaluation}
 
+This chapter will describe the criteria in which the Shard distributed system is evaluated, the experiments designed to evaluate these critera, and the results of running the experiments.
+
+\section{Overview}
+
+When evaluating Shard, particular emphasis on satisfying the three core pillars for Shard, of being distributed, reliable, and easy to use, as described in the \textbf{Motivation} section of the \textbf{Introduction} chapter.
+
 \section{Distributed}
+% \begin{itemize}
+%   \item Can be run over network
+%   \item Graph to show running time for X machines in cluster (use CS machines? rent some VMs?)
+% \end{itemize}
+
+The first step in the evaluation of Shard is ensuring that it satisfies its stated goal of being a distributed system.
+This is carried out by running Shard programs over a network and ensuring that example programs produce the correct output as specified by the design.
+These experiments will also demonstrate that the application classes function correctly as defined by the specification.
+
+The local machine containing the entry point of the Shard program is a personal machine located at Williams College and connected to Williams College network.
+The experiments in this section will be carried out multiple times, each time with one of the following sets of remote machines:
 \begin{itemize}
-  \item Can be run over network
-  \item Graph to show running time for X machines in cluster (use CS machines? rent some VMs?)
+  \item The same local machine itself (localhost);
+  \item A cluster of machines in the same local area network (Williams CS machines);
+  \item A cluster of machines hosted on the cloud, in a different geographical location.
 \end{itemize}
+In each of these experiments, we measure the amount of time it takes for the Shard program to run, and the success rate of correctly receiving the result of the program on the local machine.
+\todoi{Figure out renting out some cloud VMs to help perform these experiments; as an alternative, connect to the Williams CS machines with a VPN to simulate a longer-area network connection, by setting the VPN location to a farther location}
+Each machine used in the evaluation is running Ubuntu Linux version 20.04.2 LTS.
+\todoi{What detail specs should I include}
+
+The first experiment, \texttt{hostname.shard}, involves using verifying the \texttt{single\_command} application class works correctly on a simple program.
+\begin{lstlisting}[language=Shard]
+# hostname.shard
+source cluster_setup.shard
+hostname@@testcluster
+\end{lstlisting}
+This Shard program begins by including a \texttt{cluster\_setup.shard} script to set up the cluster \texttt{testcluster}.
+Then, the program calls the command \texttt{hostname} on each of the machines in the cluster \texttt{testcluster}, and prints out the result to the local machine's standard output.
+
+The contents of \texttt{cluster\_setup.shard} vary depending on which set of remote machines the experiment is being run on.
+For testing on the local machine, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding the localhost to the cluster:
+\begin{lstlisting}[language=Shard]
+# cluster_setup.shard for localhost
+cluster -s testcluster
+cluster -a localhost
+\end{lstlisting}
+For testing on the Williams CS machines, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding each Williams CS machine in the experiment to the cluster:
+\begin{lstlisting}[language=Shard]
+# cluster_setup.shard for Williams CS machines
+# Hostnames here differ from the ones used in the actual experiment
+cluster -s testcluster
+cluster -a machine1.cs.williams.edu
+cluster -a machine2.cs.williams.edu
+cluster -a machine3.cs.williams.edu
+cluster -a machine4.cs.williams.edu
+\end{lstlisting}
+Similarly, for testing on the cloud machines, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding each remote machine in the experiment to the cluster:
+\begin{lstlisting}[language=Shard]
+# cluster_setup.shard for cloud machines
+# IP addresses here differ from the ones used in the actual experiment
+cluster -s testcluster
+cluster -a 203.0.113.24
+cluster -a 203.0.113.31
+cluster -a 203.0.113.184
+cluster -a 203.0.113.201
+\end{lstlisting}
+
+The \texttt{hostname.shard} program is ran a total of 100 trials on each of the three clusters.
+Figure \ref{fig:hostname} shows the cumulative number of trials complete at a given point in time.
+Note that the \texttt{single\_command} application class requires the Shard command to be run on each of the machines in the cluster, so the experiment on localhost would be expected to complete faster, even with disregarding the network delay of running the programs on a remote machine.
+
+\begin{figure}[h]
+  \begin{center}
+    \vspace{2cm}
+    \texttt{PLACEHOLDER FIGURE}
+    \vspace{2cm}
+    \caption{Cumulative number of trials complete given a certain amount of time passed for the \texttt{hostname.shard} experiment}
+    \label{fig:hostname}
+  \end{center}
+\end{figure}
+
+The second experiment, \texttt{wordcount.shard}, verifies that the \texttt{data\_parallel} application class works correctly.
+\begin{lstlisting}[language=Shard]
+# hostname.shard
+source cluster_setup.shard
+cat input.txt |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (echo $in; echo 1)@@map/testcluster |
+    (paste -sd+ - | bc)@@reduce/testcluster
+\end{lstlisting}
+This program takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
+\begin{itemize}
+  \item
+        On line 3 of the program, the input text is read from the file \texttt{input.txt}.
+  \item
+        On line 4 of the program, the text is piped to the \texttt{tr} UNIX command, which translates the input by replacing all uppercase characters with their lowercase counterpart.
+  \item
+        On line 5 of the program, the text is modified by the \texttt{tr} UNIX command again, by filtering to only keep alphanumeric characters, with each group of alphanumeric character split by a newline character, resulting in each word being on a separate line.
+  \item
+        On line 6 of the program, the input is split up by line and sent to be executed remotely on the cluster \texttt{testcluster} by the \texttt{map} primitive from the \texttt{data\_parallel} application class, with each remote command execution mapping the input word to a key of that word, with a value of 1, representing one occurence of that word.
+  \item
+        On line 7 of the program, the input is split up by key, with all values associated key sent to be executed remotely on the cluster \texttt{testcluster} by the \texttt{reduce} primitive from the \texttt{data\_parallel} application class, with each remote command execution using the \texttt{paste} UNIX command to replace all input newlines with the addition symbol, and the \texttt{bc} command to calculate the sum.
+        Because there is an input of 1 for each occurence of the word, this computes the number of occurences of that word, which is finally sent back to the local machine.
+\end{itemize}
+More specifics about how the \texttt{map} and \texttt{reduce} primitives work in the context of the \texttt{data\_parallel} application class can be found in the \textbf{Application class: \texttt{data\_parallel}}
+
+The input document for this experiment is the Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, which was chosen as an example of a famous passage with some amounts of repeating words.
+This passage has a total of PLACEHOLDER words, which means that each remote machine would have to execute multiple tasks, as opposed to a single task as is the case for the \texttt{hostname.shard} experiment.
+The full text can be found in the appendix.
+\todoi{Evaluate whether this is a good choice for input text - maybe use this input text for the ``Reliable'' section instead; also figure out copyrights}
+
+\todoi{Experiment 3: \texttt{wordcount\_slow.shard} (Exercise parallel tasks)}
+
+\begin{lstlisting}[language=Shard]
+# hostname.shard
+source cluster_setup.shard
+cat input.txt |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (echo $in; sleep 1; echo 1)@@map/testcluster |
+    (paste -sd+ - | bc)@@reduce/testcluster
+\end{lstlisting}
 
 \section{Reliable}
 
@@ -1132,6 +1323,14 @@ Overall, the Shard implementation is able to meet the requirements of the design
   \item Graph completion time vs random failure rate for \texttt{data\_parallel} programs with both temporarily and permanently failing hosts
 \end{itemize}
 
+\todoi{Experiment 1: \texttt{network.shard} (Try to connect to unreachable host in cluster)}
+
+\todoi{Experiment 2: \texttt{kill.shard} (Randomly kill the remote Shard)}
+
+\todoi{Experiment 3: \texttt{packet\_loss.shard} (Drop certain percentage of returning packets)}
+
+\todoi{Experiment 4: \texttt{timeout.shard} (Randomize slowdown, with some machines taking very long)}
+
 \section{Easy to use}
 
 \begin{itemize}
@@ -1139,6 +1338,8 @@ Overall, the Shard implementation is able to meet the requirements of the design
   \item If time permits, ask other programmers (potentially with less knowledge on distributed systems/programming languages) to try writing programs
   \item Line of code/code size comparisons?
 \end{itemize}
+
+\todoi{Several example single application/data parallel programs with comparison: number of characters, subjective comparison; also comparison to existing shell languages}
 
 \chapter{Conclusion}
 \begin{itemize}
