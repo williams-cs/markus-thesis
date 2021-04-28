@@ -324,6 +324,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
   let max_tries = 100 in
   let max_tries_inner = 120 in
   let inner_timeout = 1000 in
+  (* TODO dynamic *)
   let first_heartbeat_timeout = 10000 in
   let heartbeat_timeout = 2000 in
   let idle_heartbeat_timeout = 2000 in

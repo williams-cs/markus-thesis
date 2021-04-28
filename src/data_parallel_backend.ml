@@ -113,15 +113,18 @@ module Application_class_impl = struct
             in
             process :: accum)
       in
-      let%map or_errors = Deferred.all deferreds in
-      let%map.Or_error pairs = Or_error.combine_errors or_errors in
-      let sorted =
-        List.fold pairs ~init:String.Map.empty ~f:(fun accum (key, data) ->
-            Map.add_exn accum ~key ~data)
-      in
-      Map.iteri sorted ~f:(fun ~key ~data ->
-          let res_lines = String.split_lines data in
-          List.iter res_lines ~f:(fun line -> fprintf stdout "%s,%s\n" key line))
+      let%bind or_errors = Deferred.all deferreds in
+      (match Or_error.combine_errors or_errors with
+      | Error err -> Error err |> Deferred.return
+      | Ok pairs ->
+        let sorted =
+          List.fold pairs ~init:String.Map.empty ~f:(fun accum (key, data) ->
+              Map.add_exn accum ~key ~data)
+        in
+        Map.iteri sorted ~f:(fun ~key ~data ->
+            let res_lines = String.split_lines data in
+            List.iter res_lines ~f:(fun line -> fprintf stdout "%s,%s\n" key line));
+        Writer.flushed stdout |> Deferred.map ~f:Or_error.return)
     | _ ->
       return
         (Error.raise_s
