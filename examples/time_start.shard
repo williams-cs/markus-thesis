@@ -1,0 +1,1 @@
+export tsstart=$(date '+%s%N')

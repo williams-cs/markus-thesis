@@ -1,0 +1,11 @@
+# word_length.shard
+source cluster_setup.shard
+cluster -t data_parallel
+cat long2.input |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (echo $in | cut -c1;
+     echo $in | wc -c)@@map/testcluster |
+    (awk '{total += $1}
+          END {print total/NR}')@@reduce/testcluster |
+    sort -t, -nk2 -r

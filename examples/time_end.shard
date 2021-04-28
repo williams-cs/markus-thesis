@@ -1,0 +1,2 @@
+export tsend=$(date '+%s%N')
+python3 -c "print(($tsend - $tsstart) / 1000000000)"

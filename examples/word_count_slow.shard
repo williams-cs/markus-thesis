@@ -1,0 +1,7 @@
+# word_count_slow.shard
+source cluster_setup.shard
+cat input.txt |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (echo $in; sleep 1; echo 1)@@map/testcluster |
+    (paste -sd+ - | bc)@@reduce/testcluster

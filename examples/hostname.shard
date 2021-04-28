@@ -1,0 +1,3 @@
+# hostname.shard
+source cluster_setup.shard
+hostname@@testcluster

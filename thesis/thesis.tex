@@ -271,7 +271,7 @@ It should be fast and easy to get from the point of Shard being installed to run
 
 There are clear benefits to a computer system for being easy to use.
 From the standpoint of having a low knowledge barrier, ease of use can mean that the system is useful to a larger audience of users, since the barrier of learning a new tool or its prerequisite background knowledge may stop larger numbers of people from trying it out in the first place, resulting in the system only being useful for a small niche of trained experts, even if the ultimate benefit of using the system is greater than the learning cost.
-In addition, Shard being easy to use may mean that it is the better tool in ad-hoc situations, where the goal is to solve a problem of running a distributed program using some combination of the least effort and the least time, which can give it a significant edge over more powerful but heavyweight distributed systems, where time is wasted setting up the system or writing the distribued program.
+In addition, Shard being easy to use may mean that it is the better tool in ad-hoc situations, where the goal is to solve a problem of running a distributed program using some combination of the least effort and the least time, which can give it a significant edge over more powerful but heavyweight distributed systems, where time is wasted setting up the system or writing the distributed program.
 
 The core pillar of being easy to use is what separates Shard from many traditional distributed systems that will be described in the \textbf{Distributed Computing} section of the \textbf{Background} chapter, and which do follow the other two core pillars of being distributed and reliable. For many of those systems, it is plausible that the time it takes to get the system up and running is many times longer than the time it takes to install Shard, write the Shard program, run the Shard program, and complete the task.
 
@@ -1081,14 +1081,18 @@ At the current moment, the project needs to be modified directly to add builtin 
 
 \todoi{Needs work: this section is currently inaccurate at describing how the implementation actually works, because I haven't gotten around to converting the single command application class to using the remote cluster abstraction yet}
 
-The \texttt{single\_command} application class supports functionality for running a command that should be reliably executed on each of the machines in a cluster. The following example \texttt{single\_command} program gets the memory usage of each machine in a cluster named \texttt{csmachines}, and prints it along with the hostname of the machine to a local output:
+\begin{sloppypar}
+  The \texttt{single\_command} application class supports functionality for running a command that should be reliably executed on each of the machines in a cluster. The following example \texttt{single\_command} program gets the memory usage of each machine in a cluster named \texttt{csmachines}, and prints it along with the hostname of the machine to a local output:
+\end{sloppypar}
 
 \begin{lstlisting}
 (h=$(hostname); echo -n "$h: "; free | awk "FNR == 2 {print \$3/\$2}") @@ default | tee memory_log.txt
 \end{lstlisting}
 
-The implementation of this application class is very simple, and does not require directly using the the Shard protocol RPC queries: it takes the program input, and uses the \texttt{remote\_cluster} abstraction to reliabily execute the program as a task on each machine in the cluster.
-The \texttt{remote\_cluster} guarantees reliability and error recovery, allowing the task to be retried on the same machine if it failed.
+\begin{sloppypar}
+  The implementation of this application class is very simple, and does not require directly using the the Shard protocol RPC queries: it takes the program input, and uses the \texttt{remote\_cluster} abstraction to reliabily execute the program as a task on each machine in the cluster.
+  The \texttt{remote\_cluster} guarantees reliability and error recovery, allowing the task to be retried on the same machine if it failed.
+\end{sloppypar}
 % \todoi{Functionality for tuning retries to be less aggressive?}
 
 \subsection{Data parallel}
@@ -1194,9 +1198,6 @@ Overall, the Shard implementation is able to meet the requirements of the design
 \chapter{Evaluation}
 
 This chapter will describe the criteria in which the Shard distributed system is evaluated, the experiments designed to evaluate these critera, and the results of running the experiments.
-
-\section{Overview}
-
 When evaluating Shard, particular emphasis on satisfying the three core pillars for Shard, of being distributed, reliable, and easy to use, as described in the \textbf{Motivation} section of the \textbf{Introduction} chapter.
 
 \section{Distributed}
@@ -1221,7 +1222,10 @@ In each of these experiments, we measure the amount of time it takes for the Sha
 Each machine used in the evaluation is running Ubuntu Linux version 20.04.2 LTS.
 \todoi{What detail specs should I include}
 
-The first experiment, \texttt{hostname.shard}, involves using verifying the \texttt{single\_command} application class works correctly on a simple program.
+\subsubsection{Single command}
+\begin{sloppypar}
+  The first experiment in this section, \texttt{hostname.shard}, involves using verifying the \texttt{single\_command} application class works correctly on a simple program.
+\end{sloppypar}
 \begin{lstlisting}[language=Shard]
 # hostname.shard
 source cluster_setup.shard
@@ -1258,7 +1262,7 @@ cluster -a 203.0.113.184
 cluster -a 203.0.113.201
 \end{lstlisting}
 
-The \texttt{hostname.shard} program is ran a total of 100 trials on each of the three clusters.
+The \texttt{hostname.shard} program is ran a total of 100 trials sequentially on each of the three clusters.
 Figure \ref{fig:hostname} shows the cumulative number of trials complete at a given point in time.
 Note that the \texttt{single\_command} application class requires the Shard command to be run on each of the machines in the cluster, so the experiment on localhost would be expected to complete faster, even with disregarding the network delay of running the programs on a remote machine.
 
@@ -1272,9 +1276,12 @@ Note that the \texttt{single\_command} application class requires the Shard comm
   \end{center}
 \end{figure}
 
-The second experiment, \texttt{wordcount.shard}, verifies that the \texttt{data\_parallel} application class works correctly.
+\todoi{Some analysis on the actual results}
+
+\subsubsection{Data parallel}
+The second experiment in this section, \texttt{word\_count.shard}, verifies that the \texttt{data\_parallel} application class works correctly.
 \begin{lstlisting}[language=Shard]
-# hostname.shard
+# word_count.shard
 source cluster_setup.shard
 cat input.txt |
     tr '[:upper:]' '[:lower:]' |
@@ -1293,20 +1300,37 @@ This program takes an input from the file \texttt{input.txt} and outputs the num
   \item
         On line 6 of the program, the input is split up by line and sent to be executed remotely on the cluster \texttt{testcluster} by the \texttt{map} primitive from the \texttt{data\_parallel} application class, with each remote command execution mapping the input word to a key of that word, with a value of 1, representing one occurence of that word.
   \item
-        On line 7 of the program, the input is split up by key, with all values associated key sent to be executed remotely on the cluster \texttt{testcluster} by the \texttt{reduce} primitive from the \texttt{data\_parallel} application class, with each remote command execution using the \texttt{paste} UNIX command to replace all input newlines with the addition symbol, and the \texttt{bc} command to calculate the sum.
+        On line 7 of the program, the input is split up by key, with all values associated with a key sent to be executed remotely on the cluster \texttt{testcluster} by the \texttt{reduce} primitive from the \texttt{data\_parallel} application class, with each remote command execution using the \texttt{paste} UNIX command to replace all input newlines with the addition symbol, and the \texttt{bc} command to calculate the sum.
         Because there is an input of 1 for each occurence of the word, this computes the number of occurences of that word, which is finally sent back to the local machine.
 \end{itemize}
 More specifics about how the \texttt{map} and \texttt{reduce} primitives work in the context of the \texttt{data\_parallel} application class can be found in the \textbf{Application class: \texttt{data\_parallel}}
 
-The input document for this experiment is the Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, which was chosen as an example of a famous passage with some amounts of repeating words.
+The input document for this experiment is Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, which was chosen as an example of a famous passage with some amounts of repeating words.
 This passage has a total of PLACEHOLDER words, which means that each remote machine would have to execute multiple tasks, as opposed to a single task as is the case for the \texttt{hostname.shard} experiment.
-The full text can be found in the appendix.
-\todoi{Evaluate whether this is a good choice for input text - maybe use this input text for the ``Reliable'' section instead; also figure out copyrights}
+The full text of the input document and the expected output can be found in the appendix.
+\todoi{Evaluate whether this is a good choice for input text - maybe use this input text for the ``Reliable'' section instead; also figure out copyrights; and add the input/output to the appendix}
 
-\todoi{Experiment 3: \texttt{wordcount\_slow.shard} (Exercise parallel tasks)}
+The \texttt{word\_count.shard} program is ran a total of 20 trials sequentially on each of the three clusters. Figure \ref{fig:wordcount} shows the cumulative number of trials complete at a given point in time. Note that the \texttt{data\_parallel} application class splits up the task of counting an individual word to the various machines on the cluster, so while the local machine cluster had the lowest latency, it only uses one process to execute remote commands, whereas the remote machine clusters use multiple processes simultaneously.
+
+\begin{figure}[h]
+  \begin{center}
+    \vspace{2cm}
+    \texttt{PLACEHOLDER FIGURE}
+    \vspace{2cm}
+    \caption{Cumulative number of trials complete given a certain amount of time passed for the \texttt{word\_count.shard} experiment}
+    \label{fig:wordcount}
+  \end{center}
+\end{figure}
+
+\todoi{Some analysis on the actual results}
+
+\subsubsection{Data parallel with delay}
+The third experiment in this section, \texttt{word\_count\_slow.shard}, is almost identical to the previous \texttt{word\_count.shard} experiment, except that each \texttt{map} remote command sleeps for 1 second in the middle before its completion.
+
+\todoi{Experiment 3: \texttt{word\_count\_slow.shard} (Exercise parallel tasks)}
 
 \begin{lstlisting}[language=Shard]
-# hostname.shard
+# word_count_slow.shard
 source cluster_setup.shard
 cat input.txt |
     tr '[:upper:]' '[:lower:]' |
@@ -1314,6 +1338,33 @@ cat input.txt |
     (echo $in; sleep 1; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
+
+This program takes an input from the file \texttt{input.txt} and outputs the number of occurences for each word present in the file.
+To simulate a longer-running program with delays in its processing, instead of completing the \texttt{map} portion immediately, a \texttt{sleep 1} command is added to make the program sleep for one second.
+
+This program is expected to take longer to run when compared to \texttt{word\_count.shard}, due to the added sleep command.
+However, because multiple remote commands can run simultaneously on the same machine, in a single Shard execution process, a sleeping command should not prevent further commands from being executed, up to a limit based on the number of remote commands that can be ran simultaneously.
+This experiment's purpose is to demonstrate that Shard's distributed computation capability is extended by its ability to run multiple Shard commands at once, over a single connection, even on the same remote machine, which is achieved by sending the data over a single channel with the Shard protocol, as described in the \textbf{Shard protocol} section of the \textbf{Design} chapter.
+
+The \texttt{word\_count\_slow.shard} program is ran a total of 20 trials sequentially on each of the three clusters. Figure \ref{fig:wordcountslow} shows the cumulative number of trials complete at a given point in time. Once again, note that the \texttt{data\_parallel} application class splits up the task of counting an individual word to the various machines on the cluster, so while the local machine cluster had the lowest latency, it only uses one process to execute remote commands, whereas the remote machine clusters use multiple processes simultaneously (one process to execute the code for each remote machine). This is especially important because there is a cap to how many simultanous commands can be ran on a single remote process, which can be quickly reached from many of the remote commands spending a large portion of its time sleeping.
+
+\begin{figure}[h]
+  \begin{center}
+    \vspace{2cm}
+    \texttt{PLACEHOLDER FIGURE}
+    \vspace{2cm}
+    \caption{Cumulative number of trials complete given a certain amount of time passed for the \texttt{word\_count\_slow.shard} experiment}
+    \label{fig:wordcountslow}
+  \end{center}
+\end{figure}
+
+\todoi{Some analysis on the actual results}
+
+The experiments described in this section collectively show that the Shard distributed system functions as described in the design section, including for both the \texttt{single\_command} and \texttt{data\_parallel} application classes.
+Producing the correct results for these experiments is a baseline for showing that Shard is a distributed shell programming language.
+% Currently, the performance of Shard has not been optimized, so comparable programs written for other distributed systems may be significantly faster than Shard.
+
+Further potential experiments to test the distributed features of the Shard system include testing more complicated programs with multiple remote command invocations on different clusters, and running Shard programs on much larger clusters of hundreds or thousands of machines instead of just the handful as used in the experiments here.
 
 \section{Reliable}
 
@@ -1323,13 +1374,103 @@ cat input.txt |
   \item Graph completion time vs random failure rate for \texttt{data\_parallel} programs with both temporarily and permanently failing hosts
 \end{itemize}
 
-\todoi{Experiment 1: \texttt{network.shard} (Try to connect to unreachable host in cluster)}
+After showing that Shard is a distributed system, the next step is to show that Shard works reliably in the distributed context.
+This is what separates Shard from some other systems with naive distributed computing support, some of which are mentioned in the \textbf{Distributed Command-line Shells} section in the \textbf{Background} chapter.
+Evaluating shard for reliability is carried out by running Shard programs over a network, introducing various types of failures that may occur in the real world, and ensuring that the Shard program manages to complete successfully.
+
+The experiments in this section will measure the the completion progress of several Shard programs over time, showing that the error handling features in the design of Shard are effective at recovering the failures that are introduced.
+For more information on the error handling features of Shard, see the \textbf{Shard protocol} section in the \textbf{Design} chapter.
+% The failures being explored in this chapter include trying to connect an unreachable host, remote process crashes, packets being dropped, and slow-running programs.
+
+The program used in this section for testing the reliability of the \texttt{single\_command} application class is \texttt{random\_hash.shard}, which takes a string of random bytes and computes the MD5 checksum of the input string.
+\begin{lstlisting}[language=Shard]
+# random_hash.shard
+source cluster_setup.shard
+(head -c1000000000 /dev/urandom | md5sum)@@testcluster
+\end{lstlisting}
+
+This program takes one billion random bytes from the system random source \texttt{/dev/urandom} and pipes it to the \texttt{md5sum} UNIX program, uses the non-cryptographically-secure MD5 hashing algorithm to compute a checksum of the input.
+The purpose of this program is to simulate a computationally expensive program that needs to be reliably executed on each remote machine.
+
+\begin{sloppypar}
+  The program used in this section for testing the reliability of the \texttt{data\_parallel} application class is \texttt{word\_length.shard}, which counts the average length of each word based on the first letter of the word.
+\end{sloppypar}
+\begin{lstlisting}[language=Shard]
+# word_length.shard
+source cluster_setup.shard
+cluster -t data_parallel
+cat input.txt |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (echo $in | cut -c1;
+     echo $in | wc -c)@@map/testcluster |
+    (awk '{total += $1}
+          END {total/NR}')@@reduce/testcluster |
+    sort -t, -nk2 -r
+\end{lstlisting}
+
+Parts of this program are identical to the program \texttt{word\_count.shard}, which is previously explained in more depth in the \textbf{Distributed} section of this chapter.
+
+\begin{itemize}
+  \item
+        Line 2, which appears in \texttt{word\_count.shard}, runs the \texttt{cluster\_setup.shard} script to set up the cluster \texttt{testcluster}.
+        The remote cluster used will be exclusively the Williams CS machine cluster, composed of remote machines on the same local area network as the local machine, but the results should still hold for the local machine cluster and the cloud machine cluster.
+  \item Lines 3-5, which also appear in \texttt{word\_count.shard}, transforms the input into lowercase words separated by newlines.
+  \item On lines 6-7 of the program, the input is split up by line and sent to be executed remotely on the cluster \texttt{testcluster}.
+        Line 6 outputs the key of the map operation, which uses the \texttt{cut} UNIX program to take the first letter of the word as the key.
+        Line 7 outputs the value of the map operation, which uses the \texttt{wc} UNIX program to count the number of letters in the word.
+  \item  On lines 8-9 of the program, the input is split up by key, with all values associated with a key sent to be executed remotely on the same machine in the cluster \texttt{testcluster}.
+        Lines 8-9 use the \texttt{awk} UNIX program to process the input, which is a list of numbers separated by newlines.
+        Line 8 takes each number and adds it to a \texttt{total} variable, and line 9 divides the \texttt{total} value by the \texttt{awk} built-in \texttt{NR}, which is equal to the number of input values seen. This results in outputting the desired value, the average of all inputs.
+  \item On line 10 of the program, the remote execution output is passed to the \texttt{sort} UNIX program to sort the output in decreasing average length order.
+\end{itemize}
+The purpose of this program is to provide another example program that simulates a MapReduce-style data parallel computation similar to the \texttt{word\_count.shard} program, which includes both a custom key and a custom value in the mapping portion, and a post-processing sorting step.
+
+For this section, the \texttt{word\_length.shard} program is ran once again on the same input document as previously, which is Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet.
+The full text of the input document and the expected output can be found in the appendix.
+\todoi{Add the input/output to the appendix}
+
+\subsubsection{Unreachable host}
+The first experiment in this section tests the behavior of Shard in the case that a host cannot be reached.
+This is done by adding an additional host to the \texttt{cluster\_setup.shard} script, such as \texttt{example.com}, that is known to be unreachable.
+The two programs, \texttt{random\_hash.shard} and \texttt{word\_length.shard}, are ran both without and with the additional host, and the results of the execution are compared.
+
+When the \texttt{random\_hash.shard} program is run with this additional host, the program consistently hangs forever until interrupted by the user.
+This is due to \texttt{random\_hash.shard} using the \texttt{single\_command} application class, which ensures the remote command completes reliably on each remote machine in the cluster.
+As one of the machines in the cluster is unreachable, the application class will continually retry the execution of the remote command, after timing out, because it does not know if the failure to reach the host is due to a temporary or permanent disconnection.
+On the other hand, when running \texttt{random\_hash.shard} without the additional unreachable host, the program reaches completion reliably.
+
+\todoi{Actually run this experiment to verify the above; What graph/figure should I include for the above case?}
+
+For \texttt{word\_length.shard}, we look at the cumulative time it takes to complete some number of map and reduce tasks during the program's execution, as can be seen in Figure \ref{fig:unreachable}
+
+\begin{figure}[h]
+  \begin{center}
+    \vspace{2cm}
+    \texttt{PLACEHOLDER FIGURE}
+    \vspace{2cm}
+    \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} with and without an unreachable host}
+    \label{fig:unreachable}
+  \end{center}
+\end{figure}
+\todoi{Analyze this graph depending on what it ends up looking like}
+
+\subsubsection{Remote crashes}
+The second experiment in this section tests the behavior of Shard in the case that the remote Shard program crashes.
 
 \todoi{Experiment 2: \texttt{kill.shard} (Randomly kill the remote Shard)}
 
+\subsubsection{Packet loss}
+The third experiment in this section tests the behavior of Shard in the case that packets are randomly lost.
+
 \todoi{Experiment 3: \texttt{packet\_loss.shard} (Drop certain percentage of returning packets)}
 
+\subsubsection{Packet loss}
+The fourth experiment in this section tests the behavior of Shard in the case that certain machines are consistently very slow to complete their tasks.
+
 \todoi{Experiment 4: \texttt{timeout.shard} (Randomize slowdown, with some machines taking very long)}
+
+\todoi{Compare to hacked-up version of other shell?}
 
 \section{Easy to use}
 

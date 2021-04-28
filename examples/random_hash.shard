@@ -1,0 +1,3 @@
+# random_hash.shard
+source cluster_setup.shard
+(head -c1000000000 /dev/urandom | md5sum)@@testcluster
