@@ -9,7 +9,7 @@ module Reader_info = struct
     }
   [@@deriving fields]
 
-  let create ~reader = { reader; next_heartbeat = Bvar.create () }
+  let create ~reader ~heartbeat = { reader; next_heartbeat = heartbeat }
 end
 
 module Writer_info = struct
@@ -17,11 +17,16 @@ module Writer_info = struct
     { writer : Writer.t
     ; future_tasks : unit Ivar.t Int.Table.t
     ; next_sequence_number : int ref
+    ; next_heartbeat : (unit, read_write) Bvar.t
     }
   [@@deriving fields]
 
-  let create ~writer =
-    { writer; future_tasks = Int.Table.create (); next_sequence_number = ref 0 }
+  let create ~writer ~heartbeat =
+    { writer
+    ; future_tasks = Int.Table.create ()
+    ; next_sequence_number = ref 0
+    ; next_heartbeat = heartbeat
+    }
   ;;
 end
 
@@ -99,10 +104,11 @@ let dispatch_reader conn ~host ~port ~remote_port =
       let%bind `Reader read_fd, `Writer write_fd =
         Unix.pipe (Info.of_string (sprintf "read_pipe_id_%s" id))
       in
+      let heartbeat = Bvar.create () in
       let reader = Reader.create read_fd in
-      let reader_info = Reader_info.create ~reader in
+      let reader_info = Reader_info.create ~reader ~heartbeat in
       let writer = Writer.create write_fd in
-      let writer_info = Writer_info.create ~writer in
+      let writer_info = Writer_info.create ~writer ~heartbeat in
       Hashtbl.set readers ~key:id ~data:reader_info;
       (match Hashtbl.find writers id with
       | Some ivar -> Ivar.fill ivar writer_info
@@ -175,11 +181,17 @@ let dispatch_reader conn ~host ~port ~remote_port =
               in
               return (Deferred.map deferred ~f:Or_error.return :: accum)
             | Receiver_data.Heartbeat _index ->
-              (* TODO heartbeat *)
+              (* Heartbeat does not use sequence number *)
               let deferred =
                 let%bind writer_info = lazy_writer ~id in
-                let perform_heartbeat _writer = return () in
-                perform_future_task writer_info perform_heartbeat
+                let heartbeat = Writer_info.next_heartbeat writer_info in
+                Bvar.broadcast heartbeat ();
+                return ()
+                (* let perform_heartbeat _writer heartbeat =
+                  Bvar.broadcast heartbeat ();
+                  return ()
+                in
+                perform_future_task writer_info perform_heartbeat *)
               in
               return (Deferred.map deferred ~f:Or_error.return :: accum))
           | Close_callback x -> return (return x :: accum))

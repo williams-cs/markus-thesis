@@ -32,7 +32,7 @@ let start_remote_sender
       let%bind.Deferred.Or_error pipe_reader, _metadata =
         Rpc_remote_receiver.dispatch conn
       in
-      let throttle = Throttle.create ~continue_on_error:true ~max_concurrent_jobs:64 in
+      let throttle = Throttle.create ~continue_on_error:false ~max_concurrent_jobs:64 in
       let%bind write_deferred =
         Pipe.fold pipe_reader ~init:[] ~f:(fun accum query ->
             let id = Sender_query.id query in
@@ -133,14 +133,15 @@ let start_remote_sender
                           ~stop:(Deferred.ignore_m res)
                           heartbeat_span_ns
                           (fun () ->
-                            let snum = get_sequence_number () in
+                            (* Heartbeat does not use sequence number *)
+                            (* let snum = get_sequence_number () in *)
                             let rquery =
                               { Receiver_query.id
-                              ; sequence_number = snum
+                              ; sequence_number = -1
                               ; data = Receiver_data.Heartbeat !index
                               }
                             in
-                            index := !index + 1;
+                            (* index := !index + 1; *)
                             let sexp = Receiver_query.sexp_of_t rquery in
                             Writer.write_sexp global_stdout sexp);
                         let%bind res = res in
@@ -155,11 +156,19 @@ let start_remote_sender
                         (* close all related fds *)
                         let%bind () = Writer.close stdout in
                         let%bind () = Writer.close stderr in
+                        (* let%bind stdoutres = glue_wait_stdout in
+                        Result.ok_exn stdoutres;
+                        let%bind stderrres = glue_wait_stderr in
+                        Result.ok_exn stderrres; *)
+                        let%bind.Deferred.Or_error () =
+                          Deferred.Result.map_error ~f:Error.of_exn glue_wait_stdout
+                        in
+                        let%bind.Deferred.Or_error () =
+                          Deferred.Result.map_error ~f:Error.of_exn glue_wait_stderr
+                        in
                         let%bind () = Reader.close reader in
                         let%bind () = Reader.close stdout_reader_for_close in
                         let%bind () = Reader.close stderr_reader_for_close in
-                        let%bind _glue_stdout_res = glue_wait_stdout in
-                        let%bind _glue_stderr_res = glue_wait_stderr in
                         close_for_id global_stdout;
                         fprintf (force Writer.stderr) "PROC DONE %s\n" id;
                         return res
