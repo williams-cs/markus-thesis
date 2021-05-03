@@ -35,6 +35,8 @@ let rpc =
     ()
 ;;
 
+let broadcast_keepalive _state = (* TODO keepalive *) ()
+
 let handle_query state () =
   Deferred.Or_error.return
     (Pipe.create_reader ~close_on_exception:true (fun pipe ->
@@ -47,6 +49,10 @@ let handle_query state () =
                    let id = Sender_query.id sender_sexp in
                    let sz =
                      match Sender_query.data sender_sexp with
+                     | Process_keepalive ->
+                       (* Necessary for keepalive *)
+                       broadcast_keepalive state;
+                       "[Keepalive]"
                      | Header h ->
                        let env_image = Header.env_image h in
                        let public_image = Env.Image.to_public env_image in

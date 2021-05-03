@@ -22,3 +22,4 @@ val dispatch
   -> (Response.t Pipe.Reader.t * Rpc.Pipe_rpc.Metadata.t) Deferred.Or_error.t
 
 val dispatch_close : t -> unit Deferred.Or_error.t
+val dispatch_keepalive : t -> unit Deferred.Or_error.t

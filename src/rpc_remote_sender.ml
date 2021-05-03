@@ -23,6 +23,7 @@ let start_remote_sender
     ~remote_port
     ~runner
   =
+  let broadcast_keepalive () = (* TODO impl keepalive *) () in
   Async.try_with (fun () ->
       let rand = Util.random_state () in
       let writers = Hashtbl.create (module String) in
@@ -205,6 +206,9 @@ let start_remote_sender
                 let%bind writer = Ivar.read ivar in
                 let%bind () = Writer.close writer in
                 fprintf (force Writer.stderr) "OK CLOSE %s\n" id;
+                Deferred.Or_error.return ()
+              | Process_keepalive ->
+                broadcast_keepalive ();
                 Deferred.Or_error.return ()
             in
             return (res :: accum))

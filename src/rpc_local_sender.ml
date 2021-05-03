@@ -37,6 +37,14 @@ module Close_query = struct
   type t = Close [@@deriving bin_io]
 end
 
+module Keepalive_query = struct
+  type t = Keepalive [@@deriving bin_io]
+
+  let to_sender_query _t =
+    { Sender_query.id = "N/A"; data = Sender_data.Process_keepalive }
+  ;;
+end
+
 module Open_response = struct
   type t = int Or_error.t [@@deriving bin_io]
 end
@@ -188,6 +196,22 @@ let handle_close state _query =
   Deferred.Or_error.return ()
 ;;
 
+let keepalive_rpc =
+  Rpc.create
+    ~name:"shard_ssh_local_sender_keepalive"
+    ~version:1
+    ~bin_query:Keepalive_query.bin_t
+    ~bin_response:Response.bin_t
+;;
+
+let handle_keepalive state query =
+  (* TODO keepalive*)
+  ();
+  let writer = State.writer state in
+  let sender_query = Keepalive_query.to_sender_query query in
+  write_sender_query sender_query writer |> Deferred.map ~f:Or_error.return
+;;
+
 let implementations =
   Implementations.create_exn
     ~implementations:
@@ -196,6 +220,7 @@ let implementations =
       ; Rpc.implement open_rpc handle_open
       ; Rpc.implement close_single_rpc handle_close_single
       ; Rpc.implement close_rpc handle_close
+      ; Rpc.implement keepalive_rpc handle_keepalive
       ]
     ~on_unknown_rpc:`Raise
 ;;
@@ -252,4 +277,9 @@ let dispatch_close conn =
   let query = Close_query.Close in
   let%map response = Rpc.dispatch close_rpc conn query in
   Or_error.join response
+;;
+
+let dispatch_keepalive conn =
+  let query = Keepalive_query.Keepalive in
+  Rpc.dispatch keepalive_rpc conn query |> Deferred.Or_error.ignore_m
 ;;

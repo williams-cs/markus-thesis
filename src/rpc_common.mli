@@ -13,6 +13,7 @@ module Sender_data : sig
     | Header of Header.t
     | Message of bytes
     | Close
+    | Process_keepalive
   [@@deriving sexp, bin_io]
 end
 

@@ -15,3 +15,4 @@ val dispatch_header
 val dispatch_write : t -> id:string -> buf:bytes -> amt:int -> unit Deferred.Or_error.t
 val dispatch_close_single : t -> id:string -> unit Deferred.Or_error.t
 val dispatch_close : t -> unit Deferred.Or_error.t
+val dispatch_keepalive : t -> unit Deferred.Or_error.t
