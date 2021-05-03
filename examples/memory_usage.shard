@@ -1,0 +1,6 @@
+# memory_usage.shard
+source cluster_setup.shard
+(echo -n "$(hostname): ";
+    free |
+    awk "FNR == 2 {print \$3/\$2}")@@testcluster |
+    tee memory_log.txt

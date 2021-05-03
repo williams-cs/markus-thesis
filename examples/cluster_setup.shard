@@ -1,4 +1,3 @@
 # cluster_setup.shard for localhost
 cluster -s testcluster
-cluster -a example.com
 cluster -a localhost

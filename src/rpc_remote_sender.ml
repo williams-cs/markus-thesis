@@ -3,6 +3,8 @@ open Async
 open Rpc
 open Rpc_common
 
+let max_concurrent_jobs = 64
+
 let run_client host port =
   let conn =
     Connection.client
@@ -32,7 +34,7 @@ let start_remote_sender
       let%bind.Deferred.Or_error pipe_reader, _metadata =
         Rpc_remote_receiver.dispatch conn
       in
-      let throttle = Throttle.create ~continue_on_error:false ~max_concurrent_jobs:64 in
+      let throttle = Throttle.create ~continue_on_error:false ~max_concurrent_jobs in
       let%bind write_deferred =
         Pipe.fold pipe_reader ~init:[] ~f:(fun accum query ->
             let id = Sender_query.id query in

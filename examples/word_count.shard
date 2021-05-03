@@ -1,6 +1,7 @@
 # word_count.shard
 source cluster_setup.shard
-cat input.txt |
+cluster -t data_parallel
+cat long2.input |
     tr '[:upper:]' '[:lower:]' |
     tr -cs '[:alnum:]' '\n' |
     (echo $in; echo 1)@@map/testcluster |

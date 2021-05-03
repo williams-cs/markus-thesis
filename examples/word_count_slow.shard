@@ -1,5 +1,6 @@
 # word_count_slow.shard
 source cluster_setup.shard
+cluster -t data_parallel
 cat input.txt |
     tr '[:upper:]' '[:lower:]' |
     tr -cs '[:alnum:]' '\n' |

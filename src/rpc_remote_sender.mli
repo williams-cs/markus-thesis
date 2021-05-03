@@ -1,5 +1,7 @@
 open Async
 
+val max_concurrent_jobs : int
+
 val start_remote_sender
   :  (module Application_class.Provider with type t = 'a)
   -> verbose:bool

@@ -434,7 +434,7 @@ The paper specifies that the implementation currently only works when the machin
 Command-line shells are an important and useful interface for interacting with a computer.
 Therefore, it makes sense to be able to use the command-line shell to interact with many computers simultaneously in a distributed manner.
 However, distributed systems come with existing challenges, particularly because failures are much more likely when there are more avenues of failure and more machines that can fail.
-While many existing distributed systems have built-in error handling and recovery mechanisms, prior solutions for extending the shell to a cluster of distributed systems do not sufficiently take into account these same errors.
+While many existing distributed systems have built-in error handling and recovery mechanism, prior solutions for extending the shell to a cluster of distributed systems do not sufficiently take into account these same errors.
 This thesis aims improve upon existing solutions by unifying the reliability built in to distributed systems with simplicity and ease of use of the command-line shell interface.
 
 \chapter{Design}
@@ -568,8 +568,6 @@ The syntax of the new features of the Shard programming language are shown in Fi
   \item Pipes compose by default
   \item Will not make warts of Shell go away
 \end{itemize}
-
-\section{Summary}
 
 \chapter{Implementation}
 
@@ -1212,9 +1210,6 @@ Also, the resource hit of using processes do not have as much of an impact, beca
 \todoi{Maybe bring up the lack of multi-core support for OCaml? (OCaml threads allow concurrency but not parallelism)}
 
 Overall, the Shard implementation is able to meet the requirements of the design, while remaining aligned with the three core pillars of Shard: being distributed, reliable, and easy to use.
-
-\section{Summary}
-\todoi{Write a summary for the implementation chapter}
 
 \chapter{Evaluation}
 
@@ -1860,21 +1855,10 @@ Even if the original program does not support remote execution, such support can
 \subsection{Error recovery}
 
 Shard's ease of use is also demonstrated in the circumstance that an error occurs in the execution of the remote program.
-As shown in the \texttt{Reliable} section of this chapter, Shard is capable of automatically handling many different types of failures that may arise when using a distributed system, including unreachable remote hosts, process crashes, program failures, data loss, and slow-running remote machines.
-These would not be handled if the user were using SSH on an existing shell instead, unless the user adds special case-specific code to handle each of the situations previously described.
-This means that, in the case that one of the failure circumstances does arise, using Shard's automatic error detection and recovery mechanisms is much easier than trying to figure out where and why the failure occurred.
-As an example, let's say the user is trying to run a cleanup task on each of the machines in some remote cluster \texttt{remotes} with hundreds of machines, and print out a success message, as defined in the \texttt{cluster.shard} script.
-\begin{lstlisting}[language=Shard]
-source cluster.shard
-(rm -r /tmp/cache_to_be_removed; echo "$(hostname) - cleanup success")@@remotes
-\end{lstlisting}
-Without using Shard, if a remote single machine on the cluster is unreachable, the program may immediately fail and not try to continue on the remaining machines, or even worse, the failure may be silently ignored.
-When Shard is used, the reliable execution behavior of the \texttt{single\_command} application class results in retrying the task if a failure occured, until it succeeds or the user exits Shard.
-If Shard is exited without completing the task on all hosts, the success message will print exactly once on the remote hosts where the command executed, allowing the user to accurately figure out which machines the command did not execute on, in spite of multiple retries.
-This example shows a practical real-world scenario where the error recovering built into Shard is useful in helping Shard achieve its ease of use.
 
-\section{Summary}
-\todoi{Write a summary for the evaluation chapter}
+\todoi{Compare an error situation with an existing shell}
+
+\todoi{Several example single application/data parallel programs with comparison: number of characters, subjective comparison; also comparison to existing shell languages}
 
 \chapter{Conclusion}
 \begin{itemize}

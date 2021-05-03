@@ -3,6 +3,7 @@
 ## 2020-04-22
 - Writing
   - Implementation
+  - Design
 
 ## 2020-04-14
 - Discussion
