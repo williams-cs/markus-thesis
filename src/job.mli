@@ -23,3 +23,4 @@ val attach : process:Process.t -> t -> unit
 val should_connect : t -> bool
 val canceled : t -> bool
 val all_jobs : Job_group.t
+val wait_for_cancel : t -> unit Deferred.t

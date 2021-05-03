@@ -11,6 +11,7 @@ module type Backend = sig
     -> stdin:Reader.t
     -> stdout:Writer.t
     -> stderr:Writer.t
+    -> job_group:Job.Job_group.t
     -> unit Deferred.Or_error.t
 end
 

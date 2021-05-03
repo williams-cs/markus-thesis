@@ -352,6 +352,7 @@ and eval_remote_command t cluster ~eval_args =
           ~stdout
           ~stderr
           ~verbose
+          ~job_group
       in
       match result with
       | Ok () -> return 0

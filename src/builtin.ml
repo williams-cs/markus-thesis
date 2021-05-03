@@ -59,7 +59,7 @@ let builtin_exit ~env:_ ~stdout:_ ~stderr ~args =
   match args with
   | [] ->
     shutdown 0;
-    return 0
+    Deferred.never ()
   | [ x ] ->
     (match Or_error.try_with (fun () -> Int.of_string x) with
     | Error _ ->
@@ -67,7 +67,7 @@ let builtin_exit ~env:_ ~stdout:_ ~stderr ~args =
       return 1
     | Ok code ->
       shutdown code;
-      return code)
+      Deferred.never ())
   | _ ->
     fprintf stderr "exit: too many arguments\n";
     return 1

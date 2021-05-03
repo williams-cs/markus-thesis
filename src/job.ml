@@ -12,6 +12,7 @@ end
 type t =
   { status : Job_status.t ref
   ; id : string
+  ; cancel_wait : unit Ivar.t
   }
 [@@deriving fields]
 
@@ -21,21 +22,32 @@ let kill processes =
 
 let cancel (t : t) =
   let status = status t in
+  let ivar = cancel_wait t in
   match !status with
-  | Not_connected -> status := Canceled
+  | Not_connected ->
+    status := Canceled;
+    Ivar.fill_if_empty ivar ()
   | Connected processes ->
     kill processes;
-    status := Canceled
+    status := Canceled;
+    Ivar.fill_if_empty ivar ()
   | Complete | Canceled -> ()
 ;;
 
 let cancel_without_signal (t : t) =
   let status = status t in
+  let ivar = cancel_wait t in
   match !status with
-  | Not_connected -> status := Canceled
-  | Connected _process -> status := Canceled
+  | Not_connected ->
+    status := Canceled;
+    Ivar.fill_if_empty ivar ()
+  | Connected _process ->
+    status := Canceled;
+    Ivar.fill_if_empty ivar ()
   | Complete | Canceled -> ()
 ;;
+
+let wait_for_cancel (t : t) = Ivar.read (cancel_wait t)
 
 let complete (t : t) =
   let status = status t in
@@ -75,6 +87,8 @@ let canceled (t : t) =
   | Not_connected | Connected _ | Complete -> false
 ;;
 
+let outer_cancel = cancel
+
 module Job_group = struct
   type t_inner =
     { jobs : (string, t) Hashtbl.t
@@ -83,7 +97,11 @@ module Job_group = struct
 
   let create () = { jobs = Hashtbl.create (module String); canceled = ref false }
   let all_jobs_inner = create ()
-  let add { jobs; canceled = _ } ~job = Hashtbl.add_exn jobs ~key:(id job) ~data:job
+
+  let add { jobs; canceled } ~job =
+    Hashtbl.add_exn jobs ~key:(id job) ~data:job;
+    if !canceled then outer_cancel job
+  ;;
 
   let cancel { jobs; canceled } =
     Hashtbl.iter jobs ~f:(fun job -> cancel job);
@@ -108,7 +126,9 @@ let random_session_key () = Uuid.create_random (Util.random_state ()) |> Uuid.to
 
 let create ?groups () : t =
   let key = random_session_key () in
-  let t = { status = ref Job_status.Not_connected; id = key } in
+  let t =
+    { status = ref Job_status.Not_connected; cancel_wait = Ivar.create (); id = key }
+  in
   let groups =
     match groups with
     | Some groups -> groups

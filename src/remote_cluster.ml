@@ -50,7 +50,7 @@ module Init_target_fields = struct
 end
 
 type t =
-  { connections : Connection.t Deferred.t String.Table.t
+  { connections : (Connection.t Deferred.t * Time_ns.t) String.Table.t
   ; target_list : Remote_target.t list ref
   ; remote_target_index : int ref
   ; open_tasks : int ref
@@ -73,8 +73,14 @@ let create () =
 
 let get_conn { connections; _ } conn = String.Table.find connections conn
 
-let add_conn { connections; target_list; _ } conn target sender_receiver_deferred =
-  String.Table.set connections ~key:conn ~data:sender_receiver_deferred;
+let add_conn
+    { connections; target_list; _ }
+    conn
+    target
+    sender_receiver_deferred
+    timestamp
+  =
+  String.Table.set connections ~key:conn ~data:(sender_receiver_deferred, timestamp);
   target_list := target :: !target_list
 ;;
 
@@ -90,6 +96,7 @@ let remote_target_string target =
 ;;
 
 let use_sequence_numbers = true
+let local_throttle = true
 
 let dispatch_reader conn ~host ~port ~remote_port =
   (* potential race conditions? *)
@@ -203,18 +210,17 @@ let dispatch_reader conn ~host ~port ~remote_port =
   Deferred.Or_error.return (lazy_reader, metadata, deferred)
 ;;
 
-let init_target t ~target ~force_create =
+let force_create_cooldown = 500
+
+let init_target_raw t ~target ~force_create =
   let itf = !(init_target_fields t) in
   let%bind { Init_target_fields.stderr; verbose } = Ivar.read itf in
   let target_string = remote_target_string target in
-  let old_conn = if force_create then None else get_conn t target_string in
-  match old_conn with
-  | Some conn_deferred ->
-    let%bind _wait_for_conn = conn_deferred in
-    Deferred.Or_error.return ()
-  | None ->
+  let old_conn = get_conn t target_string in
+  let do_create () =
     let ivar = Ivar.create () in
-    add_conn t target_string target (Ivar.read ivar);
+    let timestamp = Time_ns.now () in
+    add_conn t target_string target (Ivar.read ivar) timestamp;
     let host = Remote_target.host target in
     let port = Remote_target.port target in
     let%bind.Deferred.Or_error sender_conn, receiver_conn =
@@ -228,11 +234,39 @@ let init_target t ~target ~force_create =
     in
     let reader_map, _metadata, _deferred = resp in
     let sender_throttle =
-      Throttle.create ~continue_on_error:true ~max_concurrent_jobs:100000
+      Throttle.create
+        ~continue_on_error:true
+        ~max_concurrent_jobs:(Rpc_remote_sender.max_concurrent_jobs * 2)
     in
     Ivar.fill
       ivar
       { Connection.sender_conn; sender_throttle; receiver_conn; remote_port; reader_map }
+  in
+  match old_conn with
+  | Some (conn_deferred, timestamp) ->
+    let actual_force_create =
+      match force_create with
+      | true ->
+        let time_passed = Time_ns.diff (Time_ns.now ()) timestamp in
+        Time_ns.Span.( >= ) time_passed (Time_ns.Span.of_int_ms force_create_cooldown)
+      | false -> false
+    in
+    (match actual_force_create with
+    | true -> do_create ()
+    | false ->
+      let%bind _wait_for_conn = conn_deferred in
+      Deferred.Or_error.return ())
+  | None -> do_create ()
+;;
+
+let init_target_timeout = Time_ns.Span.of_int_ms 5000
+
+let init_target t ~target ~force_create =
+  let itf_res = init_target_raw t ~target ~force_create in
+  let%bind itf_res = Clock_ns.with_timeout init_target_timeout itf_res in
+  match itf_res with
+  | `Result r -> return r
+  | `Timeout -> return (Or_error.error_s [%message "Init target timeout"])
 ;;
 
 let init_targets t ~targets ~stderr ~verbose =
@@ -258,7 +292,7 @@ let dispatch_command_raw connection program send_lines env_image =
     Rpc_local_sender.dispatch_header sender_conn ~program ~env_image
   in
   let send =
-    let%bind _res =
+    let%bind.Deferred.Or_error () =
       Deferred.List.fold send_lines ~init:(Or_error.return ()) ~f:(fun accum s ->
           match accum with
           | Error error -> return (Error error)
@@ -268,7 +302,7 @@ let dispatch_command_raw connection program send_lines env_image =
     in
     Rpc_local_sender.dispatch_close_single sender_conn ~id
   in
-  let%bind _send = send in
+  let%bind.Deferred.Or_error () = send in
   (* fprintf (force Writer.stderr) "send\n"; *)
   let reader_map = Connection.reader_map connection in
   let%bind reader_info = reader_map ~id in
@@ -289,13 +323,24 @@ let dispatch_command_raw connection program send_lines env_image =
   Deferred.Or_error.return (next_heartbeat, resp)
 ;;
 
-let dispatch_command_throttle connection program send_lines env_image =
+let dispatch_command_throttle connection program send_lines env_image ~throttle_timeout =
   let throttle = Connection.sender_throttle connection in
   Throttle.enqueue throttle (fun () ->
-      Deferred.return (dispatch_command_raw connection program send_lines env_image))
+      let%bind.Deferred.Or_error next_heartbeat, resp =
+        dispatch_command_raw connection program send_lines env_image
+      in
+      let%bind () =
+        Deferred.any
+          [ Bvar.wait next_heartbeat
+          ; Deferred.map ~f:ignore resp
+          ; Clock_ns.after throttle_timeout
+          ]
+      in
+      Deferred.Or_error.return (next_heartbeat, resp))
 ;;
 
 let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout =
+  (* TODO debug*)
   let remote_target =
     match target with
     | `Any ->
@@ -308,30 +353,45 @@ let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout =
       target
     | `Specific target -> target
   in
-  let%bind connection =
-    Option.value_exn (get_conn t (remote_target_string remote_target))
+  let connection_res =
+    let connection_deferred, _timestamp =
+      Option.value_exn (get_conn t (remote_target_string remote_target))
+    in
+    connection_deferred
   in
-  let res_throttle = dispatch_command_throttle connection program send_lines env_image in
-  let%bind res_throttle_timeout = Clock_ns.with_timeout send_timeout res_throttle in
-  let post_process res_raw =
-    match res_raw with
-    | Ok (next_heartbeat, res) ->
-      let contents =
-        let%bind buf = res in
-        return (Buffer.contents buf)
-      in
-      Deferred.Or_error.return (next_heartbeat, contents)
-    | Error err ->
-      (* TODO debug *)
-      (* fprintf (force Writer.stderr) "rt\n"; *)
-      let%bind itf_res = init_target t ~target:remote_target ~force_create:true in
-      (match itf_res with
-      | Ok () -> return (Error err)
-      | Error err2 -> return (Error (Error.of_list [ err; err2 ])))
+  let refresh_remote_connection err =
+    let%bind itf_res = init_target t ~target:remote_target ~force_create:true in
+    match itf_res with
+    | Ok () -> return (Error err)
+    | Error err2 -> return (Error (Error.of_list [ err; err2 ]))
   in
-  match res_throttle_timeout with
-  | `Result r -> return (Deferred.bind ~f:post_process r)
-  | `Timeout -> Deferred.map ~f:(fun r -> Deferred.bind ~f:post_process r) res_throttle
+  let%bind connection_timeout =
+    Clock_ns.with_timeout init_target_timeout connection_res
+  in
+  match connection_timeout with
+  | `Result connection ->
+    let dispatch =
+      if local_throttle
+      then dispatch_command_throttle ~throttle_timeout:send_timeout
+      else dispatch_command_raw
+    in
+    let res_throttle = dispatch connection program send_lines env_image in
+    let%bind res_throttle_timeout = Clock_ns.with_timeout send_timeout res_throttle in
+    let post_process res_raw =
+      match res_raw with
+      | Ok (next_heartbeat, res) ->
+        let contents =
+          let%bind buf = res in
+          return (Buffer.contents buf)
+        in
+        Deferred.Or_error.return (next_heartbeat, contents)
+      | Error err -> refresh_remote_connection err
+    in
+    (match res_throttle_timeout with
+    | `Result r -> return (post_process r)
+    | `Timeout -> return (Deferred.bind ~f:(fun r -> post_process r) res_throttle))
+  | `Timeout ->
+    return (refresh_remote_connection (Error.create_s [%message "Connection not found"]))
 ;;
 
 let idle_time t =
@@ -355,7 +415,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
   let max_tries_inner = 120 in
   let inner_timeout = 1000 in
   (* TODO dynamic *)
-  let first_heartbeat_timeout = 10000 in
+  let initial_timeout = 10000 in
   let heartbeat_timeout = 2000 in
   let idle_heartbeat_timeout = 2000 in
   let rec loop i err deferreds =
@@ -372,7 +432,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
           ~program
           ~env_image
           ~send_lines
-          ~send_timeout:(Time_ns.Span.of_int_ms first_heartbeat_timeout)
+          ~send_timeout:(Time_ns.Span.of_int_ms initial_timeout)
       in
       let deferred =
         let%bind.Deferred.Or_error next_heartbeat, res = throttle_result in
@@ -395,7 +455,10 @@ let run_task t ~target ~program ~env_image ~send_lines =
               heartbeat_loop heartbeat_timeout
             | `Output str -> Deferred.Or_error.return (`Output str))
         in
-        heartbeat_loop heartbeat_timeout
+        let first_heartbeat_timeout =
+          if local_throttle then heartbeat_timeout else initial_timeout
+        in
+        heartbeat_loop first_heartbeat_timeout
       in
       let live_uuid = Util.generate_uuid_list (Map.keys deferreds) in
       let deferreds = Map.add_exn deferreds ~key:live_uuid ~data:deferred in
@@ -413,6 +476,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
           | Ok res ->
             (match res with
             | `Heartbeat_timeout deferred ->
+              (* TODO debug *)
               fprintf (force Writer.stderr) "heartbeat_timeout %d %d\n" i j;
               let no_more_timeout =
                 let%bind s = deferred in

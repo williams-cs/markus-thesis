@@ -20,10 +20,11 @@ module Application_class_impl = struct
       ~stdin:_
       ~stdout
       ~stderr
+      ~job_group
     =
     let _cluster_id = cluster_id in
     let _setting = setting in
-    let job = Job.create () in
+    let job = Job.create ~groups:[ job_group ] () in
     let sconn = ref None in
     let rconn = ref None in
     let host = Remote_target.host remote_target in
@@ -112,6 +113,7 @@ module Application_class_impl = struct
       ~stdin
       ~stdout
       ~stderr
+      ~job_group
     =
     let%map errors =
       Deferred.List.map ~how:`Parallel remote_targets ~f:(fun remote_target ->
@@ -124,7 +126,8 @@ module Application_class_impl = struct
             ~verbose
             ~stdin
             ~stdout
-            ~stderr)
+            ~stderr
+            ~job_group)
     in
     Or_error.combine_errors errors |> Or_error.map ~f:ignore
   ;;
