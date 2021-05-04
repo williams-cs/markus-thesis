@@ -1,7 +1,7 @@
 # word_length.shard
 source cluster_setup.shard
 cluster -t data_parallel
-cat long2.input |
+cat input.txt |
     tr '[:upper:]' '[:lower:]' |
     tr -cs '[:alnum:]' '\n' |
     (echo $in | cut -c1;
