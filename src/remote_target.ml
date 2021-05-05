@@ -33,7 +33,11 @@ let to_string { host; port; setting } =
 let split_remote_target_setting remote =
   let remote_name_splitter = '/' in
   let parts = String.split ~on:remote_name_splitter remote in
-  let non_final_parts = List.slice parts 0 (List.length parts - 1) in
+  let non_final_parts =
+    match List.length parts with
+    | 1 -> []
+    | _ -> List.slice parts 0 (List.length parts - 1)
+  in
   let final_part = List.last parts |> Option.value ~default:"" in
   let setting =
     String.concat ~sep:(String.of_char remote_name_splitter) non_final_parts

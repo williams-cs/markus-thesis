@@ -465,7 +465,7 @@ The remote command execution is facilitated by using the Shard network layer to 
 The Shard network layer works by using a pair of communication channels between the local machine where the Shard program originated, and the remote machine where the Shard command should be executed, with messages being passed along the channel to perform the executing of the Shard command on the remote machine, and to ensure this execution is performed in a reliable manner.
 A custom network layer is used because it affords Shard full control over ensuring reliability, with a combination of features such as heartbeats, sequence numbers, and retry mechanisms to maximize the reliability of the distributed features of the system.
 
-The Shard network layer also makes it possible to configure a set of features so that their functionality are tuned for a certain type of distributed application.
+The Shard network layer also makes it possible to configure its distributed execution so that the functionality is tuned for a certain type of distributed application.
 These are known as application classes in the Shard distributed system.
 The two application classes provided by the design of Shard are the \texttt{single\_command} application class, which reliably executes the remote program on each machine in a cluster, and the \texttt{data\_parallel} application class, which performs a MapReduce \cite{dean2004mapreduce} style operation distributed across all of the machines in a cluster.
 
@@ -528,55 +528,258 @@ The semantics of the new features will be explained in detail and supported by e
 \end{table}
 
 \subsection{Cluster management}
+\todoi{Fix code for cluster builtin}
 The first feature that Shard adds to its programming language is cluster management.
 In Shard, we define a cluster as an unordered collection of remote hosts, along with a name and a cluster type.
 The cluster type is one of the application classes available to Shard.
 Clusters can also have miscellaneous settings configuring the application class.
 
 The Shard programming language adds support for creating and updating clusters, using its \texttt{cluster} builtin function.
-The options for the \texttt{cluster} builtin are shown in Table \ref{fig:cluster_builtin_options}
+A summary of the options for the \texttt{cluster} builtin are shown in Table \ref{fig:pl_cluster_options}.
 
 \begin{table}
   \begin{center}
     \begin{tabularx}{\textwidth}{|l|l|X|}
       \hline
-      Option & Syntax          & Example                                                                                                                & Definition \\ \hline
-      Set    & cluster -s NAME & Sets the active cluster to the cluster with NAME, creating it if it does not already exist.                                         \\ \hline
-      Add    & cluster -a HOST & Adds the host HOST to the active cluster.
-      Print  & cluster -p NAME & Prints out the details of the cluster with NAME. If NAME is not specified, instead prints out details of all clusters.
+      Option & Syntax               & Definition                                                                                                                                                             \\ \hline
+      Set    & cluster -s NAME      & Sets the active cluster to the cluster with NAME, creating it if it does not already exist.
+      \\ \hline
+      Add    & cluster -a HOST      & Adds the host HOST to the active cluster.
+      \\ \hline
+      Type   & cluster -t TYPE      & Sets the application class of the active cluster to TYPE. Valid types specified in this design are \texttt{single\_command} and \texttt{data\_parallel}.
+      \\ \hline
+      Option & cluster -o KEY VALUE & Sets a configurable option for the active cluster, with the specified KEY to the specified VALUE. Valid options depend on the application class of the active cluster.
+      \\ \hline
+      Clear  & cluster -c           & Resets the active cluster, removing all hosts, clearing all options, and setting the cluster type to the default.
+      \\ \hline
+      Print  & cluster -p NAME      & Prints out the details of the cluster with NAME. If NAME is not specified, instead prints out the details of all clusters.
+      \\ \hline
+      No arg & cluster              & Prints out the details of all clusters.
+      \\ \hline
     \end{tabularx}
     \caption{Parameters for the syntax of the Shard programming language}
-    \label{fig:pl_syntax_parameters}
+    \label{fig:pl_cluster_options}
   \end{center}
 \end{table}
 
 The set of clusters defined at any point in time is held by the shell environment.
 Therefore, shell features that copy the enviornment, such as subshells, also copy the cluster definitions.
 At any given point in time, there is always an active cluster.
-By default, if no cluster has been set to be the active cluster
+By default, if no cluster has been set to be the active cluster, the cluster \texttt{default} with the default cluster type \texttt{single\_command} is set to the active cluster.
 The user can run \texttt{cluster} with the \texttt{-s} (set) option to set the currently active cluster to a cluster with the specified name.
 If no cluster with the specified name exists, a new cluster is created.
 
 \begin{lstlisting}[language=Shard]
 cluster -s NAME
+# Example:
+cluster -s testcluster
 \end{lstlisting}
 
+Hosts can be added to the active cluster with the \texttt{-a} (add) option.
+The specifics behind host resolution is an implementation detail, but IPV4 addresses and ASCII domain names should always be accepted as hosts.
 
+\begin{lstlisting}[language=Shard]
+cluster -a HOST
+# Example:
+cluster -a machine1.cs.williams.edu
+\end{lstlisting}
 
-By default,
+The type of the active cluster can be changed with the \texttt{-t} (type) option.
+Valid choices for the cluster type are all of the application classes supported by the implementation of Shard.
+As specified in this design, the choices for application classes are \texttt{single\_command} and \texttt{data\_parallel}, with \texttt{single\_command} being the default if none is set.
 
+\begin{lstlisting}[language=Shard]
+cluster -t TYPE
+# Example:
+cluster -t data_parallel
+\end{lstlisting}
+
+Application classes can support specifying options with key-value pairs to modify their behavior. Such options are set for the active cluster with the \texttt{-o} option.
+
+\begin{lstlisting}[language=Shard]
+cluster -o KEY VALUE
+# Example:
+cluster -o heartbeat_period 500
+\end{lstlisting}
+
+It is possible to clear the acive cluster, including its hosts, options, and cluster type using the \texttt{-c} (clear) option.
+This results the cluster being identical to if it were just created.
+
+\begin{lstlisting}[language=Shard]
+cluster -c
+\end{lstlisting}
+
+Finally, the \texttt{-p} (print) option can be used to print out the details of the cluster to standard output.
+Specifically, the output printed by this option should be a list of \texttt{cluster} builtin commands that can be used to reconstruct the state of the specified cluster.
+If no cluster name argument is provided, the details of all defined clusters are printed, and if the \texttt{cluster} builtin is called with no arguments at all, it behaves as if it were called with the \texttt{-p} option.
+\begin{lstlisting}[language=Shard]
+cluster -p NAME
+cluster -p
+cluster
+# Example:
+cluster -a 127.0.0.1
+cluster -s cluster1
+cluster -a machine1.cs.williams.edu
+cluster -a machine2.cs.williams.edu
+cluster -t data_parallel
+cluster -p cluster1
+# Expected output:
+# cluster -s "default"
+# cluster -a "127.0.0.1"
+# cluster -s "cluster1"
+# cluster -a "machine1.cs.williams.edu"
+# cluster -a "machine2.cs.williams.edu"
+# cluster -t "data_parallel"
+\end{lstlisting}
+
+Although the \texttt{cluster} builtin does not perform any remote execution by itself, it is essential in specifying the remote hosts, application type, and other options used in the remote execution.
 
 \subsection{Remote execution}
+The remote execution language feature is used to execute Shard subprograms on remote machines in a distributed manner.
+The language feature consists of a single set of syntax additions, revolving around the remote execution operator \texttt{@@}.
 
+\begin{lstlisting}[language=Shard]
+PROGRAM@@TARGET
+(PROGRAM)@@TARGET
+# Examples (assume a cluster named 'testcluster' is previously defined):
+ps@@machine1.cs.williams.edu
+(echo -n "$(hostname): "; cat /etc/issue)@@testcluster
+\end{lstlisting}
 
-\subsection{Example programs}
+The remote program provided can be any valid Shard program, without constraints, making Shard generally useful for running shell code remotely.
+The remote target for the program can either be the name of a cluster that has already been defined by Shard, or a host, with the same host resolution policy as that of adding hosts to a cluster.
+This Shard subprogram is run on the remote machines in a manner as determined by the application class of the cluster.
+If a host is specified, the program will behave as if it were running on a cluster with default settings and the specified host as its only host.
+
+Some application classes, such as \texttt{data\_parallel}, expect a ``setting'' string in addition to its target.
+Similar to the key-value pairs for the cluster \texttt{-o} option, the purpose and behavior of the setting string depends on the specific application class for the cluster, with some application classes completely ignoring the setting string.
+Providing an empty string as the setting string is equivalent to not providing a setting string at all.
+
+\begin{lstlisting}[language=Shard]
+PROGRAM@@SETTING/TARGET
+(PROGRAM)@@SETTING/TARGET
+# Example:
+(wc -c; echo 1)@@map/testcluster |
+    (paste -sd+ - | bc)@@reduce/testcluster)
+\end{lstlisting}
+
+Any input can be piped into the remote execution with the shell pipe operator (\texttt{|}) or redirected with the redirection operator (\texttt{>}), and the output of the remote execution can be further piped or redirected, which makes the remote execution feature composable with other shell commands.
+
+\begin{lstlisting}[language=Shard]
+<input.txt sort@@testcluster | tee output.txt
+\end{lstlisting}
+
+In the execution on the remote machine, a copy of the local shell environment is used, including variable assignments.
+As such, assignments performed locally can be used by the remote machine, but assignments performed remotely will not update the local assignments.
+Additionally, the remote execution will perform synchronously unless explicitly made asynchronous with the \texttt{\&} operator.
+
+\begin{lstlisting}[language=Shard]
+tmpvar=64
+(echo "Remote 1: $tmpvar";
+    tmpvar=32;
+    echo "Remote 2: $tmpvar")@@testcluster
+echo "Local: $tmpvar"
+# Output:
+# Remote 1: 64
+# Remote 2: 32
+# Local: 64
+\end{lstlisting}
+
+As an additional feature in Shard, scripts on the local machine can be used from the remote machine with the shell \texttt{source} builtin with the option \texttt{-l}.
+When this is executed, the remote machine sends a request to the local machine for the text of the script.
+
+\begin{lstlisting}[language=Shard]
+(source -l setup.shard)@@testcluster
+\end{lstlisting}
+
+Because there are no restrictions to the Shard programs that can be executed remotely, it is possible to use Shard's remote execution capabilities on a remote machine.
+
+\begin{lstlisting}[language=Shard]
+# Examples (assume clusters named 'cluster1' and 'cluster2' is previously defined):
+((echo -n "$(hostname): "; cat /etc/issue)@@cluster2)@@cluster1
+\end{lstlisting}
+
+The syntax and semantics for remote execution is similar to that of a subshell, with the addition of a remote target, since the subshell is a familiar shell feature for many shell users.
+Since any code within the parenthases for the program are executed on a remote machine instead of the local one, it is clear which parts of the program will be running remotely versus locally.
+With its freedom to use all shell and Shard features remotely, along with its composability, the remote execution language feature becomes a very powerful tool in writing arbitrary remote programs.
+
+\subsubsection{Example program: Hello, world!}
+
+This section will conclude with an example Shard program that uses its remote execution capabilities to print the text ``Hello, world!''.
+
+\begin{lstlisting}[language=Shard]
+(echo "Hello, world!")@@machine1.cs.williams.edu
+\end{lstlisting}
+
+This is one of the simplest examples of a program utilizing remote execution in Shard.
+The program for this remote execution is the program \texttt{echo "Hello, world!"}, which prints the text ``Hello, world!'' to the standard output.
+The target for this remote execution is the host \texttt{machine1.cs.williams.edu}.
+When this program is run, Shard sends the program \texttt{echo "Hello, world!"} to the remote machine, where it is executed.
+The output from the remote machine is redirected to the output of the local machine, where the text ``Hello, world!'' appears on the local standard output, where the Shard command is executed from.
+
+In the next section, \texttt{Application class design}, the semantics of the application classes in Shard are introduced, and more example programs are provided that fit under specific application classes.
+
+\section{Application class design}
+
+% \begin{itemize}
+%   \item Solves the problem of: reliability/error handling semantics
+%   \item Overall error model (or maybe keep it specific to the application classes)
+%   \item Describe the existing application classes
+% \end{itemize}
+
+One quality that distributed programs vary in is the way that they should be executed on a distributed system.
+We define an application class as a set of semantics for how remote programs are executed on a cluster.
+The implementation of the application class has a large degree of control of the process of the remote execution, starting from when Shard passes the program, remote target, and inputs to the application class, until the outputs of the remote execution are passed back to Shard.
+
+The design of Shard describes two application classes, \texttt{single\_command}, and \texttt{data\_parallel}, which cover two mostly distinct subsets of possible distributed programs.
+The \texttt{single\_command} application class represents a remote command that reliably executes its program on all machines in the cluster.
+The \texttt{data\_parallel} application class represents a remote program that executes its program many times in parallel in a MapReduce-like fashion.
+
+Although only two application classes are described here, an infinite number of potential application classes exist to support different types of distributed programs.
+One example of an application class not described is an application class that sends its program as a task to all of the machines in the cluster, and completes the remote execution when any of the tasks complete.
+A use case for this application class is if completion time is an utmost priority, and wasting computational resources by repeating tasks on multiple machines is not a concern.
+Additional application classes such as this one can be added to specific Shard implementations as needed.
+
+Both of the application classes in Shard utilize the cluster abstraction as provided by the network layer, as described in the \texttt{Network layer design} section of this chapter, but with tuned differently to support the particular application class.
+This cluster abstraction provides error handling, timeouts, and retries.
+However, it is not mandatory for an application class to use the cluster abstraction of the network layer, or the network layer at all, as the application class is free to decide its own semantics.
+
+\subsection{Application class: \texttt{single\_command}}
+
+\todoi{Write this subsection}
 
 \begin{itemize}
-  \item Give examples and explain in detail
-  \item Example program: Hello world
-  \item Example program: Memory usage in cluster
-  \item Example program: Word count in large file
+  \item Application features
+  \item Error handling
+  \item Give example of when to use
 \end{itemize}
+
+\subsubsection{Example program: Memory usage in cluster}
+
+\begin{lstlisting}[language=Shard]
+# memory_usage.shard
+source cluster_setup.shard
+(echo -n "$(hostname): ";
+    free |
+    awk "FNR == 2 {print \$3/\$2}")@@testcluster
+\end{lstlisting}
+
+\subsection{Application class: \texttt{data\_parallel}}
+
+\todoi{Write this subsection}
+
+\subsubsection{Example program: Word count in large file}
+
+\begin{lstlisting}[language=Shard]
+# word_count.shard
+source cluster_setup.shard
+cluster -t data_parallel
+cat input.txt |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (echo $in; echo 1)@@map/testcluster |
+    (paste -sd+ - | bc)@@reduce/testcluster
+\end{lstlisting}
 
 \section{Network layer design}
 
@@ -587,33 +790,87 @@ By default,
   \item Note that this is about the design of the network layer, rather than the implementation details
 \end{itemize}
 
-\section{Application classes}
+The Network layer of Shard provides an abstraction for executing Shard programs remotely over a distributed network.
+The design of the Network layer ensures that Shard satisfies its core pillar of reliability, by providing features for error detection and recovery.
 
+\subsection{Data transfer design}
+There are four roles in the data transfer portion of the Shard network layer: the Local Sender, Local Receiver, Remote Sender, and Remote Receiver.
+The name of the role describes the machine in which the role is on, and the primary direction of data flow performed by the role.
+Table \ref{fig:roles_design} gives a summary of each of the four roles.
+
+\begin{table}
+  \begin{center}
+    \begin{tabularx}{\textwidth}{|l|l|l|X|}
+      \hline
+      Role            & Location       & Connects to     & Summary                                                                                                         \\ \hline
+      Local Sender    & Local machine  & Remote Receiver & Sends the data about the program to be executed, the environment, and any standard input to the remote machine.
+      \\ \hline
+      Remote Receiver & Remote machine & Local Sender    & Receives the data from the local sender and passes it to Shard to run the remote program.
+      \\ \hline
+      Remote Sender   & Remote machine & Local Receiver  & Sends the output of the remote execution back to the local machine.
+      \\ \hline
+      Local Receiver  & Local machine  & Remote sender   & Receives the data from the remote sender and passes it to the local Shard program as the results.
+      \\ \hline
+    \end{tabularx}
+    \caption{Parameters for the syntax of the Shard programming language}
+    \label{fig:roles_design}
+  \end{center}
+\end{table}
+
+The local sender and local receiver roles exist on the local machine, which is the machine of the entry point of Shard, where the code outside of the remote execution runs.
+The remote sender and remote receiver roles exist on the remote machine, which is target machine where the remote program is being executed.
+
+The two communication channels that are formed are between the local sender and remote receiver, which will be known as the local-to-remote communication channel, and between the remote sender and local receiver, which will be known as the remote-to-local communication channel.
+Data sent in each of the communication channels are in the form of packets, where each packet contains all of the data being transferred.
+Each packet contains an ID that corresponds to a specific instance performing a remote execution.
+The choice of ID can be arbitrary, but different instances of remote execution must use unique IDs.
+Packets sent from the remote sender, except for heartbeat packets, also contain a sequence number to ensure that responses are received in the order they are sent.
+The first packet sent by the remote sender has sequence number 0, and subsequent packets have sequence number one greater than the sequence number of the previous packet.
+
+Before remote execution can occur, the local instance of Shard must ensure that a compatible Shard instance exists on the remote machine.
+If it does not already exist, Shard is responsible for copying the local Shard executable to the remote machine, before performing the remote execution.
+This typically only happens the first time Shard executes a remote program on the specific remote machine on a given version of Shard.
+
+When a remote execution begins, the local sender initializes the remote receiver and sends a header packet to the remote receiver.
+The header packet contains the program to be executed remotely and a copy of the local environment, which contains information including variable and cluster assignments.
+The remote receiver responds by acknowledging the Header packet.
+
+Next, the local receiver initializes the remote sender.
+At this point, all four roles have been initialized, and the remote program execution is can begin once the remote Shard runtime is ready.
+
+The remote receiver sends the program and environment to the remote Shard runtime to begin execution.
+During this period, packets from the local sender are sent to the remote receiver, which gets passed to the remote Shard runtime, and packets from the remote sender are sent to the local receiver which gets passed to the local Shard runtime.
+The local sender sends any standard input to the remote receiver with message packets, and the remote sender sends any standard output to the local receiver with message packets.
+The remote sender also sends heartbeat packets at a regular interval to indicate that the remote process is running correctly.
+When the standard input is closed, the local sender sends a close packet, and when the standard output is closed, the remote sender sends back a close packet.
+
+\todoi{Add diagram or visual showing this process; analogous to the one in the implementation section}
+
+Although sequence numbers and heartbeats are sent in the data transfer process, the design does not prescribe how they should be handled.
+The data transfer abstraction can be utilized directly by an application class to implement its remote execution capabilities, where the packet transfer process on the local machine is controlled by the application class, or a higher-level abstraction on top of the data transfer abstraction may be used instead.
+
+\subsection{Remote cluster abstraction}
+
+The remote cluster abstraction builds on top the Shard data transfer process, by integrating the error handling mechanism to ensure reliability, and providing a higher level interface for application class implementations to use for remote execution.
+The remote cluster abstraction is used by both of the application classes specified in Shard's design, \texttt{single\_command} and \texttt{data\_parallel}, which take advantage of its features to ensure the reliability of the remote execution.
+
+The remote cluster maintains a set of remote targets and metadata associated with the targets, keeping the data transfer connections to these targets open as long as Shard is running.
+Targets must be initialized by the remote cluster before any remote computation is performed.
+
+The remote cluster uses the concept of tasks as its basic unit of remote computation.
+When scheduling a task, the caller provides the following information:
 \begin{itemize}
-  \item Solves the problem of: reliability/error handling semantics
-  \item Overall error model (or maybe keep it specific to the application classes)
-  \item Describe the existing application classes
+  \item The specific remote target the task should be executed on, or ``any'', indicating that the task may be executed on any initialized remote target at the remote cluster's discretion;
+  \item The remote program to be executed.
+  \item A copy of the shell environment, to be used for the remote program.
+  \item The standard input text to be sent to the remote machine.
 \end{itemize}
 
-\subsection{Application class: \texttt{single\_command}}
-
-\begin{itemize}
-  \item Application features
-  \item Error handling
-  \item Give example of when to use
-\end{itemize}
-
-\subsection{Application class: \texttt{data\_parallel}}
-
-\section{Composability}
-\begin{itemize}
-  \item No constraints over program they can write
-  \item Shard pieces compose in nice way
-  \item Pipes compose by default
-  \item Will not make warts of Shell go away
-\end{itemize}
+\todoi{Finish this part}
 
 \section{Summary}
+
+\todoi{Write the summary}
 
 \chapter{Implementation}
 
@@ -877,7 +1134,8 @@ Currently, the Shard interpreter does not support I/O redirection on custom file
 
 A defining feature of Shard is its remote command execution capabilities, where an example of a remote command is shown in the following example command that prints out the currently running operating system of a remote machine:
 
-\begin{lstlisting}[language=shard](cat /etc/issue)@@machine1.cs.williams.edu
+\begin{lstlisting}[language=shard]
+(cat /etc/issue)@@machine1.cs.williams.edu
 \end{lstlisting}
 
 Evaluating a remote command is implemented in a similar fashion to evaluating a subshell.
@@ -962,10 +1220,10 @@ Although the RPC servers are not particularly lightweight, only two are used on 
 \subsection{Data transfer setup}
 
 The first step of the setup is making a copy of the local Shard executable to run the Local Sender and Local Receiver on.
-Note that all four processes use an identical executable to the original Shard executable, but with a command line argument indicating which role the processes takes on, as described in Figure \ref{fig:process_role_args}.
+Note that all four processes use an identical executable to the original Shard executable, but with a command line argument indicating which role the processes takes on, as described in Table \ref{fig:process_role_args}.
 These command line arguments should only be used by remote execution mechanism for Shard, and not used by the end user.
 
-\begin{figure}[h]
+\begin{table}[h]
   \begin{center}
     \begin{tabular}{|l|l|l|l|}
       \hline
@@ -978,7 +1236,7 @@ These command line arguments should only be used by remote execution mechanism f
     \caption{The command line arguments for running the executable as each of the four process roles}
     \label{fig:process_role_args}
   \end{center}
-\end{figure}
+\end{table}
 
 
 The local copy of Shard is made with a copy attempt with the source being the currently running executable, and the destination being a directory known as the Shard cache, with a fixed path (that may change in future versions of Shard).
@@ -1163,7 +1421,9 @@ The \texttt{data\_parallel} application class supports MapReduce-style functiona
 The following example \texttt{data\_parallel} program calculates the number of occurrences of each line length in an input file on the cluster named \texttt{testcluster}:
 
 \begin{lstlisting}[language=shard]
-cat input.txt | (echo $in | wc -c; echo 1)@@map/testcluster | (paste -sd+ - | bc)@@reduce/testcluster
+cat input.txt |
+    (echo $in | wc -c; echo 1)@@map/testcluster |
+    (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
 
 % Move this to the Design section
@@ -1841,14 +2101,20 @@ m2=machine2.cs.williams.edu
 m3=machine3.cs.williams.edu
 m4=machine4.cs.williams.edu
 
+# Cleanup from prior runs
+rm map_*.txt
+rm all_keys.txt
+rm unique_keys.txt
+
 # Map operation
 # Loop through each line of the input
 while IFS= read -r line; do
     # Choose a random host
     # Note that the POSIX shell does not support arrays
-    target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf)
+    target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)
     # Execute map job on remote host
-    result=$(ssh "$target" "echo '$line' | wc -c; echo 1")
+    # Pitfall: need to make sure remote command is properly escaped
+    result=$(echo "" | ssh "$target" "(echo \"$line\" | wc -c; echo 1)")
     # Retreive the key
     key=$(echo "$result" | head -n 1)
     # Retreive the value
@@ -1862,18 +2128,19 @@ while IFS= read -r line; do
 done < input.txt
 
 # Deduplicate key list
-sort all_keys.txt | uniq -u > unique_keys.txt
+sort all_keys.txt | uniq > unique_keys.txt
 
 # Reduce operation
 # Loop through each key
 while IFS= read -r line; do
     # Choose a random host
     # Note that the POSIX shell does not support arrays
-    target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf)
+    target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)
     # Generate the input file depending on the key
     infile="map_$line.txt"
     # Execute reduce job on remote host
-    result=$(cat "$infile" | ssh "$target" "paste -sd+ - | bc")
+    # Pitfall: need to make sure remote command is properly escaped
+    result=$(cat "$infile" | ssh "$target" "(paste -sd+ - | bc)")
     # Print result to the standard output
     echo "$line,$result"
 done < unique_keys.txt
@@ -1928,6 +2195,8 @@ This example shows a practical real-world scenario where the error recovering bu
   \item Future work
   \item What did this thesis accomplish?
 \end{itemize}
+
+\todoi{Write this chapter}
 
 \chapter{Appendix}
 \section{Appendix A: Example program input and output}
