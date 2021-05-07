@@ -336,4 +336,66 @@ let%expect_test "if_variable_equal_elif" =
   [%expect {|Branch 2|}]
 ;;
 
+let%expect_test "beta_sampling" =
+  let beta_sample ~a ~b ~bin_count ~total_samples =
+    printf
+      "beta sample test (a: %d, b: %d, bin_count: %d, total_samples: %d)\n"
+      a
+      b
+      bin_count
+      total_samples;
+    let distribution = Shard.Beta_sampler.Distribution.create ~a ~b in
+    let bins = Array.create ~len:bin_count 0 in
+    let accum = ref 0.0 in
+    List.iter (List.range 0 total_samples) ~f:(fun _i ->
+        let f = Shard.Beta_sampler.Distribution.sample distribution in
+        accum := !accum +. (f /. Int.to_float total_samples);
+        let i = Float.to_int (f *. Int.to_float bin_count) in
+        bins.(i) <- bins.(i) + 1);
+    printf "avg: %f\n" !accum;
+    let af = Int.to_float a in
+    let bf = Int.to_float b in
+    printf "expected: %f\n" (af /. (af +. bf));
+    Array.iter bins ~f:(fun v -> printf "%d\n" v)
+  in
+  beta_sample ~a:3 ~b:1 ~bin_count:5 ~total_samples:10000;
+  beta_sample ~a:1000 ~b:500 ~bin_count:5 ~total_samples:10000;
+  beta_sample ~a:3 ~b:2 ~bin_count:5 ~total_samples:10000;
+  beta_sample ~a:1 ~b:1 ~bin_count:5 ~total_samples:10000;
+  [%expect
+    {|
+  beta sample test (a: 3, b: 1, bin_count: 5, total_samples: 10000)
+  avg: 0.748998
+  expected: 0.750000
+  83
+  556
+  1526
+  2960
+  4875
+  beta sample test (a: 1000, b: 500, bin_count: 5, total_samples: 10000)
+  avg: 0.666665
+  expected: 0.666667
+  0
+  0
+  0
+  10000
+  0
+  beta sample test (a: 3, b: 2, bin_count: 5, total_samples: 10000)
+  avg: 0.600918
+  expected: 0.600000
+  234
+  1493
+  3051
+  3437
+  1785
+  beta sample test (a: 1, b: 1, bin_count: 5, total_samples: 10000)
+  avg: 0.497273
+  expected: 0.500000
+  2030
+  2022
+  1919
+  2072
+  1957|}]
+;;
+
 (* TODO redirection tests; potentially figure out how to mock file system *)

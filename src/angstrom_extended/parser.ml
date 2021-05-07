@@ -185,7 +185,7 @@ module Choice = struct
             else q.run input' pos more' fail succ
           in
           let msg = "failure at <!|>" in
-          let succ' _ _ _ _ = fail input pos more [] msg in
+          let succ' input' _ more' _ = fail input' pos more' [] msg in
           p.run input pos more fail' succ')
     }
   ;;

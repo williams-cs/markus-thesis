@@ -793,6 +793,17 @@ cat input.txt |
 The Network layer of Shard provides an abstraction for executing Shard programs remotely over a distributed network.
 The design of the Network layer ensures that Shard satisfies its core pillar of reliability, by providing features for error detection and recovery.
 
+The Shard network layer is divided into the data transfer abstraction, which controls the lower-level details of the packets that are sent between the local and remote machiens, and the task cluster abstraction, which provides a higher-level view of corresponding remote commands with individual tasks.
+Figure \ref{fig:network_layer_design} shows the layers of abstraction in for executing a remote command in Shard, including the parts of the Shard network layer involved in the process.
+
+\begin{figure}[h]
+  \begin{center}
+    \includegraphics[scale=0.5]{img/shard_network_design.png}
+    \caption{The layers of abstraction of Shard used to exewcute remote command}
+    \label{fig:network_layer_design}
+  \end{center}
+\end{figure}
+
 \subsection{Data transfer design}
 There are four roles in the data transfer portion of the Shard network layer: the Local Sender, Local Receiver, Remote Sender, and Remote Receiver.
 The name of the role describes the machine in which the role is on, and the primary direction of data flow performed by the role.
@@ -849,24 +860,52 @@ When the standard input is closed, the local sender sends a close packet, and wh
 Although sequence numbers and heartbeats are sent in the data transfer process, the design does not prescribe how they should be handled.
 The data transfer abstraction can be utilized directly by an application class to implement its remote execution capabilities, where the packet transfer process on the local machine is controlled by the application class, or a higher-level abstraction on top of the data transfer abstraction may be used instead.
 
-\subsection{Remote cluster abstraction}
+\subsection{Task cluster abstraction}
 
-The remote cluster abstraction builds on top the Shard data transfer process, by integrating the error handling mechanism to ensure reliability, and providing a higher level interface for application class implementations to use for remote execution.
-The remote cluster abstraction is used by both of the application classes specified in Shard's design, \texttt{single\_command} and \texttt{data\_parallel}, which take advantage of its features to ensure the reliability of the remote execution.
+The task cluster abstraction builds on top the Shard data transfer process, by integrating the error handling mechanism to ensure reliability, and providing a higher level interface for application class implementations to use for remote execution.
+The task cluster abstraction is used by both of the application classes specified in Shard's design, \texttt{single\_command} and \texttt{data\_parallel}, which take advantage of its features to ensure the reliability of the remote execution.
 
-The remote cluster maintains a set of remote targets and metadata associated with the targets, keeping the data transfer connections to these targets open as long as Shard is running.
-Targets must be initialized by the remote cluster before any remote computation is performed.
+The task cluster maintains a set of remote targets and metadata associated with the targets, keeping the data transfer connections to these targets open as long as Shard is running.
+Targets must be initialized by the task cluster before any remote computation is performed.
 
-The remote cluster uses the concept of tasks as its basic unit of remote computation.
+The task cluster uses the concept of tasks as its basic unit of remote computation.
 When scheduling a task, the caller provides the following information:
 \begin{itemize}
-  \item The specific remote target the task should be executed on, or ``any'', indicating that the task may be executed on any initialized remote target at the remote cluster's discretion;
-  \item The remote program to be executed.
-  \item A copy of the shell environment, to be used for the remote program.
+  \item The specific remote target the task should be executed on, or ``any'', indicating that the task may be executed on any initialized remote target at the task cluster's discretion;
+  \item The remote program to be executed;
+  \item A copy of the shell environment, to be used for the remote program;
   \item The standard input text to be sent to the remote machine.
 \end{itemize}
+Once the remote task is scheduled, the remote program associated with the task is executed on a remote machine, using the Shard network layer data transfer mechanism described in the previous section.
+All of the response packets sent by the remote machine are collected and ordered by their sequence number, as defined by the data transfer mechanism.
+When the close packet and all packets with lower sequence numbers are received, the remote program output is assembled from the packets, the remote program execution is treated as a success.
+The caller is notified of the success, with the output of the remote computation.
 
-\todoi{Finish this part}
+There are several ways for Shard to detect that an error has occurred in the remote program execution.
+First, there may be an error directly reported by the data transfer mechanism.
+Next, the remote Shard program may call the \texttt{exit} builtin with a non-zero exit code, indicating a programmer-detected failure.
+
+In addition, a failure may be detected when an execution of a remote task times out.
+The two types of timeout that are considered are heartbeat timeouts and program timeouts.
+If the task cluster does not receive a heartbeat within a certain amount of time, the task is considered a failure.
+Furthermore, if the task is not completed in within a much longer period of time, the task is also considered a failure.
+The timeouts for the task cluster are all configurable, depending on the specific needs of the application class and expected network conditions.
+
+The timeout failures capture the remaining ways in which a Shard remote execution can fail, because it is agnostic to the cause of failure, as long as we accept that Shard correctly determines when the remote execution succeeds.
+We can be confident that at least all of the packets are transferred when Shard determines a computation is succesful, because of the requirement that all packets up to and including the sequence number of the close packet are received, unless some highly improbable data corruption causes an incomplete set of packets to transform into a complete one.
+
+In the case that the remote program does not execute successfully, the the same remote program with the same input is retried, potentially on a different machine in the cluster, depending on what the caller specified.
+Even in the case of a retry, Shard still keeps alive the connection to the previous tries, using the ID of a packet to distinguish between which different executions of the same remote program.
+If any of the previous tries succeeds, that successful result will be used instead, and the responses for all other tries of that task are thrown away.
+After a maximum number of retries as specified by the caller, the entire task will fail, and the caller will be notified.
+
+% The machine choice of executing a task, including a retry, is determined by the beta distrbution.
+\todoi{Implement and describe beta distribution task choosing}
+
+The task cluster claims that, with high likelihood, a task scheduled to the task cluster will be succesfully executed at least once on a remote machine in the cluster, and that it will correctly obtain the output of the successful computation, unless the maximum number of tries has been reached.
+The specific remote machine the task executes on is guaranteed if it is specified when the task is scheduled.
+Notably, the task may be completed on more than once, particularly if a retry was invoked due to a timeout.
+Using the task cluster abstraction means that the application class can take advantage of of its error detection and retry mechanism in order to reliably execute remote tasks, configuring the task cluster to suit the specific application class's needs.
 
 \section{Summary}
 
@@ -1321,10 +1360,10 @@ The sender query type looks very similar to the receiver query type, except that
 
 \subsection{Heartbeat and sequence number handling}
 The Shard network layer exposes an interface for manually processing the \texttt{Receiver\_query} records from the Remote Sender.
-This makes sense for achieving greater control over handling the specifics pieces of functionality as provided by the network layer, such as the heartbeat, id, and sequence number, but most users of the protocl can opt to use the \texttt{remote\_cluster} interface that automatically handles reliablility and retries using these features:
+This makes sense for achieving greater control over handling the specifics pieces of functionality as provided by the network layer, such as the heartbeat, id, and sequence number, but most users of the protocol can opt to use the \texttt{task\_cluster} interface that automatically handles reliablility and retries using these features:
 
 \begin{lstlisting}
-(* Excerpt from remote_cluster.mli *)
+(* Excerpt from task_cluster.mli *)
 type t
 
 val create : unit -> t
@@ -1345,8 +1384,8 @@ val run_task
   -> string Deferred.Or_error.t
 \end{lstlisting}
 
-The \texttt{remote\_cluster} interface exposes the abstraction of tasks that need to be completed on a cluster.
-When a \texttt{remote\_cluster} is created, the set of possible remote targets need to be initialized with \texttt{init\_targets}, which performs the data transfer setup of getting the remote machine ready for accepting remote commands on each remote target passed in.
+The \texttt{task\_cluster} interface exposes the abstraction of tasks that need to be completed on a cluster.
+When a \texttt{tasnk\_cluster} is created, the set of possible remote targets need to be initialized with \texttt{init\_targets}, which performs the data transfer setup of getting the remote machine ready for accepting remote commands on each remote target passed in.
 
 When a task is created with \texttt{run\_task}, it is executed on an arbitrary or specific target, depending on what is desired by the caller.
 All of the information of the program execution are contained in the \texttt{program}, \texttt{env\_image}, and \texttt{send\_lines} parameter, the first two of which are sent as a \texttt{Header.t} record to start the remote computation, and the third parameter is the lines provided to the standard input of the program.
@@ -1355,12 +1394,12 @@ A retry is also invoked if an error occurs during the task's execution.
 In this case, a further error recovery mechanism is to reinitialize the remote target with a new set of processes, which allows the task to recover from Shard crashes.
 This retry mechanism can result in the same task being executed multiple times on different machines, until the task comes back with a successful result (a close message).
 
-In addition, the \texttt{remote\_cluster} keeps track of the sequence number of the \texttt{Receiver\_query}s being sent by the Remote Sender, to make sure to processes the queries in the correct order.
+In addition, the \texttt{task\_cluster} keeps track of the sequence number of the \texttt{Receiver\_query}s being sent by the Remote Sender, to make sure to processes the queries in the correct order.
 It does so by keeping track of the highest sequence number currently seen, storing messages out of sequence in a hash table until they are the next message in sequence, and producing the final output string when the close query is received.
 This means that no output is lost, even if the close query reaches the local machine before some standard output message sent earlier by the Remote Sender.
 If a query is dropped, the close query will never be in sequence, so the timeout mechanism will time out the execution, and a retry will be invoked.
 
-Using the \texttt{remote\_cluster} abstraction, the caller can be confident that tasks will be continously reattempted until it completes sucessfully (or wait forever if the task always fails).
+Using the \texttt{task\_cluster} abstraction, the caller can be confident that tasks will be continously reattempted until it completes sucessfully (or wait forever if the task always fails).
 Even though the many levels of abstraction used result in a more heavyweight network layer, it is a worthwhile tradeoff to ensure that Shard satisfies the core pillars of being reliable and easy to use, and generally works well enough for running ad-hoc programs, where it is less likely that all system resources are being utilized.
 
 \section{Application class implementation}
@@ -1399,7 +1438,7 @@ At the current moment, the project needs to be modified directly to add builtin 
 
 \subsection{Single command}
 
-\todoi{Needs work: this section is currently inaccurate at describing how the implementation actually works, because I haven't gotten around to converting the single command application class to using the remote cluster abstraction yet}
+\todoi{Needs work: this section is currently inaccurate at describing how the implementation actually works, because I haven't gotten around to converting the single command application class to using the task cluster abstraction yet}
 
 \begin{sloppypar}
   The \texttt{single\_command} application class supports functionality for running a command that should be reliably executed on each of the machines in a cluster. The following example \texttt{single\_command} program gets the system information of all machines in a cluster named \texttt{csmachines}, and prints it to the local output:
@@ -1410,8 +1449,8 @@ At the current moment, the project needs to be modified directly to add builtin 
 \end{lstlisting}
 
 \begin{sloppypar}
-  The implementation of this application class is very simple, and does not require directly using the the Shard network layer's RPC queries: it takes the program input, and uses the \texttt{remote\_cluster} abstraction to reliabily execute the program as a task on each machine in the cluster.
-  The \texttt{remote\_cluster} guarantees reliability and error recovery, allowing the task to be retried on the same machine if it failed.
+  The implementation of this application class is very simple, and does not require directly using the the Shard network layer's RPC queries: it takes the program input, and uses the \texttt{task\_cluster} abstraction to reliabily execute the program as a task on each machine in the cluster.
+  The \texttt{task\_cluster} guarantees reliability and error recovery, allowing the task to be retried on the same machine if it failed.
 \end{sloppypar}
 % \todoi{Functionality for tuning retries to be less aggressive?}
 
@@ -1452,7 +1491,7 @@ The backend's functionality is based on the setting of the call, and fails if th
 
 For the call with the ``map'' setting, the backend splits the input by the line, and creates a task for each line, where the task is to execute the remote execution payload specified by the \texttt{program} argument.
 The environment for this execution is a copy of the local environment with an addtional assignment of the variable \texttt{\$in} to the value of the line.
-This is sent to an arbitrary remote host for execution, using the \texttt{remote\_cluster} abstraction provided by the network layer to ensure that the task is reliably completed.
+This is sent to an arbitrary remote host for execution, using the \texttt{task\_cluster} abstraction provided by the network layer to ensure that the task is reliably completed.
 \todoi{Needs work: Describe and implement remote host choosing mechanism}
 The program is expected to output two lines: the first of which is the key, and the second of which is the value.
 This is printed to the local standardout as a key-value pair in a single line, with the key and value separated by a comma.
@@ -1463,7 +1502,7 @@ The program's standard input is now each of the values associated with the key, 
 The output is expected to be a single line.
 Finally, when all of the reduce tasks complete, the output is sorted by key and printed, with each line being a key-value pair, with the key and value separated by a comma.
 
-The specific implementation of the \texttt{data\_parallel} backend does not require in-depth knowledge about how the Shard network layer functions, as that is cleanly concealed by the \texttt{remote\_cluster} abstraction.
+The specific implementation of the \texttt{data\_parallel} backend does not require in-depth knowledge about how the Shard network layer functions, as that is cleanly concealed by the \texttt{task\_cluster} abstraction.
 This achieves the separation of concerns for the functionality of the application class itself and the Shard network layer, which also makes adding new application classes or improving the Shard network layer much easier.
 
 \section{Implementation trade-offs}
@@ -1751,7 +1790,7 @@ Parts of this program are identical to the program \texttt{word\_count.shard}, w
 \begin{itemize}
   \item
         Line 2, which appears in \texttt{word\_count.shard}, runs the \texttt{cluster\_setup.shard} script to set up the cluster \texttt{testcluster}.
-        The remote cluster used will be exclusively the Williams CS machine cluster, composed of remote machines on the same local area network as the local machine, but the results should still hold for the local machine cluster and the cloud machine cluster.
+        The cluster of machines used will be exclusively the Williams CS machine cluster, composed of remote machines on the same local area network as the local machine, but the results should still hold for the local machine cluster and the cloud machine cluster.
   \item Lines 3-5, which also appear in \texttt{word\_count.shard}, transforms the input into lowercase words separated by newlines.
   \item On lines 6-7 of the program, the input is split up by line and sent to be executed remotely on the cluster \texttt{testcluster}.
         Line 6 outputs the key of the map operation, which uses the \texttt{cut} UNIX program to take the first letter of the word as the key.
@@ -2108,12 +2147,12 @@ rm unique_keys.txt
 
 # Map operation
 # Loop through each line of the input
-while IFS= read -r line; do
+# Make sure to read last line if the file does not end in EOF
+while IFS= read -r line || [[ -n "$line" ]]; do
     # Choose a random host
     # Note that the POSIX shell does not support arrays
     target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)
     # Execute map job on remote host
-    # Pitfall: need to make sure remote command is properly escaped
     result=$(echo "" | ssh "$target" "(echo \"$line\" | wc -c; echo 1)")
     # Retreive the key
     key=$(echo "$result" | head -n 1)
@@ -2132,14 +2171,14 @@ sort all_keys.txt | uniq > unique_keys.txt
 
 # Reduce operation
 # Loop through each key
-while IFS= read -r line; do
+# Make sure to read last line if the file does not end in EOF
+while IFS= read -r line || [[ -n "$line" ]]; do
     # Choose a random host
     # Note that the POSIX shell does not support arrays
     target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)
     # Generate the input file depending on the key
     infile="map_$line.txt"
     # Execute reduce job on remote host
-    # Pitfall: need to make sure remote command is properly escaped
     result=$(cat "$infile" | ssh "$target" "(paste -sd+ - | bc)")
     # Print result to the standard output
     echo "$line,$result"
@@ -2174,7 +2213,7 @@ Shard's ease of use is also demonstrated in the circumstance that an error occur
 As shown in the \texttt{Reliable} section of this chapter, Shard is capable of automatically handling many different types of failures that may arise when using a distributed system, including unreachable remote hosts, process crashes, program failures, data loss, and slow-running remote machines.
 These would not be handled if the user were using SSH on an existing shell instead, unless the user adds special case-specific code to handle each of the situations previously described.
 This means that, in the case that one of the failure circumstances does arise, using Shard's automatic error detection and recovery mechanisms is much easier than trying to figure out where and why the failure occurred.
-As an example, let's say the user is trying to run a cleanup task on each of the machines in some remote cluster \texttt{remotes} with hundreds of machines, and print out a success message, as defined in the \texttt{cluster.shard} script.
+As an example, let's say the user is trying to run a cleanup task on each of the machines in some cluster \texttt{remotes} with hundreds of machines, and print out a success message, as defined in the \texttt{cluster.shard} script.
 \begin{lstlisting}[language=Shard]
 source cluster.shard
 (rm -r /tmp/cache_to_be_removed; echo "$(hostname) - cleanup success")@@remotes
@@ -2245,15 +2284,151 @@ Be all my sins remember'd.
 
 \subsection{A2. Output from \texttt{word\_count.shard}}
 
-\todoi{fill this in}
+\todoi{double check}
+
+\begin{lstlisting}[language=]
+a,5
+all,2
+and,12
+arrows,1
+be,4
+bear,3
+by,2
+cast,1
+conscience,1
+consummation,1
+d,4
+death,2
+die,2
+dispriz,1
+dread,1
+dream,1
+dreams,1
+end,2
+fardels,1
+for,2
+grunt,1
+have,2
+heir,1
+hue,1
+in,3
+insolence,1
+is,3
+know,1
+life,2
+long,1
+love,1
+make,2
+makes,2
+man,1
+may,1
+might,1
+mind,1
+mortal,1
+my,1
+name,1
+no,2
+not,2
+nymph,1
+of,15
+off,1
+opposing,1
+oppressor,1
+or,2
+orisons,1
+outrageous,1
+patient,1
+pause,1
+question,1
+quietus,1
+rather,1
+regard,1
+remember,1
+respect,1
+returns,1
+s,5
+say,1
+sicklied,1
+sleep,5
+soft,1
+takes,1
+than,1
+that,7
+the,22
+there,2
+this,2
+thus,2
+thy,1
+time,1
+tis,2
+to,15
+traveller,1
+troubles,1
+under,1
+undiscover,1
+unworthy,1
+us,3
+we,4
+when,2
+whether,1
+who,2
+whose,1
+with,3
+would,2
+\end{lstlisting}
 
 \subsection{A3. Output from \texttt{word\_length.shard}}
 
-\todoi{fill this in}
+\todoi{double check}
+
+\begin{lstlisting}[language=]
+q,8.5
+c,8.3
+r,7.71429
+p,6.75
+u,5.83333
+e,5.75
+g,5.66667
+f,5.5
+s,5.41667
+m,5.28571
+n,5.1
+k,5
+h,5
+d,5
+w,4.95238
+l,4.83333
+t,4.5
+o,4.5
+b,4.23077
+a,4.14815
+i,4.125
+y,4
+\end{lstlisting}
 
 \subsection{A4. Output from \texttt{line\_length.shard}}
 
-\todoi{fill this in}
+Note that the shell script \texttt{line\_length\_ssh.sh} produces the same output.
+
+\todoi{double check}
+
+\begin{lstlisting}[language=]
+27,1
+37,1
+38,2
+39,2
+40,5
+41,1
+42,4
+43,5
+44,2
+45,4
+46,1
+48,2
+49,2
+50,2
+52,1
+\end{lstlisting}
 
 %%%%%%%% References %%%%%%%%%%
 \bibliographystyle{acm}

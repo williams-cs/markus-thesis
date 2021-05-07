@@ -474,6 +474,15 @@ let string s = string_ (fun x -> x) s
 let string_ci s = string_ Char.lowercase_ascii s
 let skip_while f = count_while ~init:0 ~f ~with_buffer:(fun _ ~off:_ ~len:_ -> ())
 
+let string_unbuffered s =
+  let rec loop s accum =
+    if accum = ""
+    then return s
+    else char accum.[0] *> loop s (String.sub accum 1 (String.length accum - 1))
+  in
+  loop s s
+;;
+
 let take n =
   if n < 0
   then fail "take: n < 0"

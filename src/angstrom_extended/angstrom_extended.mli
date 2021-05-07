@@ -91,6 +91,11 @@ val string : string -> string t
     preserving the case of the original input. *)
 val string_ci : string -> string t
 
+(** [string s] accepts [s] exactly and returns it. It make sure to check each
+    character as it comes in, rather than buffering for the length of the
+    target. *)
+val string_unbuffered : string -> string t
+
 (** [skip f] accepts any character for which [f] returns [true] and discards
     the accepted character. [skip f] is equivalent to [satisfy f] but discards
     the accepted character. *)

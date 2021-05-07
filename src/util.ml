@@ -13,6 +13,12 @@ let random_state () =
     state
 ;;
 
+let split_random () =
+  let rand = random_state () in
+  let seed = Array.init 16 ~f:(fun _i -> Random.State.bits rand) in
+  Random.State.make seed
+;;
+
 let rec generate_uuid_list existing =
   let id = Uuid.create_random (random_state ()) |> Uuid.to_string in
   if List.exists existing ~f:(fun x -> String.equal x id)

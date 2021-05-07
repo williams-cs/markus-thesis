@@ -4,6 +4,10 @@ m1=machine1.cs.williams.edu
 m2=machine2.cs.williams.edu
 m3=machine3.cs.williams.edu
 m4=machine4.cs.williams.edu
+m1=localhost
+m2=localhost
+m3=localhost
+m4=localhost
 
 # Cleanup from prior runs
 rm map_*.txt
@@ -12,7 +16,8 @@ rm unique_keys.txt
 
 # Map operation
 # Loop through each line of the input
-while IFS= read -r line; do
+# Make sure to read last line if the file does not end in EOF
+while IFS= read -r line || [[ -n "$line" ]]; do
     # Choose a random host
     # Note that the POSIX shell does not support arrays
     target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)
@@ -35,7 +40,8 @@ sort all_keys.txt | uniq > unique_keys.txt
 
 # Reduce operation
 # Loop through each key
-while IFS= read -r line; do
+# Make sure to read last line if the file does not end in EOF
+while IFS= read -r line || [[ -n "$line" ]]; do
     # Choose a random host
     # Note that the POSIX shell does not support arrays
     target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)

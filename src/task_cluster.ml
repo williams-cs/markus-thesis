@@ -2,6 +2,24 @@ open Core
 open Async
 open Rpc_common
 
+let use_sequence_numbers = true
+let use_local_throttle = true
+let use_beta_sampling = true
+
+(* Retry config *)
+(* TODO dynamic *)
+let force_create_cooldown = 500
+let max_tries = 100
+let max_tries_inner = 120
+let inner_timeout = 1000
+let initial_timeout = 10000
+let heartbeat_timeout = 2000
+let idle_heartbeat_timeout = 2000
+let beta_overcapacity_threshold = 0.9
+let beta_fail_threshold = 0.25
+let beta_stage_two_random_chance = 0.1
+let beta_recency_cap = 1000
+
 module Reader_info = struct
   type t =
     { reader : Reader.t
@@ -32,7 +50,8 @@ end
 
 module Connection = struct
   type t =
-    { sender_conn : Rpc_local_sender.t
+    { remote_target : Remote_target.t
+    ; sender_conn : Rpc_local_sender.t
     ; sender_throttle : unit Throttle.t
     ; receiver_conn : Rpc_local_receiver.t
     ; remote_port : int
@@ -50,13 +69,15 @@ module Init_target_fields = struct
 end
 
 type t =
-  { connections : (Connection.t Deferred.t * Time_ns.t) String.Table.t
+  { connections : (Connection.t Ivar.t * Time_ns.t) String.Table.t
   ; target_list : Remote_target.t list ref
   ; remote_target_index : int ref
   ; open_tasks : int ref
   ; open_tasks_cache : int ref
   ; last_activity : Time_ns.t ref
   ; init_target_fields : Init_target_fields.t Ivar.t ref
+  ; beta_sampler : Beta_sampler.t
+  ; beta_sampler_key_of_uuid : string String.Table.t
   }
 [@@deriving fields]
 
@@ -68,6 +89,8 @@ let create () =
   ; open_tasks_cache = ref 0
   ; last_activity = ref (Time_ns.now ())
   ; init_target_fields = ref (Ivar.create ())
+  ; beta_sampler = Beta_sampler.create ()
+  ; beta_sampler_key_of_uuid = String.Table.create ()
   }
 ;;
 
@@ -94,9 +117,6 @@ let remote_target_string target =
   in
   sprintf "%s%s" host port_string
 ;;
-
-let use_sequence_numbers = true
-let local_throttle = true
 
 let dispatch_reader conn ~host ~port ~remote_port =
   (* potential race conditions? *)
@@ -210,17 +230,19 @@ let dispatch_reader conn ~host ~port ~remote_port =
   Deferred.Or_error.return (lazy_reader, metadata, deferred)
 ;;
 
-let force_create_cooldown = 500
-
 let init_target_raw t ~target ~force_create =
   let itf = !(init_target_fields t) in
   let%bind { Init_target_fields.stderr; verbose } = Ivar.read itf in
   let target_string = remote_target_string target in
+  if use_beta_sampling
+  then (
+    let sampler = beta_sampler t in
+    Beta_sampler.add sampler ~key:target_string);
   let old_conn = get_conn t target_string in
   let do_create () =
     let ivar = Ivar.create () in
     let timestamp = Time_ns.now () in
-    add_conn t target_string target (Ivar.read ivar) timestamp;
+    add_conn t target_string target ivar timestamp;
     let host = Remote_target.host target in
     let port = Remote_target.port target in
     let%bind.Deferred.Or_error sender_conn, receiver_conn =
@@ -240,7 +262,13 @@ let init_target_raw t ~target ~force_create =
     in
     Ivar.fill
       ivar
-      { Connection.sender_conn; sender_throttle; receiver_conn; remote_port; reader_map }
+      { Connection.remote_target = target
+      ; sender_conn
+      ; sender_throttle
+      ; receiver_conn
+      ; remote_port
+      ; reader_map
+      }
   in
   match old_conn with
   | Some (conn_deferred, timestamp) ->
@@ -254,7 +282,7 @@ let init_target_raw t ~target ~force_create =
     (match actual_force_create with
     | true -> do_create ()
     | false ->
-      let%bind _wait_for_conn = conn_deferred in
+      let%bind _wait_for_conn = Ivar.read conn_deferred in
       Deferred.Or_error.return ())
   | None -> do_create ()
 ;;
@@ -339,25 +367,78 @@ let dispatch_command_throttle connection program send_lines env_image ~throttle_
       Deferred.Or_error.return (next_heartbeat, resp))
 ;;
 
-let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout =
-  (* TODO debug*)
+let choose_target t =
+  let choose_next () =
+    let remote_target_index = remote_target_index t in
+    let target = List.nth_exn !(target_list t) !remote_target_index in
+    let next_remote_target =
+      (!remote_target_index + 1) % String.Table.length (connections t)
+    in
+    remote_target_index := next_remote_target;
+    target
+  in
+  if use_beta_sampling
+  then (
+    (* First stage: Sample all that are not over capacity, find highest. *)
+    let conns = connections t in
+    let all_targets = String.Table.keys conns in
+    let target_at_max_capacity key =
+      let ivar, _timestamp = String.Table.find_exn conns key in
+      match Ivar.peek ivar with
+      | Some conn ->
+        if use_local_throttle
+        then (
+          let throttle = Connection.sender_throttle conn in
+          let max_capacity = Throttle.max_concurrent_jobs throttle in
+          let current_capacity = Throttle.num_jobs_running throttle in
+          (* If over 90% capacity, exclude it from sampling *)
+          Float.( >= )
+            (Int.to_float current_capacity)
+            (Int.to_float max_capacity *. beta_overcapacity_threshold))
+        else false
+      | None -> true
+    in
+    let full_targets = List.filter all_targets ~f:target_at_max_capacity in
+    let sampler = beta_sampler t in
+    let sample res fn =
+      match res with
+      | Some (key, v) ->
+        if Float.( < ) v beta_fail_threshold
+        then fn ()
+        else (
+          let ivar, _timestamp = String.Table.find_exn conns key in
+          match Ivar.peek ivar with
+          | Some conn -> Connection.remote_target conn
+          | None -> fn ())
+      | None -> fn ()
+    in
+    let second_stage () =
+      (* Second stage: 90% chance: sample all, including over capacity, find highest.
+      10% chance: Fallback to default order. *)
+      if Float.( <= )
+           (Random.State.float (Util.random_state ()) 1.0)
+           beta_stage_two_random_chance
+      then choose_next ()
+      else sample (Beta_sampler.choose sampler) choose_next
+    in
+    sample (Beta_sampler.choose sampler ~excluding:full_targets) second_stage)
+  else choose_next ()
+;;
+
+let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout ~uuid =
   let remote_target =
     match target with
-    | `Any ->
-      let remote_target_index = remote_target_index t in
-      let target = List.nth_exn !(target_list t) !remote_target_index in
-      let next_remote_target =
-        (!remote_target_index + 1) % String.Table.length (connections t)
-      in
-      remote_target_index := next_remote_target;
-      target
+    | `Any -> choose_target t
     | `Specific target -> target
   in
+  let rts = remote_target_string remote_target in
+  if use_beta_sampling
+  then (
+    let table = beta_sampler_key_of_uuid t in
+    String.Table.set table ~key:uuid ~data:rts);
   let connection_res =
-    let connection_deferred, _timestamp =
-      Option.value_exn (get_conn t (remote_target_string remote_target))
-    in
-    connection_deferred
+    let connection_deferred, _timestamp = Option.value_exn (get_conn t rts) in
+    Ivar.read connection_deferred
   in
   let refresh_remote_connection err =
     let%bind itf_res = init_target t ~target:remote_target ~force_create:true in
@@ -371,7 +452,7 @@ let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout =
   match connection_timeout with
   | `Result connection ->
     let dispatch =
-      if local_throttle
+      if use_local_throttle
       then dispatch_command_throttle ~throttle_timeout:send_timeout
       else dispatch_command_raw
     in
@@ -406,18 +487,41 @@ let refresh_idle_time t =
   last_activity := Time_ns.now ()
 ;;
 
+(* TODO implement log *)
+let log_task_completed () = ()
+
+let beta_sampler_outcome t uuid outcome =
+  if use_beta_sampling
+  then (
+    let sampler = beta_sampler t in
+    let table = beta_sampler_key_of_uuid t in
+    match String.Table.find table uuid with
+    | Some key ->
+      String.Table.remove table uuid;
+      Beta_sampler.update ~cap:beta_recency_cap sampler ~key ~outcome
+    | None -> ())
+;;
+
+let beta_sampler_success t uuid = beta_sampler_outcome t uuid `Success
+let beta_sampler_failure t uuid = beta_sampler_outcome t uuid `Failure
+let jc = ref 0
+
+let _print_beta_sampler t =
+  (* TODO debug *)
+  let sampler = beta_sampler t in
+  let keys = Beta_sampler.keys sampler in
+  fprintf (force Writer.stderr) "Job %d complete\n" !jc;
+  jc := !jc + 1;
+  List.iter keys ~f:(fun key ->
+      let a, b = Option.value_exn (Beta_sampler.get sampler ~key) in
+      fprintf (force Writer.stderr) "%s:%d,%d\n" key a b)
+;;
+
 let run_task t ~target ~program ~env_image ~send_lines =
   let open_tasks = open_tasks t in
   let open_tasks_cache = open_tasks_cache t in
   open_tasks := !open_tasks + 1;
   open_tasks_cache := !open_tasks;
-  let max_tries = 100 in
-  let max_tries_inner = 120 in
-  let inner_timeout = 1000 in
-  (* TODO dynamic *)
-  let initial_timeout = 10000 in
-  let heartbeat_timeout = 2000 in
-  let idle_heartbeat_timeout = 2000 in
   let rec loop i err deferreds =
     if i > max_tries
     then (
@@ -425,6 +529,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
       | Some err -> return (Error err)
       | None -> Deferred.Or_error.errorf "failed for max tries (%d)" max_tries)
     else (
+      let live_uuid = Util.generate_uuid_list (Map.keys deferreds) in
       let%bind throttle_result =
         dispatch_command
           t
@@ -433,6 +538,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
           ~env_image
           ~send_lines
           ~send_timeout:(Time_ns.Span.of_int_ms initial_timeout)
+          ~uuid:live_uuid
       in
       let deferred =
         let%bind.Deferred.Or_error next_heartbeat, res = throttle_result in
@@ -456,11 +562,10 @@ let run_task t ~target ~program ~env_image ~send_lines =
             | `Output str -> Deferred.Or_error.return (`Output str))
         in
         let first_heartbeat_timeout =
-          if local_throttle then heartbeat_timeout else initial_timeout
+          if use_local_throttle then heartbeat_timeout else initial_timeout
         in
         heartbeat_loop first_heartbeat_timeout
       in
-      let live_uuid = Util.generate_uuid_list (Map.keys deferreds) in
       let deferreds = Map.add_exn deferreds ~key:live_uuid ~data:deferred in
       let rec inner_loop j deferreds =
         let%bind timeout =
@@ -484,13 +589,19 @@ let run_task t ~target ~program ~env_image ~send_lines =
               in
               let deferreds = Map.set deferreds ~key:uuid ~data:no_more_timeout in
               if String.equal uuid live_uuid
-              then loop (i + 1) err deferreds
+              then (
+                beta_sampler_failure t uuid;
+                loop (i + 1) err deferreds)
               else inner_loop (j + 1) deferreds
-            | `Output s -> Deferred.Or_error.return s)
+            | `Output s ->
+              if String.equal uuid live_uuid then beta_sampler_success t uuid;
+              Deferred.Or_error.return s)
           | Error err ->
             let deferreds = Map.remove deferreds uuid in
             if String.equal uuid live_uuid
-            then loop (i + 1) (Some err) deferreds
+            then (
+              beta_sampler_failure t uuid;
+              loop (i + 1) (Some err) deferreds)
             else inner_loop (j + 1) deferreds)
         | `Timeout ->
           if j > max_tries_inner
@@ -501,6 +612,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
             (* fprintf (force Writer.stderr) "timeout %d %d\n" i !open_tasks; *)
             refresh_idle_time t;
             (* open_tasks_cache := !open_tasks; *)
+            beta_sampler_failure t live_uuid;
             loop (i + 1) err deferreds)
           else inner_loop (j + 1) deferreds
       in
@@ -509,5 +621,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
   let%map.Deferred.Or_error out = loop 0 None String.Map.empty in
   open_tasks := !open_tasks - 1;
   refresh_idle_time t;
+  log_task_completed ();
+  (* print_beta_sampler t; *)
   out
 ;;

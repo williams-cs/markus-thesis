@@ -1,7 +1,7 @@
 open Core
 open Async
 
-let clusters : Remote_cluster.t String.Table.t = String.Table.create ()
+let clusters : Task_cluster.t String.Table.t = String.Table.create ()
 
 module Application_class_impl = struct
   let remote_run
@@ -24,13 +24,13 @@ module Application_class_impl = struct
       let cluster_info =
         match cluster_info with
         | None ->
-          let info = Remote_cluster.create () in
+          let info = Task_cluster.create () in
           String.Table.add_exn clusters ~key:cluster_id ~data:info;
           info
         | Some info -> info
       in
-      let%bind.Deferred.Or_error () =
-        Remote_cluster.init_targets cluster_info ~targets:remote_targets ~verbose ~stderr
+      let%bind.Deferred _res =
+        Task_cluster.init_targets cluster_info ~targets:remote_targets ~verbose ~stderr
       in
       match setting with
       | "map" ->
@@ -47,7 +47,7 @@ module Application_class_impl = struct
             let env_image = Env_image.add_assignment env_image ~key:"in" ~data:line in
             let process =
               let%bind.Deferred.Or_error res_string =
-                Remote_cluster.run_task
+                Task_cluster.run_task
                   cluster_info
                   ~target:`Any
                   ~program
@@ -103,7 +103,7 @@ module Application_class_impl = struct
               let env_image = Env_image.add_assignment env_image ~key:"key" ~data:key in
               let process =
                 let%bind.Deferred.Or_error res =
-                  Remote_cluster.run_task
+                  Task_cluster.run_task
                     cluster_info
                     ~target:`Any
                     ~program

@@ -200,8 +200,11 @@ module Subshell_state = struct
 end
 
 let literal_command s : t =
-  [ ((None, [ Simple_command ([ [ Literal s ] ], [], []) ]), []), Semicolon ]
+  (* [ ((None, [ Simple_command ([ [ Literal s ] ], [], []) ]), []), Semicolon ] *)
+  [ ((None, [ s ]), []), Semicolon ]
 ;;
+
+let string = string_unbuffered
 
 let ast : t Angstrom_extended.t =
   (* Grammar from: https://pubs.opengroup.org/onlinepubs/009604499/utilities/xcu_chap02.html#tag_02_10 *)
@@ -214,7 +217,7 @@ let ast : t Angstrom_extended.t =
       let delimiter = skip_while is_whitespace_within_line <* option () comment in
       let token s = string s <* delimiter in
       let optional_token s = option false (token s >>| fun _s -> true) in
-      let g_newline = token "\r" <|> token "\n" in
+      let g_newline = delimiter *> token "\r" <|> token "\n" in
       let g_newline_list = many1 g_newline *> return None in
       let g_linebreak = many g_newline in
       let g_separator_op =
@@ -417,11 +420,12 @@ let ast : t Angstrom_extended.t =
       in
       let g_compound_command = g_subshell <|> g_if_clause in
       let re_subshell = subshell in
-      let re_name = name >>| fun x -> literal_command x in
+      (* let re_name = name >>| fun x -> literal_command x in *)
+      let re_simple_command = g_simple_command >>| fun x -> literal_command x in
       let re_remote_command =
         if remote_extensions
         then
-          both (re_subshell <|> re_name <* delimiter <* token "@@") name
+          both (re_subshell <|> re_simple_command <* token "@@") name
           <* delimiter
           >>| fun (x, n) -> Remote_command (x, n)
         else fail "Remote extensions required"
@@ -461,7 +465,7 @@ let ast : t Angstrom_extended.t =
         let sep = maybe_sep |> Option.value ~default:Semicolon in
         unshift first later sep
       in
-      let empty = delimiter *> return [] in
+      let empty = delimiter *> option None g_newline_list *> return [] in
       ( (if Subshell_state.allow_empty subshell_state
         then g_compound_list <|> empty
         else g_compound_list)

@@ -2,6 +2,7 @@ open Core
 open Async
 open Eval
 module Ast = Ast
+module Beta_sampler = Beta_sampler
 module Cluster_type = Cluster_type
 module Env = Env
 module Eval = Eval
