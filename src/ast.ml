@@ -94,41 +94,45 @@ let is_whitespace = function
   | _ -> false
 ;;
 
-let is_special ~eq_special = function
-  (* Backslash *)
-  | '\\'
-  (* Quote *)
-  | '\"'
-  | '\''
-  (* Whitespace *)
-  | ' '
-  | '\t'
-  | '\n'
-  | '\x0b'
-  | '\x0c'
-  | '\r'
-  (* Shell Special Characters *)
-  | '$'
-  | '`'
-  | '#'
-  (* | '['
+let is_special ~exclude_special c =
+  if List.mem exclude_special c ~equal:Char.equal
+  then false
+  else (
+    match c with
+    (* Backslash *)
+    | '\\'
+    (* Quote *)
+    | '\"'
+    | '\''
+    (* Whitespace *)
+    | ' '
+    | '\t'
+    | '\n'
+    | '\x0b'
+    | '\x0c'
+    | '\r'
+    (* Shell Special Characters *)
+    | '$'
+    | '`'
+    | '#'
+    (* | '['
   | ']' *)
-  | '!'
-  | '>'
-  | '<'
-  | '|'
-  | ';'
-  | '{'
-  | '}'
-  | '('
-  | ')'
-  | '*'
-  (* | '?' *)
-  | '~'
-  | '&' -> true
-  | '=' -> eq_special
-  | '@' -> remote_extensions
-  | _ -> false
+    | '!'
+    | '>'
+    | '<'
+    | '|'
+    | ';'
+    | '{'
+    | '}'
+    | '('
+    | ')'
+    | '*'
+    (* | '?' *)
+    | '~'
+    | '&'
+    | '=' -> true
+    | '@' -> remote_extensions
+    | _ -> false)
 ;;
 
 let reserved_words =
@@ -228,11 +232,11 @@ let ast : t Angstrom_extended.t =
       (* Quoting *)
       let chars_to_literal cl = cl |> String.of_char_list |> fun l -> Literal l in
       let maybe_chars_to_literal mcl = mcl |> List.filter_opt |> chars_to_literal in
-      let non_special_character ~eq_special =
-        satisfy (fun x -> not (is_special ~eq_special x))
+      let non_special_character ~exclude_special =
+        satisfy (fun x -> not (is_special ~exclude_special x))
       in
-      let character_out_of_quotes ~within_backtick ~eq_special =
-        non_special_character ~eq_special
+      let character_out_of_quotes ~within_backtick ~exclude_special =
+        non_special_character ~exclude_special
         >>| some
         <|> char '\\' *> g_newline *> return None
         <|> char '\\'
@@ -244,7 +248,8 @@ let ast : t Angstrom_extended.t =
       in
       let variable =
         let within_backtick = Subshell_state.within_backtick subshell_state in
-        char '$' *> many1 (character_out_of_quotes ~within_backtick ~eq_special:true)
+        char '$'
+        *> many1 (character_out_of_quotes ~within_backtick ~exclude_special:[ '=' ])
         >>| fun mcl ->
         mcl |> List.filter_opt |> String.of_char_list |> fun v -> Variable v
       in
@@ -283,14 +288,14 @@ let ast : t Angstrom_extended.t =
         <|> command_substitution
         <|> (many1 character_in_double_quotes >>| chars_to_literal)
       in
-      let token_part_unquoted ~reserved_special ~eq_special =
+      let token_part_unquoted ~reserved_special ~exclude_special =
         let reserved = if reserved_special then reserved_words else [] in
         choice (List.map reserved ~f:(fun word -> string word))
         <!|>
         let within_backtick = Subshell_state.within_backtick subshell_state in
         variable
         <|> command_substitution
-        <|> (many1 (character_out_of_quotes ~within_backtick ~eq_special)
+        <|> (many1 (character_out_of_quotes ~within_backtick ~exclude_special)
             >>| maybe_chars_to_literal)
       in
       let single_quoted_str =
@@ -299,32 +304,36 @@ let ast : t Angstrom_extended.t =
       let double_quoted_str =
         double_quote *> many token_part_in_double_quotes <* double_quote
       in
-      let unquoted_string ~reserved_special ~eq_special =
+      let unquoted_string ~reserved_special ~exclude_special =
         both
-          (token_part_unquoted ~reserved_special ~eq_special)
-          (many (token_part_unquoted ~reserved_special:false ~eq_special))
+          (token_part_unquoted ~reserved_special ~exclude_special)
+          (many (token_part_unquoted ~reserved_special:false ~exclude_special))
         >>| fun (x, xs) -> x :: xs
       in
-      let name = many1 (non_special_character ~eq_special:true) >>| String.of_char_list in
-      let word ~reserved_special ~eq_special =
+      let name ~exclude_special =
+        many1 (non_special_character ~exclude_special) >>| String.of_char_list
+      in
+      let word ~reserved_special ~exclude_special =
         both
-          (unquoted_string ~reserved_special ~eq_special
+          (unquoted_string ~reserved_special ~exclude_special
           <|> single_quoted_str
           <|> double_quoted_str)
           (many
-             (unquoted_string ~reserved_special:false ~eq_special
+             (unquoted_string ~reserved_special:false ~exclude_special
              <|> single_quoted_str
              <|> double_quoted_str))
         >>| fun (x, xs) -> x :: xs |> List.concat
       in
       let delimited_word ~reserved_special =
-        delimiter *> word ~reserved_special ~eq_special:false <* delimiter
+        delimiter *> word ~reserved_special ~exclude_special:[] <* delimiter
       in
       let assignment =
-        both (name <* string "=") (word ~reserved_special:false ~eq_special:true)
+        both
+          (name ~exclude_special:[ '=' ] <* string "=")
+          (word ~reserved_special:false ~exclude_special:[ '=' ])
       in
       let assignment_word = delimiter *> assignment <* delimiter in
-      let g_filename = unquoted_string ~reserved_special:false ~eq_special:false in
+      let g_filename = unquoted_string ~reserved_special:false ~exclude_special:[] in
       let io_less = token "<" *> return Less in
       let io_lessand = token "<&" *> return Lessand in
       let io_great = token ">" *> return Great in
@@ -422,10 +431,11 @@ let ast : t Angstrom_extended.t =
       let re_subshell = subshell in
       (* let re_name = name >>| fun x -> literal_command x in *)
       let re_simple_command = g_simple_command >>| fun x -> literal_command x in
+      let re_hostname = name ~exclude_special:[ '='; '@' ] in
       let re_remote_command =
         if remote_extensions
         then
-          both (re_subshell <|> re_simple_command <* token "@@") name
+          both (re_subshell <|> re_simple_command <* token "@@") re_hostname
           <* delimiter
           >>| fun (x, n) -> Remote_command (x, n)
         else fail "Remote extensions required"

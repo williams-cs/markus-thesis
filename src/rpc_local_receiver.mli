@@ -18,6 +18,7 @@ val dispatch
   :  t
   -> host:string
   -> port:int option
+  -> user:string option
   -> remote_port:int
   -> (Response.t Pipe.Reader.t * Rpc.Pipe_rpc.Metadata.t) Deferred.Or_error.t
 

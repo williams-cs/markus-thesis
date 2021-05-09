@@ -1,11 +1,17 @@
 open Core
 
 (* Returns the path and hash of the resulting executable *)
-val local_copy : host:string -> port:int option -> verbose:bool -> string * string
+val local_copy
+  :  host:string
+  -> port:int option
+  -> user:string option
+  -> verbose:bool
+  -> string * string
 
 val remote_run_receiver
   :  host:string
   -> port:int option
+  -> user:string option
   -> verbose:bool
   -> remote_port:int
   -> write_callback:(bytes -> int -> unit)
@@ -15,6 +21,7 @@ val remote_run_receiver
 val remote_run_sender
   :  host:string
   -> port:int option
+  -> user:string option
   -> verbose:bool
   -> port_callback:(int -> unit)
   -> read_callback:(bytes -> int -> int)

@@ -167,6 +167,77 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
     return 1
 ;;
 
+(*
+-i: print counter with time 
+-t: print string with time
+-p (or no arg): print string
+-c: clear counter
+-s: start timer
+-n: set id/name
+*)
+let internal_log ~env ~stdout:_ ~stderr ~args =
+  match separate_flags args ~valid_flags:[ "c"; "i"; "p"; "t"; "s"; "n" ] with
+  | Ok (flags, args) ->
+    let log_time_key = "_log_time" in
+    let log_counter_key = "_log_counter" in
+    let log_id_key = "_log_id" in
+    let log_id = Env.assign_get env ~key:log_id_key in
+    let log_id = if String.equal log_id "" then "_internal" else log_id in
+    let log = Util.log ~id:log_id in
+    let time_start () =
+      let time_start_str =
+        Time_ns.now () |> Time_ns.to_int63_ns_since_epoch |> Int63.to_string
+      in
+      Env.assign_set env ~key:log_time_key ~data:time_start_str |> ignore
+    in
+    let time_elapsed () =
+      let time_start_str = Env.assign_get env ~key:log_time_key in
+      let time_start_str =
+        if String.equal time_start_str ""
+        then (
+          time_start ();
+          Env.assign_get env ~key:log_time_key)
+        else time_start_str
+      in
+      let time_start_ns =
+        Int63.of_string time_start_str |> Time_ns.of_int63_ns_since_epoch
+      in
+      Time_ns.diff (Time_ns.now ()) time_start_ns |> Time_ns.Span.to_sec
+    in
+    (match flags with
+    | [] | [ "p" ] ->
+      Log.printf log "%s" (String.concat ~sep:" " args);
+      return 0
+    | [ "s" ] ->
+      time_start ();
+      return 0
+    | [ "t" ] ->
+      let time_elapsed = time_elapsed () in
+      Log.printf log "%f,%s" time_elapsed (String.concat ~sep:" " args);
+      return 0
+    | [ "c" ] ->
+      Env.assign_set env ~key:log_counter_key ~data:"0" |> ignore;
+      return 0
+    | [ "i" ] ->
+      let time_elapsed = time_elapsed () in
+      let counter_string = Env.assign_get env ~key:log_counter_key in
+      let counter =
+        if String.equal counter_string "" then 0 else Int.of_string counter_string
+      in
+      let counter = counter + 1 in
+      Log.printf log "%f,%d" time_elapsed counter;
+      return 0
+    | [ "n" ] ->
+      Env.assign_set env ~key:log_id_key ~data:(String.concat ~sep:" " args) |> ignore;
+      return 0
+    | _ ->
+      fprintf stderr "_log: too many options\n";
+      return 1)
+  | Error invalid_flag ->
+    fprintf stderr "_log: %s: invalid option\n" invalid_flag;
+    return 1
+;;
+
 let builtins =
   Map.of_alist_exn
     (module String)
@@ -176,5 +247,6 @@ let builtins =
     ; "cluster", Function builtin_cluster
     ; "source", Source
     ; ".", Source
+    ; "_log", Function internal_log
     ]
 ;;

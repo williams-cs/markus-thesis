@@ -7,6 +7,7 @@ module Open_query = struct
   type t =
     { host : string
     ; port : int option
+    ; user : string option
     }
   [@@deriving bin_io, fields]
 end
@@ -142,6 +143,7 @@ let handle_open state query =
   let read_fd = State.read_fd state in
   let host = Open_query.host query in
   let port = Open_query.port query in
+  let user = Open_query.user query in
   let ivar : int Or_error.t Ivar.t = Ivar.create () in
   let _x =
     In_thread.run (fun () ->
@@ -149,6 +151,7 @@ let handle_open state query =
           Remote_ssh.remote_run_sender
             ~host
             ~port
+            ~user
             ~verbose
             ~port_callback:(fun port -> Ivar.fill ivar (Ok port))
             ~read_callback:(fun buf len -> Core.Unix.read read_fd ~len ~buf)
@@ -247,8 +250,8 @@ let start_local_sender ~verbose =
   Ivar.read ivar
 ;;
 
-let dispatch_open conn ~host ~port =
-  let query = { Open_query.host; port } in
+let dispatch_open conn ~host ~port ~user =
+  let query = { Open_query.host; port; user } in
   let%map response = Rpc.dispatch open_rpc conn query in
   Or_error.join response
 ;;

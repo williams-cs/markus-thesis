@@ -57,7 +57,7 @@ let authenticate ssh =
     loop auths
 ;;
 
-let connect ~host ~port ~verbose =
+let connect ~host ~port ~user ~verbose =
   let ssh = new Libssh.ssh () in
   let port_string =
     match port with
@@ -69,6 +69,9 @@ let connect ~host ~port ~verbose =
   (match port with
   | None -> ()
   | Some i -> ssh#options_set (Libssh.SSH_OPTIONS_PORT i));
+  (match user with
+  | None -> ()
+  | Some u -> ssh#options_set (Libssh.SSH_OPTIONS_USER u));
   ssh#options_set (Libssh.SSH_OPTIONS_TIMEOUT_USEC default_ssh_timeout);
   (* SSH debug mode *)
   if ssh_debug
@@ -128,7 +131,7 @@ let local_command str =
 
 let hash_command str = sprintf "md5sum %s| cut -d ' ' -f 1" str
 
-let local_copy ~host ~port ~verbose =
+let local_copy ~host ~port ~user:_ ~verbose =
   let stderr = force Async.Writer.stderr in
   Util.verbose_println
     ~name:(source `Copy)
@@ -275,9 +278,9 @@ let shard_exe = sprintf "%s/shard.exe" shard_dir
 let rslog = sprintf "%s/rslog.txt" shard_dir
 let rrlog = sprintf "%s/rrlog.txt" shard_dir
 
-let remote_run_sender_unsafe ~host ~port ~verbose ~port_callback ~read_callback =
+let remote_run_sender_unsafe ~host ~port ~user ~verbose ~port_callback ~read_callback =
   let stderr = force Async.Writer.stderr in
-  let _local_path, program_hash = local_copy ~verbose ~host ~port in
+  let _local_path, program_hash = local_copy ~verbose ~host ~port ~user in
   debug_println ~verbose program_hash;
   Util.verbose_println
     ~name:(source `Sender)
@@ -286,7 +289,7 @@ let remote_run_sender_unsafe ~host ~port ~verbose ~port_callback ~read_callback 
     ~host
     ~port
     "Connecting to remote...";
-  let ssh = connect ~host ~port ~verbose in
+  let ssh = connect ~host ~port ~user ~verbose in
   (* Check for remote copy of Shard *)
   Util.verbose_println
     ~name:(source `Sender)
@@ -354,6 +357,7 @@ let remote_run_sender_unsafe ~host ~port ~verbose ~port_callback ~read_callback 
 let remote_run_receiver_unsafe
     ~host
     ~port
+    ~user
     ~verbose
     ~remote_port
     ~write_callback
@@ -367,7 +371,7 @@ let remote_run_receiver_unsafe
     ~host
     ~port
     "Conneting to remote...";
-  let ssh = connect ~host ~port ~verbose in
+  let ssh = connect ~host ~port ~user ~verbose in
   (* Run command on remote Shard *)
   Util.verbose_println
     ~name:(source `Receiver)
@@ -384,16 +388,25 @@ let remote_run_receiver_unsafe
   Util.verbose_println ~name:(source `Receiver) ~verbose ~stderr ~host ~port "Complete!"
 ;;
 
-let remote_run_sender ~host ~port ~verbose ~port_callback ~read_callback =
+let remote_run_sender ~host ~port ~user ~verbose ~port_callback ~read_callback =
   Or_error.try_with (fun () ->
-      remote_run_sender_unsafe ~host ~port ~verbose ~port_callback ~read_callback)
+      remote_run_sender_unsafe ~host ~port ~user ~verbose ~port_callback ~read_callback)
 ;;
 
-let remote_run_receiver ~host ~port ~verbose ~remote_port ~write_callback ~close_callback =
+let remote_run_receiver
+    ~host
+    ~port
+    ~user
+    ~verbose
+    ~remote_port
+    ~write_callback
+    ~close_callback
+  =
   Or_error.try_with (fun () ->
       remote_run_receiver_unsafe
         ~host
         ~port
+        ~user
         ~verbose
         ~remote_port
         ~write_callback

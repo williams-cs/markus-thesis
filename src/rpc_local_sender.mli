@@ -4,7 +4,13 @@ type t
 
 val create : Rpc.Connection.t -> t
 val start_local_sender : verbose:bool -> unit Deferred.t
-val dispatch_open : t -> host:string -> port:int option -> int Deferred.Or_error.t
+
+val dispatch_open
+  :  t
+  -> host:string
+  -> port:int option
+  -> user:string option
+  -> int Deferred.Or_error.t
 
 val dispatch_header
   :  t

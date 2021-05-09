@@ -29,20 +29,21 @@ module Application_class_impl = struct
     let rconn = ref None in
     let host = Remote_target.host remote_target in
     let port = Remote_target.port remote_target in
+    let user = Remote_target.user remote_target in
     let%bind res1d =
       (let%bind.Deferred.Or_error sender_conn, receiver_conn =
-         Remote_rpc.setup_rpc_service ~host ~port ~stderr ~verbose ~job:(Some job)
+         Remote_rpc.setup_rpc_service ~host ~port ~user ~stderr ~verbose ~job:(Some job)
        in
        sconn := Some sender_conn;
        rconn := Some receiver_conn;
        let%bind.Deferred.Or_error remote_port =
-         Rpc_local_sender.dispatch_open sender_conn ~host ~port
+         Rpc_local_sender.dispatch_open sender_conn ~host ~port ~user
        in
        let%bind.Deferred.Or_error _id =
          Rpc_local_sender.dispatch_header sender_conn ~program ~env_image
        in
        let%map.Deferred.Or_error resp =
-         Rpc_local_receiver.dispatch receiver_conn ~host ~port ~remote_port
+         Rpc_local_receiver.dispatch receiver_conn ~host ~port ~user ~remote_port
        in
        let reader, _metadata = resp in
        (* let _send =

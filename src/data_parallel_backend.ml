@@ -34,6 +34,8 @@ module Application_class_impl = struct
       in
       match setting with
       | "map" ->
+        (* Reset log *)
+        Task_cluster.log_reset cluster_info;
         (* Start processing inputs: For each line, send to some host in cluster
          for processing. Repeat until done. Stream back data line by line in
          key,value format.*)

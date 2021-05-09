@@ -5,6 +5,7 @@ open Rpc_common
 let use_sequence_numbers = true
 let use_local_throttle = true
 let use_beta_sampling = true
+let enable_logging = true
 
 (* Retry config *)
 (* TODO dynamic *)
@@ -78,10 +79,16 @@ type t =
   ; init_target_fields : Init_target_fields.t Ivar.t ref
   ; beta_sampler : Beta_sampler.t
   ; beta_sampler_key_of_uuid : string String.Table.t
+  ; log_start_time : Time_ns.t ref
+  ; log_id : string ref
+  ; log_task_counter : int ref
   }
 [@@deriving fields]
 
+let start_to_id start = start |> Time_ns.to_int63_ns_since_epoch |> Int63.to_string
+
 let create () =
+  let start = Time_ns.now () in
   { connections = String.Table.create ()
   ; target_list = ref []
   ; remote_target_index = ref 0
@@ -91,6 +98,9 @@ let create () =
   ; init_target_fields = ref (Ivar.create ())
   ; beta_sampler = Beta_sampler.create ()
   ; beta_sampler_key_of_uuid = String.Table.create ()
+  ; log_start_time = ref start
+  ; log_id = ref (start_to_id start)
+  ; log_task_counter = ref 0
   }
 ;;
 
@@ -118,10 +128,10 @@ let remote_target_string target =
   sprintf "%s%s" host port_string
 ;;
 
-let dispatch_reader conn ~host ~port ~remote_port =
+let dispatch_reader conn ~host ~port ~user ~remote_port =
   (* potential race conditions? *)
   let%bind.Deferred.Or_error pipe, metadata =
-    Rpc_local_receiver.dispatch conn ~host ~port ~remote_port
+    Rpc_local_receiver.dispatch conn ~host ~port ~user ~remote_port
   in
   let writers = Hashtbl.create (module String) in
   let readers = Hashtbl.create (module String) in
@@ -245,14 +255,15 @@ let init_target_raw t ~target ~force_create =
     add_conn t target_string target ivar timestamp;
     let host = Remote_target.host target in
     let port = Remote_target.port target in
+    let user = Remote_target.user target in
     let%bind.Deferred.Or_error sender_conn, receiver_conn =
-      Remote_rpc.setup_rpc_service ~host ~port ~stderr ~verbose ~job:None
+      Remote_rpc.setup_rpc_service ~host ~port ~user ~stderr ~verbose ~job:None
     in
     let%bind.Deferred.Or_error remote_port =
-      Rpc_local_sender.dispatch_open sender_conn ~host ~port
+      Rpc_local_sender.dispatch_open sender_conn ~host ~port ~user
     in
     let%map.Deferred.Or_error resp =
-      dispatch_reader receiver_conn ~host ~port ~remote_port
+      dispatch_reader receiver_conn ~host ~port ~user ~remote_port
     in
     let reader_map, _metadata, _deferred = resp in
     let sender_throttle =
@@ -487,8 +498,32 @@ let refresh_idle_time t =
   last_activity := Time_ns.now ()
 ;;
 
+let log_time_passed t =
+  let now = Time_ns.now () in
+  let start = !(log_start_time t) in
+  let elapsed = Time_ns.diff now start in
+  Time_ns.Span.to_sec elapsed
+;;
+
 (* TODO implement log *)
-let log_task_completed () = ()
+let log_task_completed t =
+  if enable_logging
+  then (
+    let complete_count = !(log_task_counter t) + 1 in
+    log_task_counter t := complete_count + 1;
+    let base_id = !(log_id t) in
+    let log = Util.log ~id:base_id in
+    Log.printf log "%f,%d" (log_time_passed t) complete_count)
+;;
+
+let log_reset t =
+  if enable_logging
+  then (
+    let start = Time_ns.now () in
+    log_start_time t := start;
+    log_id t := start_to_id start;
+    log_task_counter t := 0)
+;;
 
 let beta_sampler_outcome t uuid outcome =
   if use_beta_sampling
@@ -621,7 +656,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
   let%map.Deferred.Or_error out = loop 0 None String.Map.empty in
   open_tasks := !open_tasks - 1;
   refresh_idle_time t;
-  log_task_completed ();
+  log_task_completed t;
   (* print_beta_sampler t; *)
   out
 ;;

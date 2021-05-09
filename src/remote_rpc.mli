@@ -23,6 +23,7 @@ val start_remote_receiver : verbose:bool -> unit Deferred.t
 val setup_rpc_service
   :  host:string
   -> port:int option
+  -> user:string option
   -> stderr:Writer.t
   -> verbose:bool
   -> job:Job.t option

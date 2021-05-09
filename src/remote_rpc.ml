@@ -21,7 +21,7 @@ let continue_if_should_connect job f =
   else Deferred.Or_error.error_string "Should not connect on attempted connection!"
 ;;
 
-let rpc_create_child ~name ~prog ~args ~host ~port ~stderr ~verbose ~job =
+let rpc_create_child ~name ~prog ~args ~host ~port ~user:_ ~stderr ~verbose ~job =
   (* run copied executable with command line argument, which runs the server *)
   continue_if_should_connect job (fun () ->
       Util.verbose_println
@@ -57,7 +57,7 @@ let rpc_create_child ~name ~prog ~args ~host ~port ~stderr ~verbose ~job =
         Deferred.Or_error.return port)
 ;;
 
-let setup_rpc_service ~host ~port ~stderr ~verbose ~job =
+let setup_rpc_service ~host ~port ~user ~stderr ~verbose ~job =
   continue_if_should_connect job (fun () ->
       Util.verbose_println
         ~name:"Shard_rpc"
@@ -69,7 +69,7 @@ let setup_rpc_service ~host ~port ~stderr ~verbose ~job =
       let%bind local_path =
         (* copy executable to shard folder *)
         In_thread.run (fun () ->
-            let local_path, _hash = Remote_ssh.local_copy ~verbose ~host ~port in
+            let local_path, _hash = Remote_ssh.local_copy ~verbose ~host ~port ~user in
             local_path)
       in
       (match job with
@@ -82,6 +82,7 @@ let setup_rpc_service ~host ~port ~stderr ~verbose ~job =
           ~args:[ "-Rls" ]
           ~host
           ~port
+          ~user
           ~stderr
           ~verbose
           ~job
@@ -102,6 +103,7 @@ let setup_rpc_service ~host ~port ~stderr ~verbose ~job =
           ~args:[ "-Rlr" ]
           ~host
           ~port
+          ~user
           ~stderr
           ~verbose
           ~job

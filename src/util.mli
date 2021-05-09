@@ -1,6 +1,8 @@
 open Core
 open Async
 
+val log : id:string -> Log.t
+
 (* Make sure to call this for deterministic unit tests *)
 val set_random_state : Random.State.t -> unit
 val random_state : unit -> Random.State.t

@@ -756,6 +756,8 @@ However, it is not mandatory for an application class to use the cluster abstrac
 
 \subsubsection{Example program: Memory usage in cluster}
 
+One example of a program that uses the \texttt{single\_command} application class is \texttt{memory\_usage.shard}, a program which collects memory usage information from all machines in a cluster, as defined by another script, \texttt{cluster\_setup.shard}.
+
 \begin{lstlisting}[language=Shard]
 # memory_usage.shard
 source cluster_setup.shard
@@ -763,6 +765,32 @@ source cluster_setup.shard
     free |
     awk "FNR == 2 {print \$3/\$2}")@@testcluster
 \end{lstlisting}
+
+\begin{itemize}
+  \item On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
+        Because no cluster type is specified, Shard assumes the cluster has the default application class \texttt{single\_command}.
+  \item On lines 3-5 of the program, the portion of the program executed on the remote machine is indicated by the part of the program between the pair of parenthases located before the \texttt{@@} remote execution operator, and the cluster to perform the remote execution on, \texttt{testcluster}, is located after the \texttt{@@} operator.
+  \item On line 3 of the program, the hostname of the remote machine is printed, followed by a colon and no newline. This is to allow the user to know which remote machine the memory usage data originated from, in the case that there is more than one remote machine in the cluster.
+  \item On line 4 of the program, the \texttt{free} UNIX executable is ran, which collects information about the memory usage of the current machine, among other memory related statistics.
+  \item On line 5 of the program, the output of \texttt{free} is processed by the \texttt{awk} UNIX program, which selects the second line of the output, and prints the value of the third column (memory used) by the value of the second column (total memory). This is printed on the same line as the previous \texttt{echo} statement, because the \texttt{-n} option was passed to the echo to omit the newline.
+\end{itemize}
+
+The following script is an example of the contents of \texttt{cluster\_setup.shard}.
+This script sets up a cluster of the name \texttt{testcluster} and adds four remote hosts to the cluster.
+Once this is set up, another Shard script can import this script using the \texttt{source} builtin, as seen above, which means that the cluster setup code can be configured independenly of each script using the cluster.
+
+\begin{lstlisting}[language=Shard]
+# cluster_setup.shard for Williams CS machines
+# Hostnames here differ from the actual hostnames used
+cluster -s testcluster
+cluster -a machine1.cs.williams.edu
+cluster -a machine2.cs.williams.edu
+cluster -a machine3.cs.williams.edu
+cluster -a machine4.cs.williams.edu
+\end{lstlisting}
+
+Here is an example output of the program when run
+
 
 \subsection{Application class: \texttt{data\_parallel}}
 
@@ -1598,15 +1626,7 @@ source cluster_setup.shard
     free |
     awk "FNR == 2 {print \$3/\$2}")@@testcluster
 \end{lstlisting}
-This program collects the memory usage for each of the machines in the cluster.
-\begin{itemize}
-  \item On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
-        Because no cluster type is specified, Shard assumes the cluster has the default application class \texttt{single\_command}.
-  \item On lines 3-5 of the program, the portion of the program executed on the remote machine is indicated by the part of the program between the pair of parenthases located before the \texttt{@@} remote execution operator, and the cluster to perform the remote execution on, \texttt{testcluster}, is located after the \texttt{@@} operator.
-  \item On line 3 of the program, the hostname of the remote machine is printed, followed by a colon and no newline. This is to allow the user to know which remote machine the memory usage data originated from, in the case that there is more than one remote machine in the cluster.
-  \item On line 4 of the program, the \texttt{free} UNIX executable is ran, which collects information about the memory usage of the current machine, among other memory related statistics.
-  \item On line 5 of the program, the output of \texttt{free} is processed by the \texttt{awk} UNIX program, which selects the second line of the output, and prints the value of the third column (memory used) by the value of the second column (total memory). This is printed on the same line as the previous \texttt{echo} statement, because the \texttt{-n} option was passed to the echo to omit the newline.
-\end{itemize}
+This program, which was previously described in the \textbf{Application class: }\texttt{single\_command} section of the \textbf{Design} chapter, collects the memory usage for each of the machines in the cluster.
 
 The contents of \texttt{cluster\_setup.shard} vary depending on which set of remote machines the experiment is being run on.
 For testing on the local machine, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding the localhost to the cluster:

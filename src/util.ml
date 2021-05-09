@@ -1,6 +1,23 @@
 open Core
 open Async
 
+let logs : Log.t String.Table.t = String.Table.create ()
+let ts = Time_ns.now () |> Time_ns.to_int63_ns_since_epoch |> Int63.to_string
+let shard_log_path_dir = sprintf "/tmp/shard/logs/%s" ts
+let shard_log_path id = sprintf "%s/%s.log" shard_log_path_dir id
+
+let log ~id =
+  match String.Table.find logs id with
+  | Some log -> log
+  | None ->
+    let dir = shard_log_path_dir in
+    Core.Unix.mkdir_p dir;
+    let output = [ Log.Output.file `Text ~filename:(shard_log_path id) ] in
+    let log = Log.create ~level:`Info ~on_error:`Raise () ~output in
+    String.Table.set logs ~key:id ~data:log;
+    log
+;;
+
 let random_state_ref : Random.State.t option ref = ref None
 let set_random_state state = random_state_ref := Some state
 

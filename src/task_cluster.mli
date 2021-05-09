@@ -18,3 +18,6 @@ val run_task
   -> env_image:Env_image.t
   -> send_lines:string list
   -> string Deferred.Or_error.t
+
+(* For internal logging use *)
+val log_reset : t -> unit

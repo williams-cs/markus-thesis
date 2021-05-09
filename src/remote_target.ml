@@ -5,6 +5,7 @@ module Stable = struct
   type t =
     { host : string
     ; port : int option
+    ; user : string option
     ; setting : string
     }
   [@@deriving fields, sexp, bin_io, compare, hash]
@@ -13,21 +14,29 @@ end
 include Stable
 include (Hashable.Make_binable (Stable) : Hashable.S_binable with type t := t)
 
-let create ~host ~port ~setting = { host; port; setting }
-let with_setting { host; port; setting = _ } ~setting = { host; port; setting }
+let create ~host ~port ~user ~setting = { host; port; user; setting }
 
-let to_string { host; port; setting } =
+let with_setting { host; port; user; setting = _ } ~setting =
+  { host; port; user; setting }
+;;
+
+let to_string { host; port; user; setting } =
   let setting_part =
     match setting with
     | "" -> ""
     | s -> sprintf "%s/" s
+  in
+  let user_part =
+    match user with
+    | None -> ""
+    | Some u -> sprintf "%s@" u
   in
   let port_part =
     match port with
     | None -> ""
     | Some i -> sprintf ":%d" i
   in
-  sprintf "%s%s%s" setting_part host port_part
+  sprintf "%s%s%s%s" setting_part user_part host port_part
 ;;
 
 let split_remote_target_setting remote =
@@ -52,5 +61,6 @@ let resolve remote =
   | None -> None
   | Some host ->
     let port = Uri.port uri in
-    Some (create ~host ~port ~setting)
+    let user = Uri.user uri in
+    Some (create ~host ~port ~user ~setting)
 ;;
