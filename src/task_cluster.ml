@@ -510,7 +510,7 @@ let log_task_completed t =
   if enable_logging
   then (
     let complete_count = !(log_task_counter t) + 1 in
-    log_task_counter t := complete_count + 1;
+    log_task_counter t := complete_count;
     let base_id = !(log_id t) in
     let log = Util.log ~id:base_id in
     Log.printf log "%f,%d" (log_time_passed t) complete_count)
