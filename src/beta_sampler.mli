@@ -17,9 +17,11 @@ present, returns None. *)
 val sample : t -> key:string -> float option
 
 (* Take a beta distribution sample of each key, optionally excluding some keys,
-and choose the key with the highest result. If all current keys are excluded,
-returns None. *)
-val choose : ?excluding:string list -> t -> (string * float) option
+and choose the key with the highest result. 
+The excluded keys are multiplied with the specified penalty, with the default
+multiplier being zero.
+If no keys are present, returns None. *)
+val choose : ?excluding:string list -> ?penalty:float -> t -> (string * float) option
 val get : t -> key:string -> (int * int) option
 val keys : t -> string list
 

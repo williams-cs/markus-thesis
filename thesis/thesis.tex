@@ -182,14 +182,14 @@
 Performing tasks that are distributed among many systems currently fail to achieve each of the goals of being reliable, easy to set up, closely resembling an existing technology, and friendly to users without distributed systems knowledge.
 Because distributed systems are inherently unreliable, succeeding in these goals require the system to provide an abstraction for error handling and recovery that account for the many failure cases that may arise.
 This thesis project attempts to define a set of error handling semantics that is simple to use, but powerful enough to be applied to a diverse set of use cases.
-The project will also involve implementing a shell-based programming language, Shard (standing for Shell - Ad hoc, Reliable, and Distributed), to demonstrate the usefulness of the error handling semantics as defined.
+The project will also involve implementing a shell-based programming language, Shard (standing for Ad hoc, Reliable, and Distributed Shell), to demonstrate the usefulness of the error handling semantics as defined.
 Using this language, anyone with basic shell knowledge should be able to write and run scripts that runs over multiple machines reliably.
 This will greatly aid in increasing the accessibility and simplifying the process of running distributed programs in domains including systems administration and scientific computing.
 
 
 \chapter*{Acknowledgments}
 
-I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbadical leaves, during a difficult time in the world, as we work through the COVID-19 pandemic in all facets of our lives.
+I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbadical leaves, during a difficult time in the world, as we work through the COVID-19 pandemic in all facets of our lives, and to all of my family and friends who have supported by in these times.
 
 \todoi{Expand}
 
@@ -279,14 +279,14 @@ Reliability is important because it allows Shard programs to be more predictable
 % \end{itemize}
 
 The third core pillar of Shard is that it should be easy to use.
-This means that Shard should be useful in an ad-hoc situation for any programmer to run a distributed program.
+This means that Shard should be useful in an ad hoc situation for any programmer to run a distributed program.
 Shard should be easy to use for someone with little to no background knowledge in distributed computing and in Shard itself, so from a language design standpoint, it should be as clear as possible in both reading a Shard program to understand what it does, and in creating a Shard program to complete a certain task.
 Shard should be also be easy to use on any machine that is supported along with any cluster of machines to perform the distributed computation on, with minimal amounts of installation and configuration on both the machine starting the Shard program and the machines in the cluster, and this minimal configuration and installation should also not require much background knowledge to perform.
 It should be fast and easy to get from the point of Shard being installed to running the program on Shard, particularly for somone who has already used Shard before.
 
 There are clear benefits to a computer system for being easy to use.
 From the standpoint of having a low knowledge barrier, ease of use can mean that the system is useful to a larger audience of users, since the barrier of learning a new tool or its prerequisite background knowledge may stop larger numbers of people from trying it out in the first place, resulting in the system only being useful for a small niche of trained experts, even if the ultimate benefit of using the system is greater than the learning cost.
-In addition, Shard being easy to use may mean that it is the better tool in ad-hoc situations, where the goal is to solve a problem of running a distributed program using some combination of the least effort and the least time, which can give it a significant edge over more powerful but heavyweight distributed systems, where time is wasted setting up the system or writing the distributed program.
+In addition, Shard being easy to use may mean that it is the better tool in ad hoc situations, where the goal is to solve a problem of running a distributed program using some combination of the least effort and the least time, which can give it a significant edge over more powerful but heavyweight distributed systems, where time is wasted setting up the system or writing the distributed program.
 
 The core pillar of being easy to use is what separates Shard from many traditional distributed systems that will be described in the \textbf{Distributed Computing} section of the \textbf{Background} chapter, and which do follow the other two core pillars of being distributed and reliable. For many of those systems, it is plausible that the time it takes to get the system up and running is many times longer than the time it takes to install Shard, write the Shard program, run the Shard program, and complete the task.
 
@@ -300,6 +300,8 @@ The core pillar of being easy to use is what separates Shard from many tradition
 % \begin{itemize}
 %   \item Explain the layout of the rest of my thesis
 % \end{itemize}
+
+\todoi{Add story to motivate reader?}
 
 The Shard project's goal is to design and implement a distributed shell programming language that accomplishes the goals outlined by the three core pillars of being distributed, reliable, and easy to use.
 The work and evaluation of the Shard project will be described in the remainder of the thesis, separated into the following parts:
@@ -412,7 +414,7 @@ However, none of these shells fully realize the goals of the Shard shell.
 In particular, unlike for many of the distributed systems mentioned above, the issue of distributed error handling and recovery is not well addressed by any of the solutions below.
 
 \subsubsection{SSH}
-One method of making an ad-hoc distributed shell is to invoke the SSH secure shell utility multiple times.
+One method of making an ad hoc distributed shell is to invoke the SSH secure shell utility multiple times.
 The SSH utility allows users to connect to remote machines over TCP and access the command line shell on those machines \cite{rfc4251}.
 Given a command to run and a list of remote hosts, the shell can iterate over the list, invoke SSH with that remote host as an argument, run the command on the remote host, and finally collect the results back on the local machine.
 Notably, this method is that it does not handle error recovery well, or guarantee reliable execution in the event of failures.
@@ -740,39 +742,45 @@ One example of an application class not described is an application class that s
 A use case for this application class is if completion time is an utmost priority, and wasting computational resources by repeating tasks on multiple machines is not a concern.
 Additional application classes such as this one can be added to specific Shard implementations as needed.
 
-Both of the application classes in Shard utilize the cluster abstraction as provided by the network layer, as described in the \texttt{Network layer design} section of this chapter, but with tuned differently to support the particular application class.
-This cluster abstraction provides error handling, timeouts, and retries.
+Both of the application classes in Shard utilize the task cluster abstraction as provided by the network layer, as described in the \texttt{Network layer design} section of this chapter, but with tuned differently to support the particular application class.
+This task cluster abstraction provides error handling, timeouts, and retries.
+As such, specific details about the error handling will be discussed in the \textbf{Task cluster abstraction} section later in this chapter.
 However, it is not mandatory for an application class to use the cluster abstraction of the network layer, or the network layer at all, as the application class is free to decide its own semantics.
 
 \subsection{Application class: \texttt{single\_command}}
 
-\todoi{Write this subsection}
+The \texttt{single\_command} application class is used for applications that want to execute the remote program successfully and reliably at least once on each machine in the cluster.
 
-\begin{itemize}
-  \item Application features
-  \item Error handling
-  \item Give example of when to use
-\end{itemize}
+When a remote execution on a cluster with this application class is invoked, the remote program is passed to each of the machines in the cluster in parallel.
+As the remote programs complete, their output is is directly printed to the local standard output, which may be piped or redirected by the shell as needed.
+Thus, the output from a given remote program always arrives in the same order, but there is no guarantee as to the order in which the output of different remote programs arrive.
+
+If a remote execution fails on a particular machine, due to connectivity issues or timeouts, it is retried on the same remote machine.
+Many retries may occur before the remote execution successfully completes, up to the maximum number of retries as configurable by the application class (the level of configurability is implementation specific).
+
+This application class is used as the default for remote executions on both single machines and on clusters.
+It is generally useful when the goal is to reliably execute a Shard program on all machines in a cluster, with example use cases in monitoring, configuration, and installation.
+Note that due to the retry mechanism, a the Shard program may run many times on a given machine, so care should be taken to ensure that the remote execution is idempotent if such behavior is necessary.
 
 \subsubsection{Example program: Memory usage in cluster}
 
-One example of a program that uses the \texttt{single\_command} application class is \texttt{memory\_usage.shard}, a program which collects memory usage information from all machines in a cluster, as defined by another script, \texttt{cluster\_setup.shard}.
+One example of a program that uses the \texttt{single\_command} application class is \texttt{memory\_usage.shard}, a program that collects memory usage information from all machines in a cluster, as defined by another script, \texttt{cluster\_setup.shard}.
 
 \begin{lstlisting}[language=Shard]
 # memory_usage.shard
 source cluster_setup.shard
-(echo -n "$(hostname): ";
+(echo "$(hostname): $(
     free |
-    awk "FNR == 2 {print \$3/\$2}")@@testcluster
+    awk "FNR == 2 {print \$3/\$2}")")@@testcluster
 \end{lstlisting}
 
 \begin{itemize}
   \item On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
         Because no cluster type is specified, Shard assumes the cluster has the default application class \texttt{single\_command}.
   \item On lines 3-5 of the program, the portion of the program executed on the remote machine is indicated by the part of the program between the pair of parenthases located before the \texttt{@@} remote execution operator, and the cluster to perform the remote execution on, \texttt{testcluster}, is located after the \texttt{@@} operator.
-  \item On line 3 of the program, the hostname of the remote machine is printed, followed by a colon and no newline. This is to allow the user to know which remote machine the memory usage data originated from, in the case that there is more than one remote machine in the cluster.
+  \item On line 3 of the program, the hostname of the remote machine is printed, followed by a colon. This is to allow the user to know which remote machine the memory usage data originated from, in the case that there is more than one remote machine in the cluster.
   \item On line 4 of the program, the \texttt{free} UNIX executable is ran, which collects information about the memory usage of the current machine, among other memory related statistics.
-  \item On line 5 of the program, the output of \texttt{free} is processed by the \texttt{awk} UNIX program, which selects the second line of the output, and prints the value of the third column (memory used) by the value of the second column (total memory). This is printed on the same line as the previous \texttt{echo} statement, because the \texttt{-n} option was passed to the echo to omit the newline.
+  \item On line 5 of the program, the output of \texttt{free} is processed by the \texttt{awk} UNIX program, which selects the second line of the output, and prints the value of the third column (memory used) by the value of the second column (total memory). This is printed together with the hostname and remote machine.
 \end{itemize}
 
 The following script is an example of the contents of \texttt{cluster\_setup.shard}.
@@ -789,14 +797,47 @@ cluster -a machine3.cs.williams.edu
 cluster -a machine4.cs.williams.edu
 \end{lstlisting}
 
-Here is an example output of the program when run
+Here is an example output of the program when run on the machines in the Williams CS machiens cluster (with the machine names here differing from the actual machine names):
 
+\begin{lstlisting}[language=]
+machine3: 0.0529418
+machine2: 0.0507266
+machine1: 0.0516429
+machine4: 0.053404
+\end{lstlisting}
+
+This output provides information about the memory usage of each of the machines in the cluster, indicating that around 5\% of the memory is being used on each machine.
+Note that the order of the output does not necessarily correspond to the order that the machines are declared in the cluster, and the order may change each time the program is run, as the remote executions are performed in parallel.
 
 \subsection{Application class: \texttt{data\_parallel}}
 
-\todoi{Write this subsection}
+The \texttt{data\_parallel} application class is used for applications that want to execute many tasks on a cluster of remote machines using a MapReduce computation model.
+
+When invoking a remote execution on a cluster with the \texttt{data\_parallel} application class, the program must specify a ``setting'' string of either \texttt{map} or \texttt{reduce}, corresponding to the map and reduce operations.
+
+The map operation runs the remote program to convert the input into a set of key-value pairs.
+The map operation expects an input that is split into multiple lines.
+For each line of the input, the remote program is run on a single remote machine, with that line being passed into the remote program as the variable \texttt{\$in}.
+The output of the remote program is split up into pairs of lines, with the requirement that the output must contain an even number of lines, and that the output should not contain any comma or newline characters.
+Each pair of lines corresponds to a key-value pair, with the first line in the pair being the key, and the second line in the pair being the value.
+The key-value pairs are output to the local standard output, with each line consisting of the key, followed by a comma character (\texttt{,}), followed by the value.
+This output is typically not directly used, but rather passed to the reduce operation for further processing.
+
+The reduce operation coverts the key-value pairs as outputted by the map operation, grouping the pairs by the key, and running the remote program to produce a single value for each key.
+The reduce operation expects an input of many lines, each line being a key-value pair, separated by a comma, in the format of the output of the map operation.
+For each key in the input, the remote program is run on a single remote machine, with the key passed to the remote program as the variable \texttt{\$key}, and each value being passed in a separate line (with only the value) to the standard input of the remote program.
+The output of the remote program is expected to be a single line that is the final value associated with the key, and should not contain any comma or newline characters.
+The keys are sorted alphabetically, and each key and its final associated value from the remote execution is output in key-sorted order the the local standard output, with each line consisting of the key, followed by a comma character (\texttt{,}), followed by the value.
+
+The specific choice of which remote machine to execute a remote program on is performed by the task cluster abstraction, and will be described in more detail in the \textbf{Remote target selection} section later this chapter.
+
+This application class is useful for splitting the computation of a data heavy application into many smaller pieces that can be executed on a cluster of remote machines, using the MapReduce programming model.
+Example use cases include sorting, searching, or aggergating large amounts of input data, as the remote cluster can help alleviate the restrictions of limited computational resources that may be available on the local machine.
 
 \subsubsection{Example program: Word count in large file}
+
+One example of a program that uses the \texttt{data\_parallel} application class is \texttt{word\_count.shard}, a program that counts the number of occurrences of each word in a given input file, \texttt{input.txt}.
+Like the earlier \texttt{memory\_usage.shard} example program, this program also uses the \texttt{cluster\_setup.shard} script to define the machines in the cluster that will be used to run the remote programs.
 
 \begin{lstlisting}[language=Shard]
 # word_count.shard
@@ -809,14 +850,68 @@ cat input.txt |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
 
+\begin{itemize}
+  \item On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
+  \item On line 3 of the program, the cluster type \texttt{data\_parallel} is specified, which indicates that this cluster will use the \texttt{data\_parallel} application class.
+  \item
+        On line 4 of the program, the input text is read from the file \texttt{input.txt}.
+  \item
+        On line 5 of the program, the text is piped to the \texttt{tr} UNIX command, which translates the input by replacing all uppercase characters with their lowercase counterpart.
+  \item
+        On line 6 of the program, the text is modified by the \texttt{tr} UNIX command again, by filtering to only keep alphanumeric characters, with each group of alphanumeric character split by a newline character, resulting in each word being on a separate line.
+  \item
+        On line 8 of the program, the input is split up by line and sent to be executed remotely on the cluster \texttt{testcluster} using the \texttt{map} operation from the \texttt{data\_parallel} application class.
+        \begin{itemize}
+          \item The input for each remote program is one line of the preceding output, which contains a single word. This input is set to the variable \texttt{\$in}.
+          \item The first \texttt{echo} call prints a line containing the key of the key-value pair corresponding to the input word.
+                Since this program wants to keep track of the number of occurrences of each word in the input, the key for the key-value pair is the input word, which is contained in the variable \texttt{\$in}.
+          \item The second \texttt{echo} call prints a line containing the value of of the key-value pair corresponding to the input word.
+                Since this program wants to keep track of the number of occurrences of each word in the input, and each remote program execution corresponds to a single occurrence, the value for the key-value pair is 1.
+        \end{itemize}
+
+  \item
+        On line 7 of the program, output of the \texttt{map} operation is passed to the input of the \texttt{reduce} operation. The input is split up by key, with all values associated with a key sent to be executed remotely on the cluster \texttt{testcluster} by the \texttt{reduce} operation from the \texttt{data\_parallel} application class.
+        \begin{itemize}
+          \item The key for each remote program is the word that is being counted. This key is stored in the variable \texttt{\$key}, but it is not used in the calculation of the value.
+          \item The standard input of the remote program contains the values associated with the key, with each value being on a separate line. Each line contains a value of 1, because that is each of the values as output by the \texttt{map} operation.
+          \item The lines are joined using the \texttt{paste} UNIX command to replace all newlines with the addition symbol (\texttt{+}), and the \texttt{bc} UNIX command is used to calculate the sum.
+                Because there is an input of 1 for each occurrences of the word, this computes the number of occurrences of that word, which is sent back to the local machine.
+        \end{itemize}
+\end{itemize}
+
+Here is a very short example \texttt{input.txt} for the program:
+\begin{lstlisting}[language=]
+The quick brown fox jumped over the lazy dog.
+The small red fox jumped over the quiet cat.
+The slow green fox jumped over the lazy deer.
+\end{lstlisting}
+
+Here is an example output of the program when run with the above input:
+\begin{lstlisting}[language=]
+brown,1
+cat,1
+deer,1
+fox,3
+jumped,3
+lazy,2
+over,3
+red,1
+slow,1
+the,6
+\end{lstlisting}
+
+This output gives the number of times each word appeared in the input.
+Each line of the output contains a key-value pair, with the key being the word in the input text, and the value being the number of occurrences of that word, and the two parts separated by a comma.
+The output for this program should be always the same for any given input, even though the which machine a task is completed on and which order the task is completed may vary.
+
 \section{Network layer design}
 
-\begin{itemize}
-  \item Solves the problem of: distributed
-  \item Describe the distributed network layer
-  \item Four roles
-  \item Note that this is about the design of the network layer, rather than the implementation details
-\end{itemize}
+% \begin{itemize}
+%   \item Solves the problem of: distributed
+%   \item Describe the distributed network layer
+%   \item Four roles
+%   \item Note that this is about the design of the network layer, rather than the implementation details
+% \end{itemize}
 
 The Network layer of Shard provides an abstraction for executing Shard programs remotely over a distributed network.
 The design of the Network layer ensures that Shard satisfies its core pillar of reliability, by providing features for error detection and recovery.
@@ -827,7 +922,7 @@ Figure \ref{fig:network_layer_design} shows the layers of abstraction in for exe
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.5]{img/shard_network_design.png}
-    \caption{The layers of abstraction of Shard used to exewcute remote command}
+    \caption{The layers of abstraction of Shard used to execute remote command}
     \label{fig:network_layer_design}
   \end{center}
 \end{figure}
@@ -866,6 +961,7 @@ The choice of ID can be arbitrary, but different instances of remote execution m
 Packets sent from the remote sender, except for heartbeat packets, also contain a sequence number to ensure that responses are received in the order they are sent.
 The first packet sent by the remote sender has sequence number 0, and subsequent packets have sequence number one greater than the sequence number of the previous packet.
 
+
 Before remote execution can occur, the local instance of Shard must ensure that a compatible Shard instance exists on the remote machine.
 If it does not already exist, Shard is responsible for copying the local Shard executable to the remote machine, before performing the remote execution.
 This typically only happens the first time Shard executes a remote program on the specific remote machine on a given version of Shard.
@@ -883,8 +979,6 @@ The local sender sends any standard input to the remote receiver with message pa
 The remote sender also sends heartbeat packets at a regular interval to indicate that the remote process is running correctly.
 When the standard input is closed, the local sender sends a close packet, and when the standard output is closed, the remote sender sends back a close packet.
 
-\todoi{Add diagram or visual showing this process; analogous to the one in the implementation section}
-
 Although sequence numbers and heartbeats are sent in the data transfer process, the design does not prescribe how they should be handled.
 The data transfer abstraction can be utilized directly by an application class to implement its remote execution capabilities, where the packet transfer process on the local machine is controlled by the application class, or a higher-level abstraction on top of the data transfer abstraction may be used instead.
 
@@ -899,12 +993,15 @@ Targets must be initialized by the task cluster before any remote computation is
 The task cluster uses the concept of tasks as its basic unit of remote computation.
 When scheduling a task, the caller provides the following information:
 \begin{itemize}
-  \item The specific remote target the task should be executed on, or ``any'', indicating that the task may be executed on any initialized remote target at the task cluster's discretion;
+  \item The specific remote target the task should be executed on, or ``any'', indicating that the task may be executed on any initialized remote target, as selected by the task cluster;
   \item The remote program to be executed;
   \item A copy of the shell environment, to be used for the remote program;
   \item The standard input text to be sent to the remote machine.
 \end{itemize}
+If no specific remote target is specified, the task cluster will choose the remote target as determined by a process described in the \textbf{Remote target selection} section that follows.
+
 Once the remote task is scheduled, the remote program associated with the task is executed on a remote machine, using the Shard network layer data transfer mechanism described in the previous section.
+Each remote machine has a throttle that specifies the maximum number of tasks that can be scheduled on the machine at a time, with the throttle respecting the timeout mechanism to exit if the remote execution is taking too long.
 All of the response packets sent by the remote machine are collected and ordered by their sequence number, as defined by the data transfer mechanism.
 When the close packet and all packets with lower sequence numbers are received, the remote program output is assembled from the packets, the remote program execution is treated as a success.
 The caller is notified of the success, with the output of the remote computation.
@@ -927,17 +1024,65 @@ Even in the case of a retry, Shard still keeps alive the connection to the previ
 If any of the previous tries succeeds, that successful result will be used instead, and the responses for all other tries of that task are thrown away.
 After a maximum number of retries as specified by the caller, the entire task will fail, and the caller will be notified.
 
-% The machine choice of executing a task, including a retry, is determined by the beta distrbution.
-\todoi{Implement and describe beta distribution task choosing}
-
 The task cluster claims that, with high likelihood, a task scheduled to the task cluster will be succesfully executed at least once on a remote machine in the cluster, and that it will correctly obtain the output of the successful computation, unless the maximum number of tries has been reached.
 The specific remote machine the task executes on is guaranteed if it is specified when the task is scheduled.
 Notably, the task may be completed on more than once, particularly if a retry was invoked due to a timeout.
 Using the task cluster abstraction means that the application class can take advantage of of its error detection and retry mechanism in order to reliably execute remote tasks, configuring the task cluster to suit the specific application class's needs.
 
+\subsection{Remote target selection}
+When the task cluster needs to select a remote target for program execution, by default, it tries to select the remote target in a principled way that tries to maximize the chance of success, based on data from previous tasks scheduled by the cluster.
+
+Each remote target's chance of success is modeled by the beta distribution $\beta(a, b)$, parameterized by the number of successful attempts and failed attempts on that remote target, with $a$ equal to the number of sucessful attempts and $b$ equal to the number of failed attempts.
+
+The beta distribution has the probability density function
+$$ f(x) = x^{a-1}(1-x)^{b-1} / B(a, b), 0 < x < 1,$$
+where
+$$ B(a, b) = \Gamma(a)\Gamma(b) / \Gamma(a+b), $$
+with $\Gamma$ being the gamma function.
+
+The beta distrbution has the property that given the parameters $a$ and $b$, the expected value sampled from the distribution is $a/(a+b)$, which is equal to the proportion of attempts that are successful.
+\todoi{Do I need to cite the beta distribution?}
+
+A succesful attempt is counted when a task succesfully completes without reaching the timeout that invokes a retry.
+A failed attempt is counted when a task causes a retry to be invoked.
+This means that a task can correspond to any number of failed attempts, and up to one succesful attempt.
+
+When choosing a remote target for a task, the beta distribution of each machine is sampled, and the target with the maximum value is chosen.
+This corresponds to choosing the remote target with the maximum likelihood of success.
+Remote targets that are not yet connected to and remote targets that are at maximum capacity from throttling are excluded from this choice.
+
+If all sampled values are below a certain threshold, or if no remote targets are avaiable to be sampled in the first round, a second round of sampling is performed, this time between all of the remote targets, even those that are at maximum capacity, with a penalty applied to the sampled values of the remote targets at maximum capacity.
+This second round of sampling is performed because, even if a remote target is at maximum capacity, it may still be preferred to be chosen compared to a remote target that has a lowerly likelihood of success.
+
+There is also a small chance that the second round is bypassed, and a random remote target is selected instead.
+This is to allow remote target that have previous failures to sucessfully execute tasks in order to raise their proportion of successes.
+
+Once a maximum number of total attempts $m$ has been reached on each remote target, future attempts in addition to adding to $a$ or $b$ also remove a random previous attempt, so that $a+b$ does not exceed $m$.
+This is to help keep $a$ and $b$ more closely track recent successes and failures in long-runnning Shard programs, since a remote host being down for a long time would otherwise be penalized in selection once it is able to reexecute remote commands.
+
+Depending on the application class, the beta sampling remote target selection feature can also be turned off, with random remote target selection being the fallback mechanism.
+
 \section{Summary}
 
-\todoi{Write the summary}
+In this section, we describe the design of the Shard distributed system, which is motivated by satisfying the core pillars of Shard.
+
+The Shard programming language extends an the existing Shell language with minimal additions to promote Shard's ease of use.
+The \texttt{cluster} builtin command is used to set up clusters of remote machines in a simple fashion.
+The remote execution operator extends existing shell syntax to allow Shard programs to execute sub-programs remotely on a cluster.
+
+Application classes describe the semantics of remote execution on a cluster, and allow Shard to support a variety of use cases, with two of them described in this chapter.
+The \texttt{single\_command} application class allows a Shard program to run remote commands reliably on all machines in a cluster.
+The \texttt{data\_parallel} application class enables a Shard program to perform a set of remote computation on a cluster in a MapReduce-like fashion.
+Although only two are mentioned in this chapter, the design of Shard supports adding more application classes as needed by additional use cases.
+
+The network layer includes features to support performing distributed computation in a reliable manner.
+The data transfer abstraction describes the steps Shard takes to set up its connections to the remote machine, with the four roles working together to transfer various types of packets.
+The task cluster abstraction builds on top of the data transfer abstraction, allowing application classes to send individual tasks that will be reliably completed by the remote cluster, using a series of error handling mechanisms.
+The task cluster also includes a process for choosing which remote machine to execute a program on, based on the past success rate of that remote machine.
+
+Shard's design serves as a blueprint for its potential implementations, including an implementaion described in the upcoming \textbf{Implementation} chapter.
+The proof of the efficacy of Shard's design at achieving its goals is tested in the \textbf{Evaluation} chapter that appears later in this thesis.
+
 
 \chapter{Implementation}
 
@@ -956,7 +1101,7 @@ Specific usage details can be found in the documentation of the project.
 Currently, Shard is specifically tested to support Ubuntu Linux version 20.04.2 LTS, but it should work with zero or few modifications on other Linux systems, depending on the requirements of the library dependencies of Shard.
 
 \subsection{Dependencies}
-The Shard project depends on various other OCaml libraries and OCaml wrappers for non-OCaml libraries for important pieces of existing funcionality.
+The Shard project depends on various other OCaml libraries and OCaml wrappers for non-OCaml libraries for important pieces of existing functionality.
 
 The entire project is written on top of Jane Street's open source libraries Core, Async, and Sexplib, along with the OCaml parser combinator library Angstrom and an OCaml wrapper for the SSH library libssh.
 
@@ -1023,7 +1168,6 @@ Ubuntu 20.04.2 LTS \n \l
 
 $
 \end{lstlisting}
-\todoi{Potentially make these code snippets into proper figures with captions?}
 
 Similarly, when the shell is invoked in non-interactive mode, the shell takes the input file or string to the parser, which results in either an AST corresponding to the input program, or an error if the input fails to parse, in which case the error is printed to stderr.
 
@@ -1239,7 +1383,7 @@ However, there is no reason why support for these features cannot be added if ne
 %   \item Support SSH config
 %   \item Each remote invocation spawns two processes locally and two processes remotely: justified by easy to separate remote invocations
 %   \item Use OCaml Async RPC for interprocess communication between processes on the same machine: strongly typed, serialization supported, etc
-%   \item Heavyweight but works well for ad-hoc programming
+%   \item Heavyweight but works well for ad hoc programming
 % \end{itemize}
 
 Many choices can be made in terms of deciding on how to implement the network layer for Shard.
@@ -1275,9 +1419,6 @@ The procedure for executing a remote command is shown in Figure \ref{fig:network
     \label{fig:network_layer_impl}
   \end{center}
 \end{figure}
-
-% \todoi{Actually write this section of the design chapter to explain these}
-% We explain each of the four ``roles'' in the Design section
 
 The processes on the same machine communicate with each other using remote procedure calls (RPC) from the RPC library Async\_rpc, which is a part of the OCaml Async library.
 This library allows the creation of type-safe RPCs that automatically serialize queries and responses with the help of OCaml annotations, making it very easy to set up an RPC service for all of the remote calling functionality necessary.
@@ -1416,6 +1557,9 @@ The \texttt{task\_cluster} interface exposes the abstraction of tasks that need 
 When a \texttt{tasnk\_cluster} is created, the set of possible remote targets need to be initialized with \texttt{init\_targets}, which performs the data transfer setup of getting the remote machine ready for accepting remote commands on each remote target passed in.
 
 When a task is created with \texttt{run\_task}, it is executed on an arbitrary or specific target, depending on what is desired by the caller.
+If the arbitrary target is selected, a beta sampler is used to choose the remote machine with the maximum likelihood of success, following the selection process as described in the \textbf{Remote target selection} section of the \textbf{Design} chapter.
+Successful and failed remote execution attempts are recorded by the beta sampler, which help future remote tasks executions prioritize remote machines that are more likely to succeed.
+
 All of the information of the program execution are contained in the \texttt{program}, \texttt{env\_image}, and \texttt{send\_lines} parameter, the first two of which are sent as a \texttt{Header.t} record to start the remote computation, and the third parameter is the lines provided to the standard input of the program.
 This task is created with a timeout mechanism that will cause the task to be retried, that is based on various conditions: if the first heartbeat is not received after a set amount of time; if further heartbeats are not received after some time; or if the entire processes's execution takes too long.
 A retry is also invoked if an error occurs during the task's execution.
@@ -1428,7 +1572,7 @@ This means that no output is lost, even if the close query reaches the local mac
 If a query is dropped, the close query will never be in sequence, so the timeout mechanism will time out the execution, and a retry will be invoked.
 
 Using the \texttt{task\_cluster} abstraction, the caller can be confident that tasks will be continously reattempted until it completes sucessfully (or wait forever if the task always fails).
-Even though the many levels of abstraction used result in a more heavyweight network layer, it is a worthwhile tradeoff to ensure that Shard satisfies the core pillars of being reliable and easy to use, and generally works well enough for running ad-hoc programs, where it is less likely that all system resources are being utilized.
+Even though the many levels of abstraction used result in a more heavyweight network layer, it is a worthwhile tradeoff to ensure that Shard satisfies the core pillars of being reliable and easy to use, and generally works well enough for running ad hoc programs, where it is less likely that all system resources are being utilized.
 
 \section{Application class implementation}
 
@@ -1485,7 +1629,7 @@ At the current moment, the project needs to be modified directly to add builtin 
 \subsection{Data parallel}
 
 The \texttt{data\_parallel} application class supports MapReduce-style functionality for running intensive data-parallel applications.
-The following example \texttt{data\_parallel} program calculates the number of occurrences of each line length in an input file on the cluster named \texttt{testcluster}:
+The following example \texttt{data\_parallel} program calculates the number of occurrences of each line length in an input file on the cluster named \texttt{testcluster}, which has already been defined and set to be \texttt{data\_parallel}:
 
 \begin{lstlisting}[language=shard]
 cat input.txt |
@@ -1493,34 +1637,12 @@ cat input.txt |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
 
-% Move this to the Design section
-% For example, running the above program with the input text being Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet gives the following output:
-
-% \begin{lstlisting}[language=]
-% 29,1
-% 37,1
-% 38,2
-% 39,2
-% 40,3
-% 41,4
-% 42,3
-% 43,2
-% 44,4
-% 45,4
-% 46,1
-% 47,1
-% 48,1
-% 49,3
-% 52,1
-% \end{lstlisting}
-
 When the \texttt{data\_parallel} application class backend receives the \texttt{remote\_run} call, it gets two separate calls, one with the ``map'' setting and one with the ``reduce'' setting.
 The backend's functionality is based on the setting of the call, and fails if the setting is not either ``map'' or ``reduce'', as these are required by the \texttt{data\_parallel} application class backend.
 
 For the call with the ``map'' setting, the backend splits the input by the line, and creates a task for each line, where the task is to execute the remote execution payload specified by the \texttt{program} argument.
 The environment for this execution is a copy of the local environment with an addtional assignment of the variable \texttt{\$in} to the value of the line.
-This is sent to an arbitrary remote host for execution, using the \texttt{task\_cluster} abstraction provided by the network layer to ensure that the task is reliably completed.
-\todoi{Needs work: Describe and implement remote host choosing mechanism}
+This is sent to an arbitrary remote host for execution, chosen by the \texttt{task\_cluster} abstraction provided by the network layer, which also ensures that the task is reliably completed.
 The program is expected to output two lines: the first of which is the key, and the second of which is the value.
 This is printed to the local standardout as a key-value pair in a single line, with the key and value separated by a comma.
 
@@ -1580,12 +1702,24 @@ If a child processes crashes or hangs, the parent process can easily kill it and
 On the other hand, a misbehaving thread can result in the whole program to fail, which would be a hit to the reliability of the overall Shard system.
 Also, the resource hit of using processes do not have as much of an impact, because the total number of processes created is not very large, scaling linearly with the number of remote hosts, which should remain as a relatively small fixed number through the course of the execution of a Shard program.
 
-\todoi{Maybe bring up the lack of multi-core support for OCaml? (OCaml threads allow concurrency but not parallelism)}
-
-Overall, the Shard implementation is able to meet the requirements of the design, while remaining aligned with the three core pillars of Shard: being distributed, reliable, and easy to use.
+Another reason to use processes rather than threads comes from the limitations of the OCaml programming language.
+As of the time of writing, OCaml does not have multi-core support in its standard release
+\cite{dolan2014multicore}.
+Multi-core OCaml is a planned feature for an upcoming OCaml release, but it is uncertain when this release will finalized and merged into standard OCaml \cite{sivaramakrishnan2020retrofitting}.
+Similar to Python, OCaml uses a global runtime lock when running its code, and support for concurrency is implemented with an asynchronous event loop that runs on a single operating system thread.
+This means that a single OCaml process cannot send and receive data over SSH at the exact same time.
+This is especially problematic when Shard is trying to communicate with many different remote machines simultaneously, as Shard needs to maintain a communication channel to each remote machine in a cluster.
+Using multiple OCaml processes bypasses this restriction, as each OCaml instance can only run on one thread at a time, but each of the different instances can be running on a separate operating system thread, allowing for multi-core processing.
 
 \section{Summary}
-\todoi{Write a summary for the implementation chapter}
+
+In this section, we describe an implmentation of the the Shard distributed system that meets the requirements of the design, as specified in the preceding \textbf{Design} chapter.
+This implementation primary uses the OCaml programming language.
+The architecture is divided up in a way so that the shell, language, network layer, and application classes are all implemented separately.
+Each of these parts of the Shard implementation can be extended to add more features; in particular, the application class implementation makes it easy to plug in new application classes that call on the existing network layer abstractions for its remote computation functionality.
+As with any implementation, this implementation includes tradeoffs, with the biggest tradeoff being choosing to forgo an emphasis on performance, in return for ensuring that the program is easy to use.
+This implementation will be tested in the \textbf{Evaluation} chapter that follows, making sure that it satisfies the goals as specified by the core pillars of Shard.
+
 
 \chapter{Evaluation}
 
@@ -1684,21 +1818,7 @@ cat input.txt |
     (echo $in; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
-This program takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
-\begin{itemize}
-  \item
-        On line 3 of the program, the input text is read from the file \texttt{input.txt}.
-  \item
-        On line 4 of the program, the text is piped to the \texttt{tr} UNIX command, which translates the input by replacing all uppercase characters with their lowercase counterpart.
-  \item
-        On line 5 of the program, the text is modified by the \texttt{tr} UNIX command again, by filtering to only keep alphanumeric characters, with each group of alphanumeric character split by a newline character, resulting in each word being on a separate line.
-  \item
-        On line 6 of the program, the input is split up by line and sent to be executed remotely on the cluster \texttt{testcluster} by the \texttt{map} primitive from the \texttt{data\_parallel} application class, with each remote command execution mapping the input word to a key of that word, with a value of 1, representing one occurence of that word.
-  \item
-        On line 7 of the program, the input is split up by key, with all values associated with a key sent to be executed remotely on the cluster \texttt{testcluster} by the \texttt{reduce} primitive from the \texttt{data\_parallel} application class, with each remote command execution using the \texttt{paste} UNIX command to replace all input newlines with the addition symbol, and the \texttt{bc} command to calculate the sum.
-        Because there is an input of 1 for each occurence of the word, this computes the number of occurences of that word, which is finally sent back to the local machine.
-\end{itemize}
-More specifics about how the \texttt{map} and \texttt{reduce} primitives work in the context of the \texttt{data\_parallel} application class can be found in the \textbf{Application class: \texttt{data\_parallel}}
+This program, which was previously described in the \textbf{Application class: }\texttt{data\_parallel} section of the \textbf{Design} chapter, takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
 
 The input document for this experiment is Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, which was chosen as an example of a famous passage with some amounts of repeating words.
 This passage has a total of PLACEHOLDER words, which means that each remote machine would have to execute multiple tasks, as opposed to a single task as is the case for the \texttt{memory\_usage.shard} experiment.
@@ -1734,7 +1854,7 @@ cat input.txt |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
 
-This program takes an input from the file \texttt{input.txt} and outputs the number of occurences for each word present in the file.
+This program takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
 To simulate a longer-running program with delays in its processing, instead of completing the \texttt{map} portion immediately, a \texttt{sleep 1} command is added to make the program sleep for one second.
 
 This program is expected to take longer to run when compared to \texttt{word\_count.shard}, due to the added sleep command.
@@ -1805,7 +1925,7 @@ cat input.txt |
     sort -t, -nk2 -r
 \end{lstlisting}
 
-Parts of this program are identical to the program \texttt{word\_count.shard}, which is previously explained in more depth in the \textbf{Distributed} section of this chapter.
+Parts of this program are identical to the program \texttt{word\_count.shard}, which is previously explained in more depth in the \textbf{Application class: }\texttt{data\_parallel} section of the \textbf{Design} chapter.
 
 \begin{itemize}
   \item
@@ -1884,8 +2004,6 @@ As long as there is at least one crash left, the program uses the \texttt{killal
 
 The \texttt{random\_hash.shard} experiment is run 5 times, with the number of crashes on each remote machine varying from 1 to 5.
 Figure \ref{fig:crashhash} shows the time it takes for the program to complete, based on the crash count of each remote machine.
-
-\todoi{Include experiment on forced crashes}
 
 \begin{figure}[h]
   \begin{center}
@@ -2108,7 +2226,7 @@ Programmers only need to know about two features of Shard to utilize its remote 
 If the user wants to take advantage of the additional functionality provided by Shard's application classes, the user only needs to learn about how they work on a surface level.
 
 As an example, assume that the user wants to write a Shard script that uses the \texttt{data\_parallel} application class, and that the user has already set up a \texttt{cluster\_setup.shard} script to define a cluster \texttt{testcluster}.
-The user wants to write a script that finds the length of each line of an input file, \texttt{input.txt}, and calculates the number of occurences for each of the line lengths present.
+The user wants to write a script that finds the length of each line of an input file, \texttt{input.txt}, and calculates the number of occurrences for each of the line lengths present.
 
 The first step is to import the \texttt{cluster\_setup.shard} script, and set the application class of the cluster to \texttt{data\_parallel}, which is achieved by two Shard builtins.
 \begin{lstlisting}[language=Shard]
@@ -2116,7 +2234,7 @@ source cluster_setup.shard
 cluster -t data_parallel
 \end{lstlisting}
 The next step is to figure out what the specifics of the map and reduce operations in order to solve the problem.
-For this problem, because the goal is to find the number of occurences grouped by line length, the key of the map operation should be the line length.
+For this problem, because the goal is to find the number of occurrences grouped by line length, the key of the map operation should be the line length.
 Since the value should be a simple count, each instance in the input contributes 1 to the count, so the value of the map operation should be 1.
 Note the syntax for the remote execution:
 \begin{itemize}
@@ -2129,8 +2247,8 @@ source cluster_setup.shard
 cluster -t data_parallel
 (wc -c $in; echo 1)@@map/testcluster
 \end{lstlisting}
-The reduce operation aggregates the values for each key, which is a list of 1's equal to the number of occurences.
-Therefore, to get the total number of occurences for each key, a shell command to find the sum of the input should be used for the reduce operation.
+The reduce operation aggregates the values for each key, which is a list of 1's equal to the number of occurrences.
+Therefore, to get the total number of occurrences for each key, a shell command to find the sum of the input should be used for the reduce operation.
 Because of how the \texttt{data\_parallel} application class is designed, the output of the map operation is piped to the input of the reduce operation.
 \begin{lstlisting}[language=Shard]
 source cluster_setup.shard
@@ -2149,7 +2267,7 @@ cat input.txt |
 \end{lstlisting}
 Here, we have shown that, by reasoning about the functionality of the program, it is reasonably straightforward to write the Shard program, with only a basic understanding of the additions of Shard needed to write this program.
 
-We can compare the above to the following shell program, \texttt{line\_length\_ssh.sh}, that utilizes SSH to perform the same task in counting the occurences of each line length in a distributed fashion.
+We can compare the above to the following shell program, \texttt{line\_length\_ssh.sh}, that utilizes SSH to perform the same task in counting the occurrences of each line length in a distributed fashion.
 The specifics of the program will not be explained in detail.
 Notably, however, this implementation in shell is much more complicated (we can simply compare the line and character counts between the two programs), while lacking the reliability provided by the Shard runtime.
 \begin{lstlisting}[language=sh]
@@ -2244,18 +2362,44 @@ If Shard is exited without completing the task on all hosts, the success message
 This example shows a practical real-world scenario where the error recovering built into Shard is useful in helping Shard achieve its ease of use.
 
 \section{Summary}
-\todoi{Write a summary for the evaluation chapter}
+
+In this section, we describe a set of experiments used to evaluate the design and implementation of Shard, in how well it satisfies the core pillars of Shard.
+
+Example \texttt{single\_command} and \texttt{data\_parallel} programs run with various remote machine clusters to demonstrate that Shard works seamlessly over a network, satisfying the core pillar of being distributed.
+
+More example programs are run, with distributed systems errors deliberately being introduced, to show that Shard automatically handles various failures that may arise when running remote programs, satisfying the core pillar of being reliable.
+
+Finally, a qualitative analysis of setting up Shard, writing Shard programs, and recovering from errors automatically in Shard provide evidence that Shard satisfies the core pillar of being easy to use.
 
 \chapter{Conclusion}
-\begin{itemize}
-  \item Research question
-  \item Solution (design, implementation)
-  \item Measuring success (three pillars)
-  \item Future work
-  \item What did this thesis accomplish?
-\end{itemize}
+% \begin{itemize}
+%   \item Research question
+%   \item Solution (design, implementation)
+%   \item Measuring success (three pillars)
+%   \item Future work
+%   \item What did this thesis accomplish?
+% \end{itemize}
 
-\todoi{Write this chapter}
+% \todoi{Write this chapter}
+
+In this thesis, we explore the research question of how to create a reliable and easy to use general purpose distributed system.
+This thesis proposes the Shard distributed system, which provides a solution that satisfies the three goals of being distributed, reliable, and easy to use, which we deem as the three core pillars of Shard.
+Many existing computer systems exist, but from our research, none of them satisfy all of the core pillars to the extent that Shard does.
+
+Shard builds on the POSIX shell programming language by adding a small set of language and syntax additions to create a new programming language that supports executing remote subprograms within a Shard program.
+Using the concept of application classes, which describe a set of semantics for remote execution, it is possible to write many different types of distributed programs with different properties in Shard.
+A network layer designed specifically for Shard provides the functionality of running remote Shard programs, and ensures that remote tasks are executed in a reliable way.
+
+This thesis describes a specific implementation of Shard using the OCaml programming language, the way that the various parts of Shard are structured in the implementation, and how the implementation can be easily extended to add additional language features or application classes.
+
+Shard is evaluated by running experiments to demonstrate that the design and implementation satisfy the core pillars. The expriments show that, with the programs being tested, Shard does an excellent job in functioning as a general purpose reliable distributed shell programming language, while still maintaining the ease of use in setting up Shard, writing Shard code, and running Shard programs.
+
+There are many possible directions to extend this work.
+Some of them include peer-to-peer communication between remote machines in a cluster, compatibility on different architectures, performance improvements, alternative language features, and additional application classes.
+Many of these directions can be investigated by extending the existing implementation of Shard as provided by this thesis, but it is also viable to create an alternative implementation with different trade-offs.
+
+Shard offers a glimpse to the future of distributed programming, where, with a few minutes of setup, any programmer can write an ad hoc script that executes reliably on a cluster of remote machines, without needing to learn all of the intricacies of programming for a distributed system.
+
 
 \chapter{Appendix}
 \section{Appendix A: Example program input and output}

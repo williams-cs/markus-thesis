@@ -20,6 +20,8 @@ let beta_overcapacity_threshold = 0.9
 let beta_fail_threshold = 0.25
 let beta_stage_two_random_chance = 0.1
 let beta_recency_cap = 1000
+let init_target_timeout = Time_ns.Span.of_int_ms 5000
+let throttle_timeout = Time_ns.Span.of_int_ms 60000
 
 module Reader_info = struct
   type t =
@@ -298,8 +300,6 @@ let init_target_raw t ~target ~force_create =
   | None -> do_create ()
 ;;
 
-let init_target_timeout = Time_ns.Span.of_int_ms 5000
-
 let init_target t ~target ~force_create =
   let itf_res = init_target_raw t ~target ~force_create in
   let%bind itf_res = Clock_ns.with_timeout init_target_timeout itf_res in
@@ -365,15 +365,18 @@ let dispatch_command_raw connection program send_lines env_image =
 let dispatch_command_throttle connection program send_lines env_image ~throttle_timeout =
   let throttle = Connection.sender_throttle connection in
   Throttle.enqueue throttle (fun () ->
+      let dispatch_timeout = Clock_ns.after throttle_timeout in
+      let dispatch_timeout_err =
+        let%bind () = dispatch_timeout in
+        Deferred.Or_error.error_s [%message "Throttle timeout"]
+      in
       let%bind.Deferred.Or_error next_heartbeat, resp =
-        dispatch_command_raw connection program send_lines env_image
+        let dispatch_res = dispatch_command_raw connection program send_lines env_image in
+        Deferred.any [ dispatch_res; dispatch_timeout_err ]
       in
       let%bind () =
         Deferred.any
-          [ Bvar.wait next_heartbeat
-          ; Deferred.map ~f:ignore resp
-          ; Clock_ns.after throttle_timeout
-          ]
+          [ Bvar.wait next_heartbeat; Deferred.map ~f:ignore resp; dispatch_timeout ]
       in
       Deferred.Or_error.return (next_heartbeat, resp))
 ;;
@@ -430,7 +433,10 @@ let choose_target t =
            (Random.State.float (Util.random_state ()) 1.0)
            beta_stage_two_random_chance
       then choose_next ()
-      else sample (Beta_sampler.choose sampler) choose_next
+      else
+        sample
+          (Beta_sampler.choose sampler ~excluding:full_targets ~penalty:0.8)
+          choose_next
     in
     sample (Beta_sampler.choose sampler ~excluding:full_targets) second_stage)
   else choose_next ()
@@ -464,7 +470,7 @@ let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout ~uu
   | `Result connection ->
     let dispatch =
       if use_local_throttle
-      then dispatch_command_throttle ~throttle_timeout:send_timeout
+      then dispatch_command_throttle ~throttle_timeout
       else dispatch_command_raw
     in
     let res_throttle = dispatch connection program send_lines env_image in

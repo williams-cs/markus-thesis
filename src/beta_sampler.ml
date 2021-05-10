@@ -110,9 +110,13 @@ let sample t ~key =
   Distribution.sample distribution
 ;;
 
-let choose ?(excluding = []) t =
+let choose ?(excluding = []) ?(penalty = 0.0) t =
   String.Table.keys t
-  |> List.filter ~f:(fun key -> not (List.mem excluding key ~equal:String.equal))
-  |> List.map ~f:(fun key -> key, Option.value_exn (sample t ~key))
+  |> List.map ~f:(fun key ->
+         let v = Option.value_exn (sample t ~key) in
+         let multiplier =
+           if List.mem excluding key ~equal:String.equal then penalty else 1.0
+         in
+         key, v *. multiplier)
   |> List.max_elt ~compare:(fun (_k1, v1) (_k2, v2) -> Float.compare v1 v2)
 ;;
