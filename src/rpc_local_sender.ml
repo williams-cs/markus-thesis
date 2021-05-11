@@ -65,6 +65,7 @@ module State = struct
     ; writer : Writer.t
     ; verbose : bool
     ; close_ivar : unit Ivar.t
+    ; keepalive : Keepalive.Chain.t
     }
   [@@deriving fields]
 
@@ -74,13 +75,14 @@ module State = struct
     ; read_fd
     ; writer
     ; close_ivar = Ivar.create ()
+    ; keepalive =
+        Keepalive.Chain.create
+          (Clock.after (Time.Span.of_ms (Int.to_float Keepalive.initial_delay)))
     }
   ;;
 end
 
 type t = Connection.t
-
-let create = Fn.id
 
 let write_sender_query sender_query writer =
   let bufsize = 1024 in
@@ -208,11 +210,17 @@ let keepalive_rpc =
 ;;
 
 let handle_keepalive state query =
-  (* TODO keepalive*)
-  ();
-  let writer = State.writer state in
-  let sender_query = Keepalive_query.to_sender_query query in
-  write_sender_query sender_query writer |> Deferred.map ~f:Or_error.return
+  if Keepalive.enable_keepalive
+  then (
+    let keepalive = State.keepalive state in
+    Keepalive.Chain.append
+      keepalive
+      (Clock.after (Time.Span.of_ms (Int.to_float Keepalive.local_delay)))
+    |> ignore;
+    let writer = State.writer state in
+    let sender_query = Keepalive_query.to_sender_query query in
+    write_sender_query sender_query writer |> Deferred.map ~f:Or_error.return)
+  else Deferred.Or_error.return ()
 ;;
 
 let implementations =
@@ -247,7 +255,13 @@ let start_local_sender ~verbose =
   let port = Tcp.Server.listening_on tcp in
   print_endline (Int.to_string port);
   let ivar = State.close_ivar state in
-  Ivar.read ivar
+  let keepalive = State.keepalive state in
+  Deferred.any
+    [ Ivar.read ivar
+    ; (if Keepalive.enable_keepalive
+      then Keepalive.Chain.wait keepalive
+      else Deferred.never ())
+    ]
 ;;
 
 let dispatch_open conn ~host ~port ~user =
@@ -285,4 +299,9 @@ let dispatch_close conn =
 let dispatch_keepalive conn =
   let query = Keepalive_query.Keepalive in
   Rpc.dispatch keepalive_rpc conn query |> Deferred.Or_error.ignore_m
+;;
+
+let create conn =
+  Keepalive.schedule (fun () -> dispatch_keepalive conn);
+  conn
 ;;

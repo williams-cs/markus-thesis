@@ -23,8 +23,21 @@ let start_remote_sender
     ~remote_port
     ~runner
   =
-  let broadcast_keepalive () = (* TODO impl keepalive *) () in
   Async.try_with (fun () ->
+      let keepalive =
+        Keepalive.Chain.create
+          (Clock.after
+             (Time.Span.of_ms
+                (Int.to_float (Int.max Keepalive.initial_delay Keepalive.remote_delay))))
+      in
+      let broadcast_keepalive () =
+        if Keepalive.enable_keepalive
+        then
+          Keepalive.Chain.append
+            keepalive
+            (Clock.after (Time.Span.of_ms (Int.to_float Keepalive.remote_delay)))
+          |> ignore
+      in
       let rand = Util.random_state () in
       let writers = Hashtbl.create (module String) in
       let host = "localhost" in
@@ -34,6 +47,14 @@ let start_remote_sender
       let global_stderr = force Writer.stderr in
       let%bind.Deferred.Or_error pipe_reader, _metadata =
         Rpc_remote_receiver.dispatch conn
+      in
+      let _on_keepalive_end =
+        if Keepalive.enable_keepalive
+        then (
+          let%bind () = Keepalive.Chain.wait keepalive in
+          Pipe.close_read pipe_reader;
+          return ())
+        else return ()
       in
       let throttle = Throttle.create ~continue_on_error:false ~max_concurrent_jobs in
       let%bind write_deferred =

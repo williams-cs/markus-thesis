@@ -127,7 +127,7 @@ let remote_target_string target =
     | None -> ""
     | Some p -> Int.to_string p
   in
-  sprintf "%s%s" host port_string
+  sprintf "%s:%s" host port_string
 ;;
 
 let dispatch_reader conn ~host ~port ~user ~remote_port =
@@ -342,7 +342,6 @@ let dispatch_command_raw connection program send_lines env_image =
     Rpc_local_sender.dispatch_close_single sender_conn ~id
   in
   let%bind.Deferred.Or_error () = send in
-  (* fprintf (force Writer.stderr) "send\n"; *)
   let reader_map = Connection.reader_map connection in
   let%bind reader_info = reader_map ~id in
   let { Reader_info.reader; next_heartbeat } = reader_info in
@@ -351,12 +350,6 @@ let dispatch_command_raw connection program send_lines env_image =
     let%bind () =
       Pipe.iter_without_pushback reader_pipe ~f:(fun s -> Buffer.add_string resp_buf s)
     in
-    let _end_time = Time_ns.now () in
-    (* TODO debug*)
-    (* fprintf
-        (force Writer.stderr)
-        "%f\n"
-        (Time_ns.diff end_time start_time |> Time_ns.Span.to_sec); *)
     return resp_buf
   in
   Deferred.Or_error.return (next_heartbeat, resp)
@@ -511,7 +504,6 @@ let log_time_passed t =
   Time_ns.Span.to_sec elapsed
 ;;
 
-(* TODO implement log *)
 let log_task_completed t =
   if enable_logging
   then (

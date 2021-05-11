@@ -317,6 +317,14 @@ let remote_run_sender_unsafe ~host ~port ~user ~verbose ~port_callback ~read_cal
       ~stderr
       ~host
       ~port
+      "Killing remote instances of shard...";
+    remote_command ssh "killall shard.exe";
+    Util.verbose_println
+      ~name:(source `Sender)
+      ~verbose
+      ~stderr
+      ~host
+      ~port
       "Making remote directory...";
     remote_command ssh (sprintf "mkdir -p %s" shard_dir);
     (* Copy Shard to remote *)

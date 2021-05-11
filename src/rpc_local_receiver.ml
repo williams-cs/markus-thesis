@@ -32,15 +32,21 @@ module State = struct
   type t =
     { verbose : bool
     ; close_ivar : unit Ivar.t
+    ; keepalive : Keepalive.Chain.t
     }
   [@@deriving fields]
 
-  let create ~verbose = { verbose; close_ivar = Ivar.create () }
+  let create ~verbose =
+    { verbose
+    ; close_ivar = Ivar.create ()
+    ; keepalive =
+        Keepalive.Chain.create
+          (Clock.after (Time.Span.of_ms (Int.to_float Keepalive.initial_delay)))
+    }
+  ;;
 end
 
 type t = Connection.t
-
-let create = Fn.id
 
 (* let verbose_println ~verbose host str =
   if verbose then print_endline (sprintf "[Shard_rpc_local_receiver-%s] " host ^ str)
@@ -120,9 +126,14 @@ let handle_close state query =
   return query
 ;;
 
-let handle_keepalive _state query =
-  (* TODO keepalive *)
-  ();
+let handle_keepalive state query =
+  if Keepalive.enable_keepalive
+  then (
+    let keepalive = State.keepalive state in
+    Keepalive.Chain.append
+      keepalive
+      (Clock.after (Time.Span.of_ms (Int.to_float Keepalive.local_delay)))
+    |> ignore);
   return query
 ;;
 
@@ -151,7 +162,13 @@ let start_local_receiver ~verbose =
   let port = Tcp.Server.listening_on tcp in
   print_endline (Int.to_string port);
   let ivar = State.close_ivar state in
-  Ivar.read ivar
+  let keepalive = State.keepalive state in
+  Deferred.any
+    [ Ivar.read ivar
+    ; (if Keepalive.enable_keepalive
+      then Keepalive.Chain.wait keepalive
+      else Deferred.never ())
+    ]
 ;;
 
 let dispatch conn ~host ~port ~user ~remote_port =
@@ -168,4 +185,9 @@ let dispatch_close conn =
 let dispatch_keepalive conn =
   let query = Keepalive_query.Keepalive in
   Rpc.dispatch keepalive_rpc conn query |> Deferred.Or_error.ignore_m
+;;
+
+let create conn =
+  Keepalive.schedule (fun () -> dispatch_keepalive conn);
+  conn
 ;;

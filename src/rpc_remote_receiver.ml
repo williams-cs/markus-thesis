@@ -15,10 +15,20 @@ module State = struct
   type t =
     { verbose : bool
     ; close_ivar : unit Ivar.t
+    ; keepalive : Keepalive.Chain.t
     }
   [@@deriving fields]
 
-  let create ~verbose = { verbose; close_ivar = Ivar.create () }
+  let create ~verbose =
+    { verbose
+    ; close_ivar = Ivar.create ()
+    ; keepalive =
+        Keepalive.Chain.create
+          (Clock.after
+             (Time.Span.of_ms
+                (Int.to_float (Int.max Keepalive.initial_delay Keepalive.remote_delay))))
+    }
+  ;;
 end
 
 (* let verbose_println ~verbose str =
@@ -35,7 +45,13 @@ let rpc =
     ()
 ;;
 
-let broadcast_keepalive _state = (* TODO keepalive *) ()
+let broadcast_keepalive state =
+  let keepalive = State.keepalive state in
+  Keepalive.Chain.append
+    keepalive
+    (Clock.after (Time.Span.of_ms (Int.to_float Keepalive.remote_delay)))
+  |> ignore
+;;
 
 let handle_query state () =
   Deferred.Or_error.return
@@ -95,7 +111,13 @@ let start_remote_receiver ~verbose =
   let port = Tcp.Server.listening_on tcp in
   print_endline (Int.to_string port);
   let ivar = State.close_ivar state in
-  Ivar.read ivar
+  let keepalive = State.keepalive state in
+  Deferred.any
+    [ Ivar.read ivar
+    ; (if Keepalive.enable_keepalive
+      then Keepalive.Chain.wait keepalive
+      else Deferred.never ())
+    ]
 ;;
 
 let dispatch conn =

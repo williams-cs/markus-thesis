@@ -248,8 +248,7 @@ let ast : t Angstrom_extended.t =
       in
       let variable =
         let within_backtick = Subshell_state.within_backtick subshell_state in
-        char '$'
-        *> many1 (character_out_of_quotes ~within_backtick ~exclude_special:[ '=' ])
+        char '$' *> many1 (character_out_of_quotes ~within_backtick ~exclude_special:[])
         >>| fun mcl ->
         mcl |> List.filter_opt |> String.of_char_list |> fun v -> Variable v
       in
@@ -325,12 +324,12 @@ let ast : t Angstrom_extended.t =
         >>| fun (x, xs) -> x :: xs |> List.concat
       in
       let delimited_word ~reserved_special =
-        delimiter *> word ~reserved_special ~exclude_special:[] <* delimiter
+        delimiter *> word ~reserved_special ~exclude_special:[ '=' ] <* delimiter
       in
       let assignment =
         both
-          (name ~exclude_special:[ '=' ] <* string "=")
-          (word ~reserved_special:false ~exclude_special:[ '=' ])
+          (name ~exclude_special:[] <* string "=")
+          (word ~reserved_special:false ~exclude_special:[])
       in
       let assignment_word = delimiter *> assignment <* delimiter in
       let g_filename = unquoted_string ~reserved_special:false ~exclude_special:[] in
