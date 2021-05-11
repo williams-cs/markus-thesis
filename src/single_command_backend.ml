@@ -1,6 +1,8 @@
 open Core
 open Async
 
+let clusters : Task_cluster.t String.Table.t = String.Table.create ()
+
 module Application_class_impl = struct
   let deferred_or_error_swap v =
     match v with
@@ -104,7 +106,7 @@ module Application_class_impl = struct
     Or_error.combine_errors [ res1d; res2d; res3d ] |> Or_error.map ~f:ignore |> return
   ;;
 
-  let remote_run
+  let _remote_run
       ~cluster_id
       ~remote_targets
       ~setting
@@ -131,6 +133,67 @@ module Application_class_impl = struct
             ~job_group)
     in
     Or_error.combine_errors errors |> Or_error.map ~f:ignore
+  ;;
+
+  let remote_run
+      ~cluster_id
+      ~remote_targets
+      ~setting:_
+      ~program
+      ~env_image
+      ~verbose
+      ~stdin:_
+      ~stdout
+      ~stderr
+      ~job_group
+    =
+    let job = Job.create ~groups:[ job_group ] () in
+    let res =
+      (* Set up connection to hosts in cluster as necessary*)
+      let cluster_info = String.Table.find clusters cluster_id in
+      let cluster_info =
+        match cluster_info with
+        | None ->
+          let info = Task_cluster.create () in
+          String.Table.add_exn clusters ~key:cluster_id ~data:info;
+          info
+        | Some info -> info
+      in
+      let%bind.Deferred _res =
+        Task_cluster.init_targets cluster_info ~targets:remote_targets ~verbose ~stderr
+      in
+      (* Reset log *)
+      Task_cluster.log_reset cluster_info;
+      (* let rec loop lines =
+        let%bind line = Reader.read_line stdin in
+        match line with
+        | `Eof -> return (List.rev lines)
+        | `Ok line -> loop (line :: lines)
+      in
+      let%bind send_lines = loop [] in *)
+      let send_lines = [] in
+      let%map or_errors =
+        Deferred.List.map ~how:`Parallel remote_targets ~f:(fun remote_target ->
+            let%bind.Deferred.Or_error res =
+              Task_cluster.run_task
+                cluster_info
+                ~target:(`Specific remote_target)
+                ~program
+                ~env_image
+                ~send_lines
+            in
+            Writer.write stdout res;
+            let%bind () = Writer.flushed stdout in
+            Deferred.Or_error.return ())
+      in
+      let%map.Or_error units = Or_error.combine_errors or_errors in
+      ignore units
+    in
+    let cancelled_res =
+      let%bind () = Job.wait_for_cancel job in
+      Deferred.Or_error.error_string "Remote job cancelled"
+    in
+    Deferred.any [ res; cancelled_res ]
   ;;
 end
 

@@ -16,7 +16,6 @@ module Application_class_impl = struct
       ~stderr
       ~job_group
     =
-    let _start_time = Time_ns.now () in
     let job = Job.create ~groups:[ job_group ] () in
     let res =
       (* Set up connection to hosts in cluster as necessary*)

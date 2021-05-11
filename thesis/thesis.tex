@@ -1611,8 +1611,6 @@ At the current moment, the project needs to be modified directly to add builtin 
 
 \subsection{Single command}
 
-\todoi{Needs work: this section is currently inaccurate at describing how the implementation actually works, because I haven't gotten around to converting the single command application class to using the task cluster abstraction yet}
-
 \begin{sloppypar}
   The \texttt{single\_command} application class supports functionality for running a command that should be reliably executed on each of the machines in a cluster. The following example \texttt{single\_command} program gets the system information of all machines in a cluster named \texttt{csmachines}, and prints it to the local output:
 \end{sloppypar}
@@ -1625,7 +1623,6 @@ At the current moment, the project needs to be modified directly to add builtin 
   The implementation of this application class is very simple, and does not require directly using the the Shard network layer's RPC queries: it takes the program input, and uses the \texttt{task\_cluster} abstraction to reliabily execute the program as a task on each machine in the cluster.
   The \texttt{task\_cluster} guarantees reliability and error recovery, allowing the task to be retried on the same machine if it failed.
 \end{sloppypar}
-% \todoi{Functionality for tuning retries to be less aggressive?}
 
 \subsection{Data parallel}
 
