@@ -1,5 +1,6 @@
 open Core
 open Async
+open Util
 
 type t =
   | Function of
@@ -9,23 +10,6 @@ type t =
        -> args:string list
        -> int Deferred.t)
   | Source
-
-(* Returns: flags list * args list. Fails if flag is not in [valid_flags]. *)
-let separate_flags args ~valid_flags =
-  let rec helper args res_flags =
-    match args with
-    | [] -> Result.return (res_flags, [])
-    | x :: xs ->
-      if String.equal (String.slice x 0 1) "-"
-      then (
-        let arg_name = String.slice x 1 0 in
-        if List.exists valid_flags ~f:(fun x -> String.equal x arg_name)
-        then helper xs (arg_name :: res_flags)
-        else Result.fail arg_name)
-      else Result.return (res_flags, args)
-  in
-  helper args []
-;;
 
 let rec builtin_cd ~env ~stdout ~stderr ~args =
   match args with
@@ -178,9 +162,9 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
 let internal_log ~env ~stdout:_ ~stderr ~args =
   match separate_flags args ~valid_flags:[ "c"; "i"; "p"; "t"; "s"; "n" ] with
   | Ok (flags, args) ->
-    let log_time_key = "_log_time" in
-    let log_counter_key = "_log_counter" in
-    let log_id_key = "_log_id" in
+    let log_time_key = Util.shard_internal "log_time" in
+    let log_counter_key = Util.shard_internal "log_counter" in
+    let log_id_key = Util.shard_internal "log_id" in
     let log_id = Env.assign_get env ~key:log_id_key in
     let log_id = if String.equal log_id "" then "_internal" else log_id in
     let log = Util.log ~id:log_id in

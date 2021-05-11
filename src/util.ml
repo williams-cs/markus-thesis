@@ -18,6 +18,23 @@ let log ~id =
     log
 ;;
 
+(* Returns: flags list * args list. Fails if flag is not in [valid_flags]. *)
+let separate_flags args ~valid_flags =
+  let rec helper args res_flags =
+    match args with
+    | [] -> Result.return (res_flags, [])
+    | x :: xs ->
+      if String.equal (String.slice x 0 1) "-"
+      then (
+        let arg_name = String.slice x 1 0 in
+        if List.exists valid_flags ~f:(fun x -> String.equal x arg_name)
+        then helper xs (arg_name :: res_flags)
+        else Result.fail arg_name)
+      else Result.return (res_flags, args)
+  in
+  helper args []
+;;
+
 let random_state_ref : Random.State.t option ref = ref None
 let set_random_state state = random_state_ref := Some state
 
@@ -97,3 +114,5 @@ let verbose_println ~name ~verbose ~stderr ~host ~port str =
   in
   if verbose then fprintf stderr "%s\n" (sprintf "[%s-%s%s] " name host port_string ^ str)
 ;;
+
+let shard_internal var = sprintf "_shard_internal_%s" var

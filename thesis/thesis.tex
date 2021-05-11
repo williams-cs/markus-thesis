@@ -687,11 +687,12 @@ echo "Local: $tmpvar"
 # Local: 64
 \end{lstlisting}
 
-As an additional feature in Shard, scripts on the local machine can be used from the remote machine with the shell \texttt{source} builtin with the option \texttt{-l}.
-When this is executed, the remote machine sends a request to the local machine for the text of the script.
+As an additional feature in Shard, scripts on the local machine can be loaded to be used from the remote machine with the shell \texttt{source} builtin with the option \texttt{-l}.
+When this is done, the same script (using the same full path) can be run form the remote machine with the shell \texttt{source} builtin with the option \texttt{-r}.
 
 \begin{lstlisting}[language=Shard]
-(source -l setup.shard)@@testcluster
+source -l setup.shard
+(source -r setup.shard)@@testcluster
 \end{lstlisting}
 
 Because there are no restrictions to the Shard programs that can be executed remotely, it is possible to use Shard's remote execution capabilities on a remote machine.
@@ -1982,7 +1983,7 @@ Examples of real world scenarios that are simulated by this experiment include t
 The two programs, \texttt{random\_hash.shard} and \texttt{word\_length.shard}, are ran both without and with crashes, and the results of the execution are compared.
 
 In the case of the \texttt{random\_hash.shard} experiment, the remote machines are set up so that each machine crashes the Shard process a fixed number of times before successfully completing.
-This is done by including a \texttt{fixed\_crash.shard} script before running the experiment:
+This is done by including a \texttt{fixed\_crash.shard} script before running the experiment, using the language feature that allows running local scripts on the remote machine:
 \begin{lstlisting}[language=Shard]
 # fixed_crash.shard
 crashcount=1
@@ -1996,7 +1997,12 @@ if [ $count -ge 1 ]; then
     killall shard.exe
 fi
 \end{lstlisting}
-\todoi{Implement using source to import local shard scripts on the remote machine as a builtin}
+\begin{lstlisting}[language=Shard]
+# random_hash.shard with forced crashes
+source cluster_setup.shard
+source -l fixed_crash.shard
+(source -r fixed_crash.shard; head -c1000000000 /dev/urandom | md5sum)@@testcluster
+\end{lstlisting}
 This program checks if a file named \texttt{crash.txt} exists in the current directory.
 If \texttt{crash.txt} does not exist, is initialized with the crash count as specified by the \texttt{crashcount} variable.
 Then, the program reads and updates the file's contents as a numerical input, indicating the number of crashes left on this machine.

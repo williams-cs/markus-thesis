@@ -3,6 +3,13 @@ open Async
 
 val log : id:string -> Log.t
 
+(* Takes args and valid flags, returns (flag list, arg list), or fails with
+the invalid flag. *)
+val separate_flags
+  :  string list
+  -> valid_flags:string list
+  -> (string list * string list, string) Result.t
+
 (* Make sure to call this for deterministic unit tests *)
 val set_random_state : Random.State.t -> unit
 val random_state : unit -> Random.State.t
@@ -31,3 +38,5 @@ val verbose_println
   -> port:int option
   -> string
   -> unit
+
+val shard_internal : string -> string

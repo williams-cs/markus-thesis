@@ -120,15 +120,30 @@ let rec eval_command prog args ~eval_args =
         let stderr = Eval_args.stderr_writer eval_args in
         fn ~env ~stdout ~stderr ~args
       | Source ->
-        (match args with
-        | [] ->
-          fprintf
-            (Eval_args.stderr_writer eval_args)
-            "source: filename argument required\n";
-          return 1
-        | arg :: _ ->
-          let%bind () = update_dir () in
-          eval_source arg ~eval_args))
+        let stderr = Eval_args.stderr_writer eval_args in
+        (match Util.separate_flags args ~valid_flags:[ "l"; "r" ] with
+        | Ok (flags, args) ->
+          let eval_source_with_mode mode =
+            match args with
+            | [] ->
+              fprintf
+                (Eval_args.stderr_writer eval_args)
+                "source: filename argument required\n";
+              return 1
+            | arg :: _ ->
+              let%bind () = update_dir () in
+              eval_source arg mode ~eval_args
+          in
+          (match flags with
+          | [ "l" ] -> eval_source_with_mode `Load
+          | [ "r" ] -> eval_source_with_mode `Read
+          | [] -> eval_source_with_mode `Eval
+          | _ ->
+            fprintf stderr "export: too many options\n";
+            return 1)
+        | Error invalid_flag ->
+          fprintf stderr "export: %s: invalid option\n" invalid_flag;
+          return 1))
     | None ->
       let job = Job.create ~groups:[ job_group ] () in
       let%bind () = update_dir () in
@@ -178,20 +193,51 @@ let rec eval_command prog args ~eval_args =
           s; *)
         return exit_code))
 
-and eval_source file ~eval_args =
-  let%bind stdin = Reader.open_file file in
+and eval_source file mode ~eval_args =
   let stdout = Eval_args.stdout eval_args in
   let stderr = Eval_args.stderr eval_args in
+  let env = Eval_args.env eval_args in
   let%bind res =
-    eval_lines
-      ~interactive:false
-      ~prog_input:(Prog_input.Stream (stdin, Not_sexp))
-      ~stdout
-      ~stderr
-      ~eval_args
-      ()
+    match mode with
+    | `Eval ->
+      let%bind stdin = Reader.open_file file in
+      let%bind res =
+        eval_lines
+          ~interactive:false
+          ~prog_input:(Prog_input.Stream (stdin, Not_sexp))
+          ~stdout
+          ~stderr
+          ~eval_args
+          ()
+      in
+      let%bind () = Reader.close stdin in
+      return res
+    | `Load ->
+      let%bind stdin = Reader.open_file file in
+      let%bind contents = Reader.contents stdin in
+      Env.assign_set
+        env
+        ~key:(Util.shard_internal (sprintf "source_%s" file))
+        ~data:contents
+      |> ignore;
+      return 0
+    | `Read ->
+      let contents =
+        Env.assign_get env ~key:(Util.shard_internal (sprintf "source_%s" file))
+      in
+      let pipe =
+        Pipe.create_reader ~close_on_exception:true (fun writer ->
+            Pipe.write writer contents)
+      in
+      let%bind reader = Reader.of_pipe (Info.of_string "source_reader") pipe in
+      eval_lines
+        ~interactive:false
+        ~prog_input:(Prog_input.Stream (reader, Not_sexp))
+        ~stdout
+        ~stderr
+        ~eval_args
+        ()
   in
-  let%bind () = Reader.close stdin in
   return res
 
 and eval (ast : Ast.t) ~eval_args =
