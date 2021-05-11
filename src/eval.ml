@@ -308,6 +308,11 @@ and eval_pipeline_part ~eval_args =
   | Subshell t -> eval_subshell t ~eval_args
   | If_clause (if_elif_blocks, maybe_else) ->
     eval_if_clause if_elif_blocks maybe_else ~eval_args
+  | While_clause (condition, body) -> eval_while_clause `While condition body ~eval_args
+  | Until_clause (condition, body) -> eval_while_clause `Until condition body ~eval_args
+  | Brace_group body -> (* Investigate brace group semantics *) eval body ~eval_args
+  | For_clause (variable, items, body) -> eval_for_clause variable items body ~eval_args
+  | Case_clause (expression, body) -> eval_case_clause expression body ~eval_args
   | Simple_command part -> eval_simple_command part ~eval_args
   | Remote_command (t, cluster) -> eval_remote_command t cluster ~eval_args
 
@@ -448,6 +453,86 @@ and eval_if_clause if_elif_blocks maybe_else ~eval_args =
     (match return_code with
     | 0 -> eval then_block ~eval_args
     | _ -> eval_if_clause remaining maybe_else ~eval_args)
+
+and eval_while_clause while_or_until condition do_block ~eval_args =
+  let rec loop () =
+    let%bind return_code = eval condition ~eval_args in
+    let result =
+      match return_code with
+      | 0 -> true
+      | _ -> false
+    in
+    let result =
+      match while_or_until with
+      | `While -> result
+      | `Until -> not result
+    in
+    match result with
+    | true ->
+      let%bind _code = eval do_block ~eval_args in
+      loop ()
+    | false -> return 0
+  in
+  loop ()
+
+and eval_for_clause variable items do_block ~eval_args =
+  let items =
+    match items with
+    | Some arr -> arr
+    | None -> raise_s [%message "\"for\" without \"in\" is not currently supported!"]
+  in
+  let%bind items =
+    Deferred.List.map ~how:`Sequential items ~f:(fun item -> eval_token item ~eval_args)
+  in
+  let items = List.concat items in
+  Deferred.List.fold ~init:0 items ~f:(fun _accum item ->
+      let env = Eval_args.env eval_args in
+      Env.assign_set env ~key:variable ~data:item |> ignore;
+      eval do_block ~eval_args)
+
+and eval_case_clause expression case_items ~eval_args =
+  let pattern_match pattern s =
+    (* match
+      Result.try_with (fun () ->
+          let quote =
+            String.to_list pattern
+            |> List.bind ~f:(fun x ->
+                   match x with
+                   | '$' -> [ '\\'; '$' ]
+                   | c -> [ c ])
+            |> String.of_char_list
+          in
+          let regex = Str.regexp quote in
+          Str.search_forward regex s 0 |> ignore)
+    with
+    | Ok () -> true
+    | Error _err -> false *)
+    if String.mem pattern '?' || String.mem pattern '*' || String.mem pattern '['
+    then raise_s [%message "Custom pattern matching not currently supported!"];
+    String.equal pattern s
+  in
+  let%bind sl = eval_token expression ~eval_args in
+  let s = String.concat sl ~sep:" " in
+  let rec loop remaining =
+    match remaining with
+    | (pattern_list, maybe_block) :: xs ->
+      let rec inner_loop remaining =
+        match remaining with
+        | pattern :: ys ->
+          let%bind pattern_sl = eval_token pattern ~eval_args in
+          let pattern_s = String.concat pattern_sl ~sep:" " in
+          if pattern_match pattern_s s
+          then (
+            match maybe_block with
+            | Some block -> eval block ~eval_args
+            | None -> return 0)
+          else inner_loop ys
+        | [] -> loop xs
+      in
+      inner_loop pattern_list
+    | [] -> return 0
+  in
+  loop case_items
 
 and eval_token_part ~eval_args =
   let open Ast in

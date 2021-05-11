@@ -50,20 +50,15 @@ and case_item = token list * t option
 and command =
   | Simple_command of simple_command
   | If_clause of (t * t) list * t option
-  (* | While_clause of t * t
+  | While_clause of t * t
   | Until_clause of t * t
   | Brace_group of t
-  | For_clause of string * token list * t
-  | Case_clause of token * case_item list *)
+  | For_clause of string * token list option * t
+  | Case_clause of token * case_item list
   | Subshell of t
   (* Remote extension *)
   | Remote_command of t * string
 
-(* | For_clause of string * string list * t
-| Case_clause of string * case_item list
-| If_clause of (t * t) list * t option
-| While_clause of t * t
-| Until_clause of t * t *)
 and pipeline = bang option * command list
 
 and and_or_list = pipeline * (and_or * pipeline) list
@@ -228,7 +223,7 @@ let ast : t Angstrom_extended.t =
         token "&" *> return Ampersand <|> token ";" *> return Semicolon
       in
       let g_separator = g_separator_op >>| some <* g_linebreak <|> g_newline_list in
-      let _g_sequential_sep = token ";" >>| some <|> g_newline_list in
+      let g_sequential_sep = token ";" <* g_linebreak >>| some <|> g_newline_list in
       (* Quoting *)
       let chars_to_literal cl = cl |> String.of_char_list |> fun l -> Literal l in
       let maybe_chars_to_literal mcl = mcl |> List.filter_opt |> chars_to_literal in
@@ -288,7 +283,12 @@ let ast : t Angstrom_extended.t =
         <|> (many1 character_in_double_quotes >>| chars_to_literal)
       in
       let token_part_unquoted ~reserved_special ~exclude_special =
-        let reserved = if reserved_special then reserved_words else [] in
+        let reserved =
+          match reserved_special with
+          | `All -> reserved_words
+          | `None -> []
+          | `List l -> l
+        in
         choice (List.map reserved ~f:(fun word -> string word))
         <!|>
         let within_backtick = Subshell_state.within_backtick subshell_state in
@@ -306,7 +306,7 @@ let ast : t Angstrom_extended.t =
       let unquoted_string ~reserved_special ~exclude_special =
         both
           (token_part_unquoted ~reserved_special ~exclude_special)
-          (many (token_part_unquoted ~reserved_special:false ~exclude_special))
+          (many (token_part_unquoted ~reserved_special:`None ~exclude_special))
         >>| fun (x, xs) -> x :: xs
       in
       let name ~exclude_special =
@@ -318,7 +318,7 @@ let ast : t Angstrom_extended.t =
           <|> single_quoted_str
           <|> double_quoted_str)
           (many
-             (unquoted_string ~reserved_special:false ~exclude_special
+             (unquoted_string ~reserved_special:`None ~exclude_special
              <|> single_quoted_str
              <|> double_quoted_str))
         >>| fun (x, xs) -> x :: xs |> List.concat
@@ -329,10 +329,10 @@ let ast : t Angstrom_extended.t =
       let assignment =
         both
           (name ~exclude_special:[] <* string "=")
-          (word ~reserved_special:false ~exclude_special:[])
+          (word ~reserved_special:`None ~exclude_special:[])
       in
       let assignment_word = delimiter *> assignment <* delimiter in
-      let g_filename = unquoted_string ~reserved_special:false ~exclude_special:[] in
+      let g_filename = unquoted_string ~reserved_special:`None ~exclude_special:[] in
       let io_less = token "<" *> return Less in
       let io_lessand = token "<&" *> return Lessand in
       let io_great = token ">" *> return Great in
@@ -383,7 +383,7 @@ let ast : t Angstrom_extended.t =
           (many
              (g_io_redirect
              >>| (fun r -> `Redirect r)
-             <|> (delimited_word ~reserved_special:false >>| fun w -> `Token w)))
+             <|> (delimited_word ~reserved_special:`None >>| fun w -> `Token w)))
         >>| fun (x, xs) -> x :: xs
       in
       let g_simple_command : command Angstrom_extended.t =
@@ -397,9 +397,9 @@ let ast : t Angstrom_extended.t =
           Simple_command (List.rev trev, List.rev arev, List.rev rrev)
         in
         delimiter
-        *> (both g_cmd_prefix_1 (g_cmd_suffix_1 ~reserved_special:false)
+        *> (both g_cmd_prefix_1 (g_cmd_suffix_1 ~reserved_special:`None)
            <|> both g_cmd_prefix_1 (return [])
-           <|> both (return []) (g_cmd_suffix_1 ~reserved_special:true))
+           <|> both (return []) (g_cmd_suffix_1 ~reserved_special:`All))
         >>| merge_simple_command
       in
       let and_or_if = token "||" *> return Or <|> token "&&" *> return And in
@@ -414,7 +414,7 @@ let ast : t Angstrom_extended.t =
              (both
                 (text_token "elif" *> inner subshell_state)
                 (text_token "then" *> inner subshell_state)))
-          (option None (text_token "else" *> inner subshell_state >>| fun x -> Some x))
+          (option None (text_token "else" *> inner subshell_state >>| some))
       in
       let g_if_clause =
         both
@@ -426,7 +426,65 @@ let ast : t Angstrom_extended.t =
         >>| fun (if_block, (elif_blocks, maybe_else)) ->
         If_clause (if_block :: elif_blocks, maybe_else)
       in
-      let g_compound_command = g_subshell <|> g_if_clause in
+      let g_do_group = text_token "do" *> inner subshell_state <* text_token "done" in
+      let g_while_clause =
+        both (text_token "while" *> inner subshell_state) g_do_group
+        >>| fun (while_condition, do_block) -> While_clause (while_condition, do_block)
+      in
+      let g_until_clause =
+        both (text_token "until" *> inner subshell_state) g_do_group
+        >>| fun (until_condition, do_block) -> Until_clause (until_condition, do_block)
+      in
+      let g_for_clause =
+        both
+          (both
+             (text_token "for" *> name ~exclude_special:[] <* delimiter)
+             (option
+                None
+                (g_linebreak
+                 *> text_token "in"
+                 *> many (delimited_word ~reserved_special:(`List [ "in"; "do" ]))
+                <* g_sequential_sep
+                >>| some)
+             <|> g_sequential_sep *> return None))
+          g_do_group
+        >>| fun ((for_variable, maybe_for_list), do_block) ->
+        For_clause (for_variable, maybe_for_list, do_block)
+      in
+      let g_pattern =
+        both
+          (delimited_word ~reserved_special:(`List [ "esac" ]))
+          (many (token "|" *> delimited_word ~reserved_special:`None))
+        >>| fun (first, later) -> first :: later
+      in
+      let g_case_item ~ns =
+        both
+          (option "" (token "(") *> g_pattern <* token ")")
+          (g_linebreak >>| (fun _x -> None) <|> (inner subshell_state >>| fun x -> Some x))
+        <* if ns then return () else token ";;" *> g_linebreak *> return ()
+      in
+      let g_case_list ~ns = many1 (g_case_item ~ns) in
+      let g_case_clause =
+        both
+          (text_token "case" *> delimited_word ~reserved_special:(`List [ "in" ])
+          <* g_linebreak
+          <* text_token "in"
+          <* g_linebreak)
+          (g_case_list ~ns:false <|> g_case_list ~ns:true)
+        >>| fun (case_variable, case_list) -> Case_clause (case_variable, case_list)
+      in
+      let g_brace_group =
+        token "{" *> inner subshell_state <* token "}" >>| fun block -> Brace_group block
+      in
+      let g_compound_command =
+        g_subshell
+        <|> g_if_clause
+        <|> g_while_clause
+        <|> g_until_clause
+        <|> g_for_clause
+        <|> g_case_clause
+        <|> g_brace_group
+      in
       let re_subshell = subshell in
       (* let re_name = name >>| fun x -> literal_command x in *)
       let re_simple_command = g_simple_command >>| fun x -> literal_command x in
