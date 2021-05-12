@@ -73,7 +73,7 @@ end
 
 type t =
   { connections : (Connection.t Ivar.t * Time_ns.t) String.Table.t
-  ; target_list : Remote_target.t list ref
+  ; target_table : Remote_target.t String.Table.t
   ; remote_target_index : int ref
   ; open_tasks : int ref
   ; open_tasks_cache : int ref
@@ -92,7 +92,7 @@ let start_to_id start = start |> Time_ns.to_int63_ns_since_epoch |> Int63.to_str
 let create () =
   let start = Time_ns.now () in
   { connections = String.Table.create ()
-  ; target_list = ref []
+  ; target_table = String.Table.create ()
   ; remote_target_index = ref 0
   ; open_tasks = ref 0
   ; open_tasks_cache = ref 0
@@ -109,14 +109,14 @@ let create () =
 let get_conn { connections; _ } conn = String.Table.find connections conn
 
 let add_conn
-    { connections; target_list; _ }
+    { connections; target_table; _ }
     conn
     target
     sender_receiver_deferred
     timestamp
   =
   String.Table.set connections ~key:conn ~data:(sender_receiver_deferred, timestamp);
-  target_list := target :: !target_list
+  String.Table.set target_table ~key:conn ~data:target
 ;;
 
 let remote_target_string target =
@@ -374,10 +374,25 @@ let dispatch_command_throttle connection program send_lines env_image ~throttle_
       Deferred.Or_error.return (next_heartbeat, resp))
 ;;
 
+let target_list t =
+  target_table t
+  |> String.Table.to_alist
+  |> List.sort ~compare:(fun (k1, _v1) (k2, _v2) -> String.compare k1 k2)
+  |> List.map ~f:snd
+;;
+
+let target_list_index t key =
+  target_table t
+  |> String.Table.keys
+  |> List.mapi ~f:(fun i x -> i, x)
+  |> List.find ~f:(fun (_i, x) -> String.equal x key)
+  |> Option.map ~f:fst
+;;
+
 let choose_target t =
   let choose_next () =
     let remote_target_index = remote_target_index t in
-    let target = List.nth_exn !(target_list t) !remote_target_index in
+    let target = List.nth_exn (target_list t) !remote_target_index in
     let next_remote_target =
       (!remote_target_index + 1) % String.Table.length (connections t)
     in
@@ -442,6 +457,11 @@ let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout ~uu
     | `Specific target -> target
   in
   let rts = remote_target_string remote_target in
+  let env_image =
+    match target_list_index t rts with
+    | None -> env_image
+    | Some i -> Env_image.add_assignment env_image ~key:"index" ~data:(Int.to_string i)
+  in
   if use_beta_sampling
   then (
     let table = beta_sampler_key_of_uuid t in
@@ -511,6 +531,8 @@ let log_task_completed t =
     log_task_counter t := complete_count;
     let base_id = !(log_id t) in
     let log = Util.log ~id:base_id in
+    (* Add 0,0 point to log *)
+    if complete_count = 1 then Log.printf log "0.0,0";
     Log.printf log "%f,%d" (log_time_passed t) complete_count)
 ;;
 

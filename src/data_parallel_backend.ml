@@ -28,13 +28,13 @@ module Application_class_impl = struct
           info
         | Some info -> info
       in
+      Task_cluster.log_reset cluster_info;
       let%bind.Deferred _res =
         Task_cluster.init_targets cluster_info ~targets:remote_targets ~verbose ~stderr
       in
       match setting with
       | "map" ->
         (* Reset log *)
-        Task_cluster.log_reset cluster_info;
         (* Start processing inputs: For each line, send to some host in cluster
          for processing. Repeat until done. Stream back data line by line in
          key,value format.*)

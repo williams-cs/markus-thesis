@@ -1,0 +1,11 @@
+# fixed_crash.shard
+file=/tmp/shard/crash.txt
+crashcount=3
+if ! [ -a $file ]; then
+    echo $crashcount >$file
+fi
+count=$(cat $file)
+if [ $count -ge 1 ]; then
+    echo "$count-1" | bc >$file
+    killall shard.exe
+fi

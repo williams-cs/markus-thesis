@@ -47,7 +47,9 @@ let run_command =
                    Option.map x ~f:(fun port -> Remote_sender port))
           ]
       and verbose = flag "-V" no_arg ~doc:"Verbose mode."
-      and filename = anon (maybe ("filename" %: string)) in
+      and filename_and_args =
+        anon (maybe (t2 ("filename" %: string) (sequence ("args" %: string))))
+      in
       fun () ->
         let log_remote rerror =
           let%map.Deferred () =
@@ -99,7 +101,12 @@ let run_command =
             in
             log_remote rerror)
         | None ->
-          Shard.run ~sexp_mode ?filename ~verbose ()
+          let filename, args =
+            match filename_and_args with
+            | None -> None, None
+            | Some (s, t) -> Some s, Some t
+          in
+          Shard.run ~sexp_mode ?filename ?args ~verbose ()
           |> Deferred.map ~f:(fun x ->
                  match x with
                  | 0 -> Or_error.return ()

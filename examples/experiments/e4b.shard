@@ -1,0 +1,8 @@
+# word_count.shard
+source e4b_cluster_setup.shard
+cluster -t data_parallel
+cat input.txt |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (echo $in; echo 1)@@map/testcluster |
+    (paste -sd+ - | bc)@@reduce/testcluster

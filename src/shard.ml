@@ -24,12 +24,29 @@ let setup_signal_handlers ~interactive =
       | None -> ())
 ;;
 
-let run_with_io ?verbose ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isatty () =
+let load_args ~env ~args =
+  let args = Option.value ~default:[] args in
+  List.iteri args ~f:(fun i arg ->
+      Env.assign_set env ~key:(Int.to_string (i + 1)) ~data:arg |> ignore)
+;;
+
+let run_with_io
+    ?verbose
+    ?args
+    ~prog_input
+    ~env
+    ~eval_args_stdin
+    ~stdout
+    ~stderr
+    ~isatty
+    ()
+  =
   let read_enviornment_variables ~env =
     Array.iter (Unix.environment ()) ~f:(fun assignment ->
         Builtin.export_single assignment ~env)
   in
   read_enviornment_variables ~env;
+  load_args ~env ~args;
   setup_signal_handlers ~interactive:isatty;
   let verbose =
     match verbose with
@@ -56,7 +73,7 @@ let create_env ~working_directory =
   Env.create (module Provider) ~working_directory
 ;;
 
-let run ?sexp_mode ?filename ?verbose () =
+let run ?sexp_mode ?filename ?args ?verbose () =
   let stdin = force Reader.stdin in
   let stdout = force Writer.stdout in
   let stderr = force Writer.stderr in
@@ -82,5 +99,5 @@ let run ?sexp_mode ?filename ?verbose () =
   in
   let%bind cwd = Unix.getcwd () in
   let env = create_env ~working_directory:cwd in
-  run_with_io ?verbose ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isatty ()
+  run_with_io ?verbose ?args ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isatty ()
 ;;

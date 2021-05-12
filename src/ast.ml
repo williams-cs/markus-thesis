@@ -230,8 +230,11 @@ let ast : t Angstrom_extended.t =
       let non_special_character ~exclude_special =
         satisfy (fun x -> not (is_special ~exclude_special x))
       in
-      let character_out_of_quotes ~within_backtick ~exclude_special =
-        non_special_character ~exclude_special
+      let alphanum_underscore =
+        satisfy (fun x -> Char.is_alphanum x || Char.equal x '_')
+      in
+      let character_out_of_quotes ~varchar ~within_backtick ~exclude_special =
+        (if varchar then alphanum_underscore else non_special_character ~exclude_special)
         >>| some
         <|> char '\\' *> g_newline *> return None
         <|> char '\\'
@@ -243,7 +246,9 @@ let ast : t Angstrom_extended.t =
       in
       let variable =
         let within_backtick = Subshell_state.within_backtick subshell_state in
-        char '$' *> many1 (character_out_of_quotes ~within_backtick ~exclude_special:[])
+        char '$'
+        *> many1
+             (character_out_of_quotes ~varchar:true ~within_backtick ~exclude_special:[])
         >>| fun mcl ->
         mcl |> List.filter_opt |> String.of_char_list |> fun v -> Variable v
       in
@@ -294,7 +299,8 @@ let ast : t Angstrom_extended.t =
         let within_backtick = Subshell_state.within_backtick subshell_state in
         variable
         <|> command_substitution
-        <|> (many1 (character_out_of_quotes ~within_backtick ~exclude_special)
+        <|> (many1
+               (character_out_of_quotes ~varchar:false ~within_backtick ~exclude_special)
             >>| maybe_chars_to_literal)
       in
       let single_quoted_str =
@@ -309,7 +315,8 @@ let ast : t Angstrom_extended.t =
           (many (token_part_unquoted ~reserved_special:`None ~exclude_special))
         >>| fun (x, xs) -> x :: xs
       in
-      let name ~exclude_special =
+      let variable_name = many1 alphanum_underscore >>| String.of_char_list in
+      let non_special_string ~exclude_special =
         many1 (non_special_character ~exclude_special) >>| String.of_char_list
       in
       let word ~reserved_special ~exclude_special =
@@ -328,7 +335,7 @@ let ast : t Angstrom_extended.t =
       in
       let assignment =
         both
-          (name ~exclude_special:[] <* string "=")
+          (variable_name <* string "=")
           (word ~reserved_special:`None ~exclude_special:[])
       in
       let assignment_word = delimiter *> assignment <* delimiter in
@@ -438,7 +445,7 @@ let ast : t Angstrom_extended.t =
       let g_for_clause =
         both
           (both
-             (text_token "for" *> name ~exclude_special:[] <* delimiter)
+             (text_token "for" *> variable_name <* delimiter)
              (option
                 None
                 (g_linebreak
@@ -488,7 +495,7 @@ let ast : t Angstrom_extended.t =
       let re_subshell = subshell in
       (* let re_name = name >>| fun x -> literal_command x in *)
       let re_simple_command = g_simple_command >>| fun x -> literal_command x in
-      let re_hostname = name ~exclude_special:[ '='; '@' ] in
+      let re_hostname = non_special_string ~exclude_special:[ '='; '@' ] in
       let re_remote_command =
         if remote_extensions
         then

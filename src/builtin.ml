@@ -152,12 +152,15 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
 ;;
 
 (*
--i: print counter with time 
--t: print string with time
+-i: print counter with time (time,counter)
+-t: print string with time (time,string)
+-T: print string with time (string,time)
 -p (or no arg): print string
+-b: print counter with string (counter,string)
 -c: clear counter
--s: start timer
+-s: start/reset timer
 -n: set id/name
+-z: print zero counter with zero time
 *)
 let internal_log ~env ~stdout:_ ~stderr ~args =
   match separate_flags args ~valid_flags:[ "c"; "i"; "p"; "t"; "s"; "n" ] with
@@ -199,6 +202,10 @@ let internal_log ~env ~stdout:_ ~stderr ~args =
       let time_elapsed = time_elapsed () in
       Log.printf log "%f,%s" time_elapsed (String.concat ~sep:" " args);
       return 0
+    | [ "T" ] ->
+      let time_elapsed = time_elapsed () in
+      Log.printf log "%s,%f" (String.concat ~sep:" " args) time_elapsed;
+      return 0
     | [ "c" ] ->
       Env.assign_set env ~key:log_counter_key ~data:"0" |> ignore;
       return 0
@@ -210,6 +217,17 @@ let internal_log ~env ~stdout:_ ~stderr ~args =
       in
       let counter = counter + 1 in
       Log.printf log "%f,%d" time_elapsed counter;
+      return 0
+    | [ "b" ] ->
+      let counter_string = Env.assign_get env ~key:log_counter_key in
+      let counter =
+        if String.equal counter_string "" then 0 else Int.of_string counter_string
+      in
+      let counter = counter + 1 in
+      Log.printf log "%d,%s" counter (String.concat ~sep:" " args);
+      return 0
+    | [ "z" ] ->
+      Log.printf log "0.0,0";
       return 0
     | [ "n" ] ->
       Env.assign_set env ~key:log_id_key ~data:(String.concat ~sep:" " args) |> ignore;

@@ -1839,8 +1839,6 @@ The \texttt{word\_count.shard} program is ran a total of 20 trials sequentially 
 \subsection{Data parallel with delay}
 The third experiment in this section, \texttt{word\_count\_slow.shard}, is almost identical to the previous \texttt{word\_count.shard} experiment, except that each \texttt{map} remote command sleeps for 1 second in the middle before its completion.
 
-\todoi{Experiment 3: \texttt{word\_count\_slow.shard} (Exercise parallel tasks)}
-
 \begin{lstlisting}[language=Shard]
 # word_count_slow.shard
 source cluster_setup.shard
@@ -1958,11 +1956,10 @@ On the other hand, when running \texttt{random\_hash.shard} without the addition
 
 For \texttt{word\_length.shard}, we look at the cumulative time it takes to complete some number of map and reduce tasks during the program's execution, as can be seen in Figure \ref{fig:unreachable}.
 
+% Experiment (e4)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
+    \includegraphics[scale=0.9]{img/experiments/e4_1620837242671.png}
     \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} with and without an unreachable host}
     \label{fig:unreachable}
   \end{center}
@@ -1980,10 +1977,9 @@ Examples of real world scenarios that are simulated by this experiment include t
 The two programs, \texttt{random\_hash.shard} and \texttt{word\_length.shard}, are ran both without and with crashes, and the results of the execution are compared.
 
 In the case of the \texttt{random\_hash.shard} experiment, the remote machines are set up so that each machine crashes the Shard process a fixed number of times before successfully completing.
-This is done by including a \texttt{fixed\_crash.shard} script before running the experiment, using the language feature that allows running local scripts on the remote machine:
+This is done by including a \texttt{fixed\_crash.shard} script before running the experiment, using the language feature that allows running local scripts on the remote machine, and passing the number of crashes as the \texttt{crashcount} variable:
 \begin{lstlisting}[language=Shard]
 # fixed_crash.shard
-crashcount=1
 file=crash.txt
 if [ ! -a $file ]; then
     echo crashcount >$file
