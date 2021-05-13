@@ -208,6 +208,7 @@ and eval_source file mode ~eval_args =
           ~stdout
           ~stderr
           ~eval_args
+          ~exit_handler:(fun code -> raise (Builtin.ExitExn code))
           ()
       in
       let%bind () = Reader.close stdin in
@@ -236,6 +237,7 @@ and eval_source file mode ~eval_args =
         ~stdout
         ~stderr
         ~eval_args
+        ~exit_handler:(fun code -> raise (Builtin.ExitExn code))
         ()
   in
   return res
@@ -259,7 +261,15 @@ and eval (ast : Ast.t) ~eval_args =
 
 and eval_subshell ast ~eval_args =
   let env = Eval_args.env eval_args |> Env.copy in
-  eval ast ~eval_args:(Eval_args.with_env eval_args ~env)
+  let%bind res =
+    try_with (fun () -> eval ast ~eval_args:(Eval_args.with_env eval_args ~env))
+  in
+  match res with
+  | Error err ->
+    (match Monitor.extract_exn err with
+    | Builtin.ExitExn i -> return i
+    | _ -> return 0)
+  | Ok code -> return code
 
 and eval_and_or_list h t ~eval_args =
   (* In shell, && and || have the same precendence *)
@@ -598,7 +608,7 @@ and eval_token token_parts ~eval_args : string list Deferred.t =
   in
   z
 
-and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args () =
+and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args ~exit_handler () =
   let stdout_writer = Writer.create stdout in
   let stderr_writer = Writer.create stderr in
   let rec repl ?state ?prior_input () =
@@ -613,14 +623,19 @@ and eval_lines ?interactive ~prog_input ~stdout ~stderr ~eval_args () =
       then (
         let job_group = Env.job_group env in
         Job.Job_group.reset job_group);
-      let%map res = Async.try_with (fun () -> eval ast ~eval_args) in
+      let%bind res = Async.try_with (fun () -> eval ast ~eval_args) in
       match res with
       | Ok exit_code ->
         let last_exit_code_var = "?" in
         Env.assign_set env ~key:last_exit_code_var ~data:(Int.to_string exit_code)
         |> ignore;
-        ()
-      | Error exn -> fprintf stderr_writer "%s\n" (Exn.to_string exn)
+        return ()
+      | Error exn ->
+        (match Monitor.extract_exn exn with
+        | Builtin.ExitExn code -> exit_handler code
+        | _ ->
+          fprintf stderr_writer "%s\n" (Exn.to_string exn);
+          return ())
     in
     if interactive
     then (

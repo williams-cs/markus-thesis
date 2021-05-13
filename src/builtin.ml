@@ -2,6 +2,8 @@ open Core
 open Async
 open Util
 
+exception ExitExn of int
+
 type t =
   | Function of
       (env:Cluster_type.t Env.t
@@ -41,17 +43,13 @@ let rec builtin_cd ~env ~stdout ~stderr ~args =
 
 let builtin_exit ~env:_ ~stdout:_ ~stderr ~args =
   match args with
-  | [] ->
-    shutdown 0;
-    Deferred.never ()
+  | [] -> raise (ExitExn 0)
   | [ x ] ->
     (match Or_error.try_with (fun () -> Int.of_string x) with
     | Error _ ->
       fprintf stderr "exit: numeric argument required\n";
       return 1
-    | Ok code ->
-      shutdown code;
-      Deferred.never ())
+    | Ok code -> raise (ExitExn code))
   | _ ->
     fprintf stderr "exit: too many arguments\n";
     return 1
@@ -163,7 +161,9 @@ let builtin_cluster ~env ~stdout ~stderr ~args =
 -z: print zero counter with zero time
 *)
 let internal_log ~env ~stdout:_ ~stderr ~args =
-  match separate_flags args ~valid_flags:[ "c"; "i"; "p"; "t"; "s"; "n" ] with
+  match
+    separate_flags args ~valid_flags:[ "c"; "i"; "p"; "t"; "T"; "b"; "s"; "n"; "z" ]
+  with
   | Ok (flags, args) ->
     let log_time_key = Util.shard_internal "log_time" in
     let log_counter_key = Util.shard_internal "log_counter" in

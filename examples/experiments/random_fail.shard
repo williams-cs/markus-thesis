@@ -1,0 +1,5 @@
+# random_fail.shard
+rand=$(shuf -i 1-100 -n 1)
+if [ $rand -le $failpercent ]; then
+    exit 1
+fi

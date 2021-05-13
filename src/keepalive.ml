@@ -8,7 +8,7 @@ let local_delay = 10000
 let remote_delay = 30000
 let enable_keepalive = true
 
-let schedule dispatch =
+let schedule ~dispatch ~on_error =
   if enable_keepalive
   then (
     let stop_ivar = Ivar.create () in
@@ -27,6 +27,7 @@ let schedule dispatch =
           fprintf (force Writer.stderr) "keepalive ending\n";
           fprintf (force Writer.stderr) "%s\n" (Error.to_string_hum err);
           Ivar.fill stop_ivar ();
+          let%bind () = on_error () in
           return ()))
   else ()
 ;;

@@ -44,5 +44,6 @@ val eval_lines
   -> stdout:Fd.t
   -> stderr:Fd.t
   -> eval_args:Eval_args.t
+  -> exit_handler:(int -> unit Deferred.t)
   -> unit
   -> int Deferred.t

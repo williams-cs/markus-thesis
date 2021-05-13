@@ -13,4 +13,8 @@ val initial_delay : int
 val local_delay : int
 val remote_delay : int
 val enable_keepalive : bool
-val schedule : (unit -> unit Deferred.Or_error.t) -> unit
+
+val schedule
+  :  dispatch:(unit -> unit Deferred.Or_error.t)
+  -> on_error:(unit -> unit Deferred.t)
+  -> unit

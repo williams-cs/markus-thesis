@@ -1,6 +1,5 @@
 # fixed_crash.shard
 file=/tmp/shard/crash.txt
-crashcount=3
 if ! [ -a $file ]; then
     echo $crashcount >$file
 fi

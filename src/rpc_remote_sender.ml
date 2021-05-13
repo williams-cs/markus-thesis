@@ -101,12 +101,12 @@ let start_remote_sender
                         in
                         return (tmp_reader, tmp_writer, glued)
                       in
-                      let close_for_id output_writer =
+                      let close_for_id code output_writer =
                         let snum = get_sequence_number () in
                         let rquery =
                           { Receiver_query.id
                           ; sequence_number = snum
-                          ; data = Receiver_data.Close
+                          ; data = Receiver_data.Close code
                           }
                         in
                         let sexp = Receiver_query.sexp_of_t rquery in
@@ -143,9 +143,13 @@ let start_remote_sender
                           "PROC %s %s\n"
                           (Sexp.to_string prog)
                           id;
+                        let exit_ivar = Ivar.create () in
                         let res =
                           runner
                             ~verbose
+                            ~exit_handler:(fun code ->
+                              Ivar.fill exit_ivar code;
+                              return ())
                             ~prog
                             ~env
                             ~eval_args_stdin:(Some reader)
@@ -154,7 +158,11 @@ let start_remote_sender
                         in
                         let index = ref 0 in
                         Clock_ns.every
-                          ~stop:(Deferred.ignore_m res)
+                          ~stop:
+                            (Deferred.any
+                               [ Deferred.ignore_m res
+                               ; Deferred.ignore_m (Ivar.read exit_ivar)
+                               ])
                           heartbeat_span_ns
                           (fun () ->
                             (* Heartbeat does not use sequence number *)
@@ -168,7 +176,9 @@ let start_remote_sender
                             (* index := !index + 1; *)
                             let sexp = Receiver_query.sexp_of_t rquery in
                             Writer.write_sexp global_stdout sexp);
-                        let%bind res = res in
+                        let%bind res_or_error =
+                          Deferred.any [ res; Ivar.read exit_ivar ]
+                        in
                         (* let%bind () = Writer.fsync stdout in
                       let%bind () = Writer.fsync stderr in
                       let%bind () = Writer.fsync global_stdout in
@@ -193,9 +203,17 @@ let start_remote_sender
                         let%bind () = Reader.close reader in
                         let%bind () = Reader.close stdout_reader_for_close in
                         let%bind () = Reader.close stderr_reader_for_close in
-                        close_for_id global_stdout;
+                        let exit_code =
+                          match Ivar.peek exit_ivar with
+                          | Some code -> code
+                          | None -> res_or_error
+                        in
+                        close_for_id exit_code global_stdout;
                         fprintf (force Writer.stderr) "PROC DONE %s\n" id;
-                        return res
+                        match exit_code with
+                        | 0 -> Deferred.Or_error.return ()
+                        | i ->
+                          Deferred.Or_error.error_string (sprintf "Exit with code %d" i)
                       in
                       (* let%bind () = glue_wait_stdout in
               let%bind () = glue_wait_stderr in *)

@@ -3,8 +3,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-def load(run, logname, xaxis, yaxis):
-    converters = {0: lambda s: float(" ".join(s.split(" ")[2:]))}
+def load(run, logname, xaxis, yaxis, floatify=True):
+    def converter(s):
+        parts = " ".join(s.split(" ")[2:])
+        if floatify:
+            return float(parts)
+        else:
+            return str(parts)
+    converters = {0: converter}
     fpath = "/tmp/shard/logs/{id}/{name}".format(id = run, name = logname)
     data = pd.read_csv(fpath, delimiter=",", names=[xaxis, yaxis], converters=converters)
     return data

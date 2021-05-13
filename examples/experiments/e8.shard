@@ -1,0 +1,10 @@
+# word_count.shard
+source cluster_setup.shard
+cluster -t data_parallel
+source -l random_fail.shard
+failpercent=$1
+cat input.txt |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (source -r random_fail.shard; echo $in; echo 1)@@map/testcluster |
+    (source -r random_fail.shard; paste -sd+ - | bc)@@reduce/testcluster

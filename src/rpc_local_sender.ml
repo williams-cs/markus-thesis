@@ -148,26 +148,31 @@ let handle_open state query =
   let user = Open_query.user query in
   let ivar : int Or_error.t Ivar.t = Ivar.create () in
   let _x =
-    In_thread.run (fun () ->
-        let res =
-          Remote_ssh.remote_run_sender
-            ~host
-            ~port
-            ~user
-            ~verbose
-            ~port_callback:(fun port -> Ivar.fill ivar (Ok port))
-            ~read_callback:(fun buf len -> Core.Unix.read read_fd ~len ~buf)
-        in
-        match res with
-        | Ok () -> ()
-        | Error err ->
-          (match Ivar.is_empty ivar with
-          | true -> Ivar.fill_if_empty ivar (Error err)
-          | false ->
-            fprintf
-              (force Writer.stderr)
-              "Local sender error: %s"
-              (Error.to_string_hum err)))
+    let%bind () =
+      In_thread.run (fun () ->
+          let res =
+            Remote_ssh.remote_run_sender
+              ~host
+              ~port
+              ~user
+              ~verbose
+              ~port_callback:(fun port -> Ivar.fill ivar (Ok port))
+              ~read_callback:(fun buf len -> Core.Unix.read read_fd ~len ~buf)
+          in
+          match res with
+          | Ok () -> ()
+          | Error err ->
+            (match Ivar.is_empty ivar with
+            | true -> Ivar.fill_if_empty ivar (Error err)
+            | false ->
+              fprintf
+                (force Writer.stderr)
+                "Local sender error: %s"
+                (Error.to_string_hum err)))
+    in
+    let close_ivar = State.close_ivar state in
+    Ivar.fill close_ivar ();
+    return ()
   in
   let%bind.Deferred.Or_error port = Ivar.read ivar in
   port |> Deferred.Or_error.return
@@ -302,6 +307,8 @@ let dispatch_keepalive conn =
 ;;
 
 let create conn =
-  Keepalive.schedule (fun () -> dispatch_keepalive conn);
+  Keepalive.schedule
+    ~dispatch:(fun () -> dispatch_keepalive conn)
+    ~on_error:(fun () -> Async.Rpc.Connection.close conn);
   conn
 ;;

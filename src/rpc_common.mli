@@ -28,7 +28,7 @@ end
 module Receiver_data : sig
   type t =
     | Message of string
-    | Close
+    | Close of int
     | Heartbeat of int
   [@@deriving sexp, bin_io]
 end

@@ -117,6 +117,8 @@ let handle_query state query =
          in
          let%bind () = reader_deferred in
          Pipe.close pipe;
+         let close_ivar = State.close_ivar state in
+         Ivar.fill close_ivar ();
          return ()))
 ;;
 
@@ -188,6 +190,8 @@ let dispatch_keepalive conn =
 ;;
 
 let create conn =
-  Keepalive.schedule (fun () -> dispatch_keepalive conn);
+  Keepalive.schedule
+    ~dispatch:(fun () -> dispatch_keepalive conn)
+    ~on_error:(fun () -> Async.Rpc.Connection.close conn);
   conn
 ;;

@@ -84,7 +84,8 @@ let run_command =
                 (module M)
                 ~verbose
                 ~remote_port
-                ~runner:(fun ~verbose ~prog ~env ~eval_args_stdin ~stdout ~stderr ->
+                ~runner:
+                  (fun ~verbose ~exit_handler ~prog ~env ~eval_args_stdin ~stdout ~stderr ->
                   Shard.run_with_io
                     ~verbose
                     ~prog_input:(Shard.Eval.Prog_input.Sexp prog)
@@ -92,12 +93,9 @@ let run_command =
                     ~eval_args_stdin
                     ~stdout
                     ~stderr
+                    ~exit_handler
                     ~isatty:false
-                    ()
-                  |> Deferred.map ~f:(fun x ->
-                         match x with
-                         | 0 -> Or_error.return ()
-                         | _ -> Or_error.errorf "Exit with code %d\n" x))
+                    ())
             in
             log_remote rerror)
         | None ->

@@ -29,7 +29,7 @@ end
 module Receiver_data = struct
   type t =
     | Message of string
-    | Close
+    | Close of int
     | Heartbeat of int
   [@@deriving sexp, bin_io]
 end

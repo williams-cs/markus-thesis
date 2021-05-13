@@ -1,6 +1,8 @@
 open Core
 open Async
 
+exception ExitExn of int
+
 type t =
   | Function of
       (env:Cluster_type.t Env.t

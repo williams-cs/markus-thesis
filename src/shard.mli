@@ -13,6 +13,7 @@ val create_env : working_directory:string -> Cluster_type.t Env.t
 val run_with_io
   :  ?verbose:bool
   -> ?args:string list
+  -> ?exit_handler:(int -> unit Deferred.t)
   -> prog_input:Eval.Prog_input.t
   -> env:Cluster_type.t Env.t
   -> eval_args_stdin:Reader.t option
@@ -27,5 +28,6 @@ val run
   -> ?filename:string
   -> ?args:string list
   -> ?verbose:bool
+  -> ?exit_handler:(int -> unit Deferred.t)
   -> unit
   -> int Deferred.t

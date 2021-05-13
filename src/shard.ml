@@ -33,6 +33,7 @@ let load_args ~env ~args =
 let run_with_io
     ?verbose
     ?args
+    ?exit_handler
     ~prog_input
     ~env
     ~eval_args_stdin
@@ -41,6 +42,14 @@ let run_with_io
     ~isatty
     ()
   =
+  let exit_handler =
+    match exit_handler with
+    | None ->
+      fun code ->
+        shutdown code;
+        Deferred.never ()
+    | Some handler -> handler
+  in
   let read_enviornment_variables ~env =
     Array.iter (Unix.environment ()) ~f:(fun assignment ->
         Builtin.export_single assignment ~env)
@@ -60,7 +69,7 @@ let run_with_io
   let stdout = Writer.fd stdout in
   let stderr = Writer.fd stderr in
   let%map exit_code =
-    eval_lines ~interactive:isatty ~prog_input ~stdout ~stderr ~eval_args ()
+    eval_lines ~interactive:isatty ~prog_input ~stdout ~stderr ~eval_args ~exit_handler ()
   in
   (* shutdown exit_code *)
   exit_code
@@ -73,7 +82,7 @@ let create_env ~working_directory =
   Env.create (module Provider) ~working_directory
 ;;
 
-let run ?sexp_mode ?filename ?args ?verbose () =
+let run ?sexp_mode ?filename ?args ?verbose ?exit_handler () =
   let stdin = force Reader.stdin in
   let stdout = force Writer.stdout in
   let stderr = force Writer.stderr in
@@ -99,5 +108,15 @@ let run ?sexp_mode ?filename ?args ?verbose () =
   in
   let%bind cwd = Unix.getcwd () in
   let env = create_env ~working_directory:cwd in
-  run_with_io ?verbose ?args ~prog_input ~env ~eval_args_stdin ~stdout ~stderr ~isatty ()
+  run_with_io
+    ?verbose
+    ?args
+    ?exit_handler
+    ~prog_input
+    ~env
+    ~eval_args_stdin
+    ~stdout
+    ~stderr
+    ~isatty
+    ()
 ;;

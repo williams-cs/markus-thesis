@@ -1,9 +1,11 @@
 # random_hash.shard
 source cluster_setup.shard
 source -l fixed_crash.shard
-for i in 1; do
+for i in 0 1 2 3 4 5; do
+    _log -s
     crashcount=$i
     (rm -f /tmp/shard/crash.txt)@@testcluster
     (source -r fixed_crash.shard;
-    head -c1000 /dev/urandom | md5sum)@@testcluster
+    head -c100000000 /dev/urandom | md5sum)@@testcluster
+    _log -T $i
 done

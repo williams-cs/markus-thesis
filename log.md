@@ -1,5 +1,32 @@
 # Research Log
 
+## 2021-05-12
+- Editing
+  - Short sentences
+  - Italicize new definitions
+  - Caption: make the table or figure self contained.
+    - End with period.
+  - Add reference to semantics.
+  - Sentence or two on examples
+  - Single command = best effort
+  - Data parallel = mapreduce
+  - Update intro - straggler problem in hadoop
+  - Handling straggler problem in data parallel
+    - How timeout can handle stragglers
+  - Diagram for application classes
+  - Look over mapreduce - differences
+    - Dont use distributed file system
+    - Can't control sharding
+    - IPC text interface
+  - Beta : model proportions
+  - Urn model
+  - Put in example as to why
+  - Mention Go
+  - Give a sentence at the bottom of subsection that summarizes why relevant to Shard in background
+  - Error recovery - highlighting
+  - Table: what is single command vs data parallel
+
+
 ## 2020-04-22
 - Writing
   - Implementation

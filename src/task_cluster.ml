@@ -21,16 +21,20 @@ let beta_fail_threshold = 0.25
 let beta_stage_two_random_chance = 0.1
 let beta_recency_cap = 1000
 let init_target_timeout = Time_ns.Span.of_int_ms 5000
-let throttle_timeout = Time_ns.Span.of_int_ms 60000
+let throttle_timeout = Time_ns.Span.of_int_ms 10000
+let successive_fail_strikes = 3
 
 module Reader_info = struct
   type t =
     { reader : Reader.t
     ; next_heartbeat : (unit, read_write) Bvar.t
+    ; exit_code : int Deferred.t
     }
   [@@deriving fields]
 
-  let create ~reader ~heartbeat = { reader; next_heartbeat = heartbeat }
+  let create ~reader ~heartbeat ~exit_code_ivar =
+    { reader; next_heartbeat = heartbeat; exit_code = Ivar.read exit_code_ivar }
+  ;;
 end
 
 module Writer_info = struct
@@ -39,6 +43,7 @@ module Writer_info = struct
     ; future_tasks : unit Ivar.t Int.Table.t
     ; next_sequence_number : int ref
     ; next_heartbeat : (unit, read_write) Bvar.t
+    ; exit_code : int Ivar.t
     }
   [@@deriving fields]
 
@@ -47,6 +52,7 @@ module Writer_info = struct
     ; future_tasks = Int.Table.create ()
     ; next_sequence_number = ref 0
     ; next_heartbeat = heartbeat
+    ; exit_code = Ivar.create ()
     }
   ;;
 end
@@ -59,6 +65,7 @@ module Connection = struct
     ; receiver_conn : Rpc_local_receiver.t
     ; remote_port : int
     ; reader_map : id:string -> Reader_info.t Deferred.t
+    ; strikes : int ref
     }
   [@@deriving fields]
 end
@@ -145,10 +152,11 @@ let dispatch_reader conn ~host ~port ~user ~remote_port =
         Unix.pipe (Info.of_string (sprintf "read_pipe_id_%s" id))
       in
       let heartbeat = Bvar.create () in
-      let reader = Reader.create read_fd in
-      let reader_info = Reader_info.create ~reader ~heartbeat in
       let writer = Writer.create write_fd in
       let writer_info = Writer_info.create ~writer ~heartbeat in
+      let exit_code_ivar = Writer_info.exit_code writer_info in
+      let reader = Reader.create read_fd in
+      let reader_info = Reader_info.create ~reader ~heartbeat ~exit_code_ivar in
       Hashtbl.set readers ~key:id ~data:reader_info;
       (match Hashtbl.find writers id with
       | Some ivar -> Ivar.fill ivar writer_info
@@ -213,11 +221,17 @@ let dispatch_reader conn ~host ~port ~user ~remote_port =
                 perform_future_task writer_info perform_write
               in
               return (Deferred.map deferred ~f:Or_error.return :: accum)
-            | Receiver_data.Close ->
+            | Receiver_data.Close i ->
               let deferred =
                 let%bind writer_info = lazy_writer ~id in
-                let perform_close writer = Writer.close writer in
-                perform_future_task writer_info perform_close
+                let perform_close writer =
+                  let ivar = Writer_info.exit_code writer_info in
+                  Ivar.fill ivar i;
+                  Writer.close writer
+                in
+                if not (i = 0)
+                then perform_close (Writer_info.writer writer_info)
+                else perform_future_task writer_info perform_close
               in
               return (Deferred.map deferred ~f:Or_error.return :: accum)
             | Receiver_data.Heartbeat _index ->
@@ -281,6 +295,7 @@ let init_target_raw t ~target ~force_create =
       ; receiver_conn
       ; remote_port
       ; reader_map
+      ; strikes = ref 0
       }
   in
   match old_conn with
@@ -344,13 +359,17 @@ let dispatch_command_raw connection program send_lines env_image =
   let%bind.Deferred.Or_error () = send in
   let reader_map = Connection.reader_map connection in
   let%bind reader_info = reader_map ~id in
-  let { Reader_info.reader; next_heartbeat } = reader_info in
+  let { Reader_info.reader; next_heartbeat; exit_code } = reader_info in
   let reader_pipe = Reader.pipe reader in
   let resp =
-    let%bind () =
-      Pipe.iter_without_pushback reader_pipe ~f:(fun s -> Buffer.add_string resp_buf s)
-    in
-    return resp_buf
+    let%bind code = exit_code in
+    match code with
+    | 0 ->
+      let%bind () =
+        Pipe.iter_without_pushback reader_pipe ~f:(fun s -> Buffer.add_string resp_buf s)
+      in
+      Deferred.Or_error.return resp_buf
+    | i -> Deferred.Or_error.errorf "Remote program exited with code %d" i
   in
   Deferred.Or_error.return (next_heartbeat, resp)
 ;;
@@ -481,6 +500,13 @@ let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout ~uu
   in
   match connection_timeout with
   | `Result connection ->
+    let%bind _err =
+      if !(Connection.strikes connection) >= successive_fail_strikes
+      then (
+        Connection.strikes connection := 0;
+        refresh_remote_connection (Error.create_s [%message "Too many timeout strikes"]))
+      else Deferred.Or_error.return ()
+    in
     let dispatch =
       if use_local_throttle
       then dispatch_command_throttle ~throttle_timeout
@@ -492,10 +518,10 @@ let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout ~uu
       match res_raw with
       | Ok (next_heartbeat, res) ->
         let contents =
-          let%bind buf = res in
-          return (Buffer.contents buf)
+          let%bind.Deferred.Or_error buf = res in
+          Deferred.Or_error.return (Buffer.contents buf)
         in
-        Deferred.Or_error.return (next_heartbeat, contents)
+        Deferred.Or_error.return (remote_target, next_heartbeat, contents)
       | Error err -> refresh_remote_connection err
     in
     (match res_throttle_timeout with
@@ -529,6 +555,7 @@ let log_task_completed t =
   then (
     let complete_count = !(log_task_counter t) + 1 in
     log_task_counter t := complete_count;
+    (* fprintf (force Writer.stderr) "Job %d complete\n" complete_count; *)
     let base_id = !(log_id t) in
     let log = Util.log ~id:base_id in
     (* Add 0,0 point to log *)
@@ -572,6 +599,17 @@ let _print_beta_sampler t =
       fprintf (force Writer.stderr) "%s:%d,%d\n" key a b)
 ;;
 
+let set_strikes t target fn =
+  let rts = remote_target_string target in
+  let%bind.Option conn_ivar, _timestamp = String.Table.find (connections t) rts in
+  let%map.Option conn = Ivar.peek conn_ivar in
+  let strikes = Connection.strikes conn in
+  strikes := fn !strikes
+;;
+
+let strike_target t target = set_strikes t target (fun x -> x + 1)
+let clear_strikes t target = set_strikes t target (fun _x -> 0)
+
 let run_task t ~target ~program ~env_image ~send_lines =
   let open_tasks = open_tasks t in
   let open_tasks_cache = open_tasks_cache t in
@@ -596,33 +634,54 @@ let run_task t ~target ~program ~env_image ~send_lines =
           ~uuid:live_uuid
       in
       let deferred =
-        let%bind.Deferred.Or_error next_heartbeat, res = throttle_result in
+        let%bind.Deferred.Or_error remote_target, next_heartbeat, res = throttle_result in
         let rec heartbeat_loop timeout =
           let wait_for_heartbeat () = Bvar.wait next_heartbeat in
           let%bind timeout_or_heartbeat_or_output =
             Clock_ns.with_timeout
               (Time_ns.Span.of_int_ms timeout)
               (Deferred.choose
-                 [ Deferred.choice (wait_for_heartbeat ()) (fun () -> `Heartbeat)
-                 ; Deferred.choice res (fun str -> `Output str)
+                 [ Deferred.choice (wait_for_heartbeat ()) (fun () ->
+                       Or_error.return `Heartbeat)
+                 ; Deferred.choice res (fun x ->
+                       Or_error.map x ~f:(fun str -> `Output str))
                  ])
           in
           match timeout_or_heartbeat_or_output with
-          | `Timeout -> Deferred.Or_error.return (`Heartbeat_timeout res)
+          | `Timeout -> Deferred.Or_error.return (`Heartbeat_timeout (remote_target, res))
           | `Result heartbeat_or_output ->
             (match heartbeat_or_output with
-            | `Heartbeat ->
-              refresh_idle_time t;
-              heartbeat_loop heartbeat_timeout
-            | `Output str -> Deferred.Or_error.return (`Output str))
+            | Error err -> Deferred.Or_error.fail err
+            | Ok res ->
+              (match res with
+              | `Heartbeat ->
+                refresh_idle_time t;
+                heartbeat_loop heartbeat_timeout
+              | `Output str -> Deferred.Or_error.return (`Output (remote_target, str))))
         in
         let first_heartbeat_timeout =
           if use_local_throttle then heartbeat_timeout else initial_timeout
         in
         heartbeat_loop first_heartbeat_timeout
       in
-      let deferreds = Map.add_exn deferreds ~key:live_uuid ~data:deferred in
-      let rec inner_loop j deferreds =
+      let deferreds
+          : [ `Heartbeat_timeout of Remote_target.t * string Deferred.Or_error.t
+            | `Output of Remote_target.t * string
+            ]
+            Deferred.Or_error.t
+          String.Map.t
+        =
+        Map.add_exn deferreds ~key:live_uuid ~data:deferred
+      in
+      let rec inner_loop
+          j
+          (deferreds :
+            [ `Heartbeat_timeout of Remote_target.t * string Deferred.Or_error.t
+            | `Output of Remote_target.t * string
+            ]
+            Deferred.Or_error.t
+            String.Map.t)
+        =
         let%bind timeout =
           Clock_ns.with_timeout
             (Time_ns.Span.of_int_ms inner_timeout)
@@ -635,12 +694,14 @@ let run_task t ~target ~program ~env_image ~send_lines =
           (match res with
           | Ok res ->
             (match res with
-            | `Heartbeat_timeout deferred ->
+            | `Heartbeat_timeout (remote_target, (deferred : string Deferred.Or_error.t))
+              ->
               (* TODO debug *)
-              fprintf (force Writer.stderr) "heartbeat_timeout %d %d\n" i j;
+              (* fprintf (force Writer.stderr) "heartbeat_timeout %d %d\n" i j; *)
+              strike_target t remote_target |> ignore;
               let no_more_timeout =
-                let%bind s = deferred in
-                Deferred.Or_error.return (`Output s)
+                let%bind.Deferred.Or_error s = deferred in
+                Deferred.Or_error.return (`Output (remote_target, s))
               in
               let deferreds = Map.set deferreds ~key:uuid ~data:no_more_timeout in
               if String.equal uuid live_uuid
@@ -648,7 +709,8 @@ let run_task t ~target ~program ~env_image ~send_lines =
                 beta_sampler_failure t uuid;
                 loop (i + 1) err deferreds)
               else inner_loop (j + 1) deferreds
-            | `Output s ->
+            | `Output (remote_target, s) ->
+              clear_strikes t remote_target |> ignore;
               if String.equal uuid live_uuid then beta_sampler_success t uuid;
               Deferred.Or_error.return s)
           | Error err ->
@@ -669,7 +731,10 @@ let run_task t ~target ~program ~env_image ~send_lines =
             (* open_tasks_cache := !open_tasks; *)
             beta_sampler_failure t live_uuid;
             loop (i + 1) err deferreds)
-          else inner_loop (j + 1) deferreds
+          else
+            (* TODO debug *)
+            (* fprintf (force Writer.stderr) "inner_timeout %d %d\n" i (idle_time t); *)
+            inner_loop (j + 1) deferreds
       in
       inner_loop 0 deferreds)
   in

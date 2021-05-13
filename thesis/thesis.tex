@@ -1792,6 +1792,7 @@ The \texttt{memory\_usage.shard} program is ran a total of 100 trials sequential
 Figure \ref{fig:memoryusage} shows the cumulative number of trials complete at a given point in time.
 Note that the \texttt{single\_command} application class requires the Shard command to be run on each of the machines in the cluster, so the experiment on localhost would be expected to complete faster, even with disregarding the network delay of running the programs on a remote machine.
 
+% Experiment (e1)
 \begin{figure}[h]
   \begin{center}
     \vspace{2cm}
@@ -1824,6 +1825,7 @@ The full text of the input document and the expected output can be found in the 
 
 The \texttt{word\_count.shard} program is ran a total of 20 trials sequentially on each of the three clusters. Figure \ref{fig:wordcount} shows the cumulative number of trials complete at a given point in time. Note that the \texttt{data\_parallel} application class splits up the task of counting an individual word to the various machines on the cluster, so while the local machine cluster had the lowest latency, it only uses one process to execute remote commands, whereas the remote machine clusters use multiple processes simultaneously.
 
+% Experiment (e2)
 \begin{figure}[h]
   \begin{center}
     \vspace{2cm}
@@ -1859,6 +1861,7 @@ This experiment's purpose is to demonstrate that Shard's distributed computation
 
 The \texttt{word\_count\_slow.shard} program is ran a total of 20 trials sequentially on each of the three clusters. Figure \ref{fig:wordcountslow} shows the cumulative number of trials complete at a given point in time. Once again, note that the \texttt{data\_parallel} application class splits up the task of counting an individual word to the various machines on the cluster, so while the local machine cluster had the lowest latency, it only uses one process to execute remote commands, whereas the remote machine clusters use multiple processes simultaneously (one process to execute the code for each remote machine). This is especially important because there is a cap to how many simultanous commands can be ran on a single remote process, which can be quickly reached from many of the remote commands spending a large portion of its time sleeping.
 
+% Experiment (e3)
 \begin{figure}[h]
   \begin{center}
     \vspace{2cm}
@@ -1959,7 +1962,7 @@ For \texttt{word\_length.shard}, we look at the cumulative time it takes to comp
 % Experiment (e4)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/e4_1620837242671.png}
+    \includegraphics[scale=0.9]{img/experiments/e4_1620888149312.png}
     \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} with and without an unreachable host}
     \label{fig:unreachable}
   \end{center}
@@ -2004,9 +2007,10 @@ As long as there is at least one crash left, the program uses the \texttt{killal
 The \texttt{random\_hash.shard} experiment is run 5 times, with the number of crashes on each remote machine varying from 1 to 5.
 Figure \ref{fig:crashhash} shows the time it takes for the program to complete, based on the crash count of each remote machine.
 
+% Experiment (e5)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/1620537060074021903.png}
+    \includegraphics[scale=0.9]{img/experiments/e5_1620888149312.png}
     \caption{Time taken to run \texttt{random\_hash.shard} based on the number of forced crashes on each remote machine}
     \label{fig:crashhash}
   \end{center}
@@ -2027,15 +2031,14 @@ fi
 This program uses the \texttt{shuf} UNIX command to randomly generate a number between 1 and 100, inclusive.
 This value is compared to the crash percent, and if it is less than or equal to the crash percent, the \texttt{killall} UNIX command is used to crash the Shard process.
 
-The \texttt{word\_length.shard} experiment is run 10 times, with the crashes chance varying from 1 percent to 50 percent for each trial, but uniform for all machines in any particular trial.
+The \texttt{word\_length.shard} experiment is run 4 times, with the crashes chance varying from 0 percent to 3 percent for each trial, but uniform for all machines in any particular trial.
 Figure \ref{fig:crashwordlength} shows the time it takes for the program to complete, based on the crash chance of each remote machine.
 
+% Experiment (e6)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
-    \caption{Time taken to run \texttt{word\_length.shard} based on the chance for a job to randomly crash}
+    \includegraphics[scale=0.9]{img/experiments/e6_1620888149312.png}
+    \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} based on the chance for a job to randomly crash}
     \label{fig:crashwordlength}
   \end{center}
 \end{figure}
@@ -2051,32 +2054,31 @@ The two programs, \texttt{random\_hash.shard} and \texttt{word\_length.shard}, a
 A program failing is very similar to the case of a Shard process crashing, with the key difference being that Shard crashing is more disruptive -- rather than losing all progress on currently executing tasks on the remote machine and having to restart the remote process, a retry can be issued by the Shard newtork layer immediately on the same remote process.
 This means that the time to completion for failing programs should be lower than for crashing processes.
 
-\todoi{Implement nonzero exit builtin handling, including correctly making exit work on remote execution}
+The \texttt{random\_length.shard} experiment is run 5 times, with the chance of random failure varying from 0 percent to 75 percent for each trial, but uniform for all machines in any particular trial.
+Figure \ref{fig:failhash} shows the time it takes for the program to complete, based on the random failure chance of each remote machine.
 
-The \texttt{random\_hash.shard} experiment is run 5 times, with the chance of random failure on each remote machine in the cluster varying from 0\% to 75\%.
-Figure \ref{fig:failhash} shows the average time it takes for the program to complete execution on a specific remote machine, based on the failure rate of that machine.
-
+% Experiment (e7)
 \begin{figure}[h]
   \begin{center}
     \vspace{2cm}
     \texttt{PLACEHOLDER FIGURE}
     \vspace{2cm}
-    \caption{Average time taken to run the task for \texttt{random\_hash.shard} based on the failure rate of the remote machine.}
+    \caption{Time taken to run \texttt{random\_hash.shard} based on the chance for a job to randomly fail}
     \label{fig:failhash}
   \end{center}
 \end{figure}
 \todoi{Analyze the results of what this graph looks like}
 
 The random failure experiment is also run on the \texttt{word\_length.shard} program, in an experiment very similar to the random crash experiment for \texttt{word\_length.shard}.
-The \texttt{word\_length.shard} experiment is run 10 times, with the chance of random failure varying from 1 percent to 50 percent for each trial, but uniform for all machines in any particular trial.
-Figure \ref{fig:failwordlength} shows the time it takes for the program to complete, based on the random failure chance of each remote machine.
+The \texttt{word\_length.shard} experiment is run 10 times, with the chance of random failure varying from 0 percent to 50 percent for each trial, but uniform for all machines in any particular trial.
+Figure \ref{fig:failhash} shows the time it takes for the program to complete, based on the random failure chance of each remote machine.
+Figure \ref{fig:failwordlength} shows the average time it takes for the program to complete execution on a specific remote machine, based on the failure rate of that machine.
 
+% Experiment (e8)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
-    \caption{Time taken to run \texttt{word\_length.shard} based on the chance for a job to randomly fail}
+    \includegraphics[scale=0.9]{img/experiments/e8_1620888149312.png}
+    \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} based on the chance for a job to randomly fail}
     \label{fig:failwordlength}
   \end{center}
 \end{figure}
@@ -2099,6 +2101,7 @@ The \texttt{random\_hash.shard} program is ran a total of 10 trials sequentially
 Figure \ref{fig:packetlosshash} shows the cumulative time of completion of each trial for the various packet loss rates.
 Note that the packet loss is randomly applied, which explains the variance in the completion time of the trials with the same packet loss rate.
 
+% Experiment (e9)
 \begin{figure}[h]
   \begin{center}
     \vspace{2cm}
@@ -2119,6 +2122,7 @@ In the second cluster, each of the machines have an equal chance of 25\% to drop
 In the third cluster, half of the machinesd have a 0\% chance to drop a packet, while the other half have a 50\% chance to drop a packet.
 Figure \ref{fig:packetlosswordlength} shows the cumulative number of map and reduce tasks completed over time for the experiment running on each of the three clusters.
 
+% Experiment (e10)
 \begin{figure}[h]
   \begin{center}
     \vspace{2cm}
@@ -2141,6 +2145,7 @@ This effectively causes the ``slow'' machines to take 10 times longer to complet
 Figure \ref{fig:slowwordlength} shows the cumulative number of jobs completed by each of the machines in the cluster after a certain point in time.
 Because the first two machines in the cluster are much faster at completing tasks, more tasks end up being scheduled to these machines, which improves the overall performance of the entire program.
 
+% Experiment (e11)
 \begin{figure}[h]
   \begin{center}
     \vspace{2cm}
@@ -2328,6 +2333,7 @@ The full text of the input document and the expected output can be found in the 
 Figure \ref{fig:linelength} shows the cumulative number of tasks completed by \texttt{line\_length.shard} and \texttt{line\_length\_ssh.sh} over time.
 Note that the \texttt{line\_length\_ssh.sh} script is slightly modified so it reports the elapsed time whenever a task is completed.
 
+% Experiment (e12)
 \begin{figure}[h]
   \begin{center}
     \vspace{2cm}
