@@ -1,2 +1,2 @@
 source cluster_setup.shard
-(echo $1)@@testcluster
+(echo $index)@@testcluster

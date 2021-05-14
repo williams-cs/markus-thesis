@@ -1,0 +1,3 @@
+cluster -s testcluster
+cluster -c
+cluster -a localhost

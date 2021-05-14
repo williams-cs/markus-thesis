@@ -1,4 +1,4 @@
-command = "killall shard.exe; rm -f /tmp/shard/v0001/shard.exe; rm -f /tmp/shard/crash.txt"
+command = "killall shard.exe; rm -f /tmp/shard/v0001/shard.exe; rm -f /tmp/shard/crash.txt; rm -f /tmp/shard/throttle.txt; rm -f /tmp/shard/packetloss.txt"
 
 all: setup
 

@@ -116,3 +116,22 @@ let verbose_println ~name ~verbose ~stderr ~host ~port str =
 ;;
 
 let shard_internal var = sprintf "_shard_internal_%s" var
+
+let do_throttle () =
+  let%map res = Unix.access "/tmp/shard/throttle.txt" [ `Exists; `Read ] in
+  match res with
+  | Ok () -> true
+  | Error _err -> false
+;;
+
+let get_packet_loss () =
+  let%map res =
+    Async.try_with (fun () ->
+        let%bind contents = Reader.file_contents "/tmp/shard/packetloss.txt" in
+        let line = String.split_lines contents |> List.hd_exn in
+        return (Int.of_string line))
+  in
+  match res with
+  | Ok v -> v
+  | Error _err -> 0
+;;

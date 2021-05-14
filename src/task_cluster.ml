@@ -80,7 +80,7 @@ end
 
 type t =
   { connections : (Connection.t Ivar.t * Time_ns.t) String.Table.t
-  ; target_table : Remote_target.t String.Table.t
+  ; target_table : (Remote_target.t * int ref) String.Table.t
   ; remote_target_index : int ref
   ; open_tasks : int ref
   ; open_tasks_cache : int ref
@@ -123,7 +123,7 @@ let add_conn
     timestamp
   =
   String.Table.set connections ~key:conn ~data:(sender_receiver_deferred, timestamp);
-  String.Table.set target_table ~key:conn ~data:target
+  String.Table.add target_table ~key:conn ~data:(target, ref 0) |> ignore
 ;;
 
 let remote_target_string target =
@@ -416,7 +416,7 @@ let choose_target t =
       (!remote_target_index + 1) % String.Table.length (connections t)
     in
     remote_target_index := next_remote_target;
-    target
+    fst target
   in
   if use_beta_sampling
   then (
@@ -479,7 +479,15 @@ let dispatch_command t ~target ~program ~env_image ~send_lines ~send_timeout ~uu
   let env_image =
     match target_list_index t rts with
     | None -> env_image
-    | Some i -> Env_image.add_assignment env_image ~key:"index" ~data:(Int.to_string i)
+    | Some i ->
+      let env_image =
+        Env_image.add_assignment env_image ~key:"index" ~data:(Int.to_string i)
+      in
+      let amap = Env_image.get_assignments env_image in
+      let indexi = Map.find amap (Int.to_string (i + 1)) in
+      (match indexi with
+      | None -> env_image
+      | Some indexi -> Env_image.add_assignment env_image ~key:"indexi" ~data:indexi)
   in
   if use_beta_sampling
   then (
@@ -550,17 +558,29 @@ let log_time_passed t =
   Time_ns.Span.to_sec elapsed
 ;;
 
-let log_task_completed t =
+let log_task_completed t rt =
   if enable_logging
   then (
+    let rts = remote_target_string rt in
     let complete_count = !(log_task_counter t) + 1 in
     log_task_counter t := complete_count;
     (* fprintf (force Writer.stderr) "Job %d complete\n" complete_count; *)
+    (* Log general *)
     let base_id = !(log_id t) in
     let log = Util.log ~id:base_id in
     (* Add 0,0 point to log *)
     if complete_count = 1 then Log.printf log "0.0,0";
-    Log.printf log "%f,%d" (log_time_passed t) complete_count)
+    Log.printf log "%f,%d" (log_time_passed t) complete_count;
+    (* Log specific *)
+    let tli = target_list_index t rts in
+    Option.iter tli ~f:(fun i ->
+        let _rt, specific_count_ref = String.Table.find_exn (target_table t) rts in
+        let specific_count = !specific_count_ref + 1 in
+        specific_count_ref := specific_count;
+        let specific_id = sprintf "0_%s_%d" !(log_id t) i in
+        let specific_log = Util.log ~id:specific_id in
+        if specific_count = 1 then Log.printf specific_log "0.0,0";
+        Log.printf specific_log "%f,%d" (log_time_passed t) specific_count))
 ;;
 
 let log_reset t =
@@ -712,7 +732,7 @@ let run_task t ~target ~program ~env_image ~send_lines =
             | `Output (remote_target, s) ->
               clear_strikes t remote_target |> ignore;
               if String.equal uuid live_uuid then beta_sampler_success t uuid;
-              Deferred.Or_error.return s)
+              Deferred.Or_error.return (remote_target, s))
           | Error err ->
             let deferreds = Map.remove deferreds uuid in
             if String.equal uuid live_uuid
@@ -738,10 +758,10 @@ let run_task t ~target ~program ~env_image ~send_lines =
       in
       inner_loop 0 deferreds)
   in
-  let%map.Deferred.Or_error out = loop 0 None String.Map.empty in
+  let%map.Deferred.Or_error rt, out = loop 0 None String.Map.empty in
   open_tasks := !open_tasks - 1;
   refresh_idle_time t;
-  log_task_completed t;
+  log_task_completed t rt;
   (* print_beta_sampler t; *)
   out
 ;;

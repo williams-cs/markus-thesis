@@ -40,3 +40,5 @@ val verbose_println
   -> unit
 
 val shard_internal : string -> string
+val do_throttle : unit -> bool Deferred.t
+val get_packet_loss : unit -> int Deferred.t

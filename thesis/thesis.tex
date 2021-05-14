@@ -1456,7 +1456,9 @@ Upon spawning, RPC servers are created for the Local Sender and Local Receiver, 
 
 The second step that the Shard network layer performs is to distribute a copy of the Shard executable to the remote machine.
 This is done by dispatching an \texttt{Open} RPC query to the Local Sender, which has the following record type as its query type:
-\begin{lstlisting}
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}
 (* Excerpt from rpc_local_sender.ml *)
 module Open_query = struct
   type t =
@@ -1466,6 +1468,9 @@ module Open_query = struct
   [@@deriving bin_io, fields]
 end
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 The annotation \texttt{[@@deriving]} indicates that the compiler will autogenerate code for the record type, where \texttt{[@@deriving bin\_io]} autogenerates functions to serialize the record in binary form for the RPC, and \texttt{[@@deriving fields]} autogenerates getter functions for accessing individual fields.
 For this query, the Local Sender uses the SSH shell copy (SCP) functionality to make a copy attempt of the Shard executable to the remote machine.
 In this case, it is particularly imporant to check if the Shard executable already exists in the remote Shard cache, as transferring the executable every time can be very expensive in terms of bandwidth and time.
@@ -1482,7 +1487,9 @@ Note that future remote program executions on the same remote host can reuse the
 \subsection{Remote program execution flow}
 
 When a remote program is executed, the first step involves dispatching a \texttt{Header} RPC to the Local Sender, which has the following record type as its query type:
-\begin{lstlisting}
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}
 (* Excerpt from rpc_common.ml *)
 module Header = struct
   type t =
@@ -1492,6 +1499,9 @@ module Header = struct
   [@@deriving sexp, bin_io, fields]
 end
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 As shown here, the query for starting the remote program includes the program's AST representation \texttt{Ast.t} in s-expression form, as a \texttt{Sexp.t}, and a serializable image of the environment \texttt{Env.t}, which includes parts of the shell execution environment for this specific program's execution, such as assignments and cluster definitions.
 In addition to the \texttt{[@@deriving bin\_io]} and \texttt{[@@deriving fields]} mentioned in the previous section, this record type also contains the \texttt{[@@deriving sexp]} annotation to autogenerate functions for serialzing and deserializing the record as an s-expression, which is useful when sending the query as an s-expression string over SSH.
 % reasoning for remote sender/receiver will be explained in the design section
@@ -1795,9 +1805,7 @@ Note that the \texttt{single\_command} application class requires the Shard comm
 % Experiment (e1)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
+    \includegraphics[scale=0.9]{img/experiments/e1_1620960581241.png}
     \caption{Cumulative number of trials complete given a certain amount of time passed for the \texttt{memory\_usage.shard} experiment}
     \label{fig:memoryusage}
   \end{center}
@@ -1828,9 +1836,7 @@ The \texttt{word\_count.shard} program is ran a total of 20 trials sequentially 
 % Experiment (e2)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
+    \includegraphics[scale=0.9]{img/experiments/e2_1620960581241.png}
     \caption{Cumulative number of trials complete given a certain amount of time passed for the \texttt{word\_count.shard} experiment}
     \label{fig:wordcount}
   \end{center}
@@ -1864,9 +1870,7 @@ The \texttt{word\_count\_slow.shard} program is ran a total of 20 trials sequent
 % Experiment (e3)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
+    \includegraphics[scale=0.9]{img/experiments/e3_1620960581241.png}
     \caption{Cumulative number of trials complete given a certain amount of time passed for the \texttt{word\_count\_slow.shard} experiment}
     \label{fig:wordcountslow}
   \end{center}
@@ -1962,7 +1966,7 @@ For \texttt{word\_length.shard}, we look at the cumulative time it takes to comp
 % Experiment (e4)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/e4_1620888149312.png}
+    \includegraphics[scale=0.9]{img/experiments/e4_1620960581241.png}
     \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} with and without an unreachable host}
     \label{fig:unreachable}
   \end{center}
@@ -2010,7 +2014,7 @@ Figure \ref{fig:crashhash} shows the time it takes for the program to complete, 
 % Experiment (e5)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/e5_1620888149312.png}
+    \includegraphics[scale=0.9]{img/experiments/e5_1620960581241.png}
     \caption{Time taken to run \texttt{random\_hash.shard} based on the number of forced crashes on each remote machine}
     \label{fig:crashhash}
   \end{center}
@@ -2037,7 +2041,7 @@ Figure \ref{fig:crashwordlength} shows the time it takes for the program to comp
 % Experiment (e6)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/e6_1620888149312.png}
+    \includegraphics[scale=0.9]{img/experiments/e6_1620960581241.png}
     \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} based on the chance for a job to randomly crash}
     \label{fig:crashwordlength}
   \end{center}
@@ -2077,7 +2081,7 @@ Figure \ref{fig:failwordlength} shows the average time it takes for the program 
 % Experiment (e8)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/e8_1620888149312.png}
+    \includegraphics[scale=0.9]{img/experiments/e8_1620960581241.png}
     \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} based on the chance for a job to randomly fail}
     \label{fig:failwordlength}
   \end{center}
@@ -2097,16 +2101,14 @@ The most important packets not to be lost in this execution are the data packet,
 If the close packet is lost, the remote program is never marked as complete.
 If the data packet is lost, the sequence number mechanism prevents the close packet from being accepted.
 
-The \texttt{random\_hash.shard} program is ran a total of 10 trials sequentially, for each of 0\%, 25\%, 50\%, and 75\% packet loss rate, with the same packet loss rate being applied to all of the machines in the cluster.
+The \texttt{random\_hash.shard} program is ran for each of 0\%, 25\%, 50\%, and 75\% packet loss rate, with the same packet loss rate being applied to all of the machines in the cluster.
 Figure \ref{fig:packetlosshash} shows the cumulative time of completion of each trial for the various packet loss rates.
 Note that the packet loss is randomly applied, which explains the variance in the completion time of the trials with the same packet loss rate.
 
 % Experiment (e9)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
+    \includegraphics[scale=0.9]{img/experiments/e9_1620960581241.png}
     \caption{Cumulative time taken to complete trials of \texttt{random\_hash.shard} for different packet loss rates}
     \label{fig:packetlosshash}
   \end{center}
@@ -2125,9 +2127,7 @@ Figure \ref{fig:packetlosswordlength} shows the cumulative number of map and red
 % Experiment (e10)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
+    \includegraphics[scale=0.9]{img/experiments/e10_1620960581241.png}
     \caption{Cumulative number of map and reduce tasks completed by \texttt{word\_length.shard} for different packet loss rate configurations}
     \label{fig:packetlosswordlength}
   \end{center}
@@ -2137,6 +2137,8 @@ Figure \ref{fig:packetlosswordlength} shows the cumulative number of map and red
 \subsection{Slow computation}
 The fifth experiment in this section tests the behavior of Shard in the case that certain machines are consistently slower to complete their tasks.
 Examples of real world scenarios simulated by this experiment are when certain machines on a cluster are overloaded or unresponsive due to running too many tasks, or when partial hardware failure causes a machine to be running at a handicapped rate.
+
+\todoi{Re-describe rate limiting}
 
 The \texttt{word\_length.shard} program is run on different configurations of a cluster, with each configuration having certain machines on the cluster handicapped by requiring the same task to be completed multiple times before sending a response.
 For this experiment, the \texttt{word\_length.shard} program is run on the Williams CS cluster with four machines.
@@ -2148,9 +2150,7 @@ Because the first two machines in the cluster are much faster at completing task
 % Experiment (e11)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
+    \includegraphics[scale=0.9]{img/experiments/e11_1620960581241.png}
     \caption{Cumulative number of map and reduce tasks completed by \texttt{word\_length.shard} for each machine with some machines being rate-limited}
     \label{fig:slowwordlength}
   \end{center}
@@ -2336,10 +2336,8 @@ Note that the \texttt{line\_length\_ssh.sh} script is slightly modified so it re
 % Experiment (e12)
 \begin{figure}[h]
   \begin{center}
-    \vspace{2cm}
-    \texttt{PLACEHOLDER FIGURE}
-    \vspace{2cm}
-    \caption{Cumulative number of trials complete given a certain amount of time passed for the \texttt{memory\_usage.shard} experiment}
+    \includegraphics[scale=0.9]{img/experiments/e12_1620960581241.png}
+    \caption{Cumulative number of trials complete given a certain amount of time passed for \texttt{line\_length.shard} versus \texttt{line\_length\_ssh.sh}}
     \label{fig:linelength}
   \end{center}
 \end{figure}

@@ -1,5 +1,9 @@
-# word_count.shard
 source cluster_setup.shard
+source -l setup_packet_loss_vary.shard
+source -l takedown_packet_loss.shard
+
+(source -r setup_packet_loss_vary.shard)@@testcluster
+
 cluster -t data_parallel
 cat input.txt |
     tr '[:upper:]' '[:lower:]' |
@@ -9,3 +13,6 @@ cat input.txt |
     (awk '{total += $1}
           END {if (NR > 0) print total/NR}')@@reduce/testcluster |
     sort -t, -nk2 -r
+
+cluster -t single_command
+(source -r takedown_packet_loss.shard)@@testcluster

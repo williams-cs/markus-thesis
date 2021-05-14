@@ -1,0 +1,21 @@
+# word_count.shard
+source cluster_setup.shard
+source -l setup_throttle.shard
+source -l perform_throttle.shard
+source -l takedown_throttle.shard
+throttlecount=2
+
+(source -r setup_throttle.shard)@@testcluster
+
+cluster -t data_parallel
+cat input.txt |
+    tr '[:upper:]' '[:lower:]' |
+    tr -cs '[:alnum:]' '\n' |
+    (source -r perform_throttle.shard; echo $in | cut -c1;
+     echo $in | wc -c)@@map/testcluster |
+    (source -r perform_throttle.shard; awk '{total += $1}
+          END {if (NR > 0) print total/NR}')@@reduce/testcluster |
+    sort -t, -nk2 -r
+
+cluster -t single_command
+(source -r takedown_throttle.shard)@@testcluster

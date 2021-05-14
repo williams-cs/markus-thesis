@@ -4,5 +4,8 @@ cluster -t data_parallel
 cat input.txt |
     tr '[:upper:]' '[:lower:]' |
     tr -cs '[:alnum:]' '\n' |
-    (echo $in; echo 1)@@map/testcluster |
-    (paste -sd+ - | bc)@@reduce/testcluster
+    (echo $in | cut -c1;
+     echo $in | wc -c)@@map/testcluster |
+    (awk '{total += $1}
+          END {if (NR > 0) print total/NR}')@@reduce/testcluster |
+    sort -t, -nk2 -r

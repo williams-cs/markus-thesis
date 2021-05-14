@@ -1,0 +1,3 @@
+if [ $index -ge $throttlecount ]; then
+    sleep 0.5
+fi

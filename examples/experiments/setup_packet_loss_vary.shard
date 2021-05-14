@@ -1,0 +1,9 @@
+existing=0
+if [ -a /tmp/shard/packetloss.txt ]; then
+    existing=$(grep -hs ^ /tmp/shard/packetloss.txt)
+fi
+packetloss=$indexi
+if [ $packetloss -ne $existing ]; then
+    echo $packetloss >/tmp/shard/packetloss.txt
+    killall shard.exe
+fi

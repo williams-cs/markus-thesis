@@ -56,7 +56,16 @@ let start_remote_sender
           return ())
         else return ()
       in
+      let%bind do_throttle = Util.do_throttle () in
+      let max_concurrent_jobs = if do_throttle then 1 else max_concurrent_jobs in
       let throttle = Throttle.create ~continue_on_error:false ~max_concurrent_jobs in
+      let%bind packet_loss_chance = Util.get_packet_loss () in
+      let lose_packet () =
+        Float.( < ) (Random.State.float rand 1.0) (Int.to_float packet_loss_chance *. 0.01)
+      in
+      let write_to_output output_writer sexp =
+        if not (lose_packet ()) then Writer.write_sexp output_writer sexp
+      in
       let%bind write_deferred =
         Pipe.fold pipe_reader ~init:[] ~f:(fun accum query ->
             let id = Sender_query.id query in
@@ -90,14 +99,19 @@ let start_remote_sender
                                 ~writer:output_writer
                                 ~transform:(fun s ->
                                   fprintf (force Writer.stderr) "[%s:%s]\n" s id;
-                                  let data = Receiver_data.Message s in
-                                  let snum = get_sequence_number () in
-                                  let rquery =
-                                    { Receiver_query.id; sequence_number = snum; data }
-                                  in
-                                  let sexp = Receiver_query.sexp_of_t rquery in
-                                  let sstr = Sexp.to_string sexp in
-                                  sstr ^ "\n"))
+                                  if lose_packet ()
+                                  then (
+                                    get_sequence_number () |> ignore;
+                                    "")
+                                  else (
+                                    let data = Receiver_data.Message s in
+                                    let snum = get_sequence_number () in
+                                    let rquery =
+                                      { Receiver_query.id; sequence_number = snum; data }
+                                    in
+                                    let sexp = Receiver_query.sexp_of_t rquery in
+                                    let sstr = Sexp.to_string sexp in
+                                    sstr ^ "\n")))
                         in
                         return (tmp_reader, tmp_writer, glued)
                       in
@@ -110,7 +124,7 @@ let start_remote_sender
                           }
                         in
                         let sexp = Receiver_query.sexp_of_t rquery in
-                        Writer.write_sexp output_writer sexp
+                        write_to_output output_writer sexp
                       in
                       let%bind `Reader read_fd, `Writer write_fd =
                         Unix.pipe (Info.of_string "remote_rpc")
@@ -175,7 +189,7 @@ let start_remote_sender
                             in
                             (* index := !index + 1; *)
                             let sexp = Receiver_query.sexp_of_t rquery in
-                            Writer.write_sexp global_stdout sexp);
+                            write_to_output global_stdout sexp);
                         let%bind res_or_error =
                           Deferred.any [ res; Ivar.read exit_ivar ]
                         in

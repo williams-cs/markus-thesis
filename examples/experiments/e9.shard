@@ -1,0 +1,15 @@
+# random_hash.shard
+source cluster_setup.shard
+source -l setup_packet_loss.shard
+source -l takedown_packet_loss.shard
+
+packetlosscount=0
+
+for i in 0 10 20 30 40 50; do
+    packetloss=$i
+    (source -r setup_packet_loss.shard)@@testcluster
+    _log -s
+    (head -c100000000 /dev/urandom | md5sum)@@testcluster
+    _log -T $i
+    (source -r takedown_packet_loss.shard)@@testcluster
+done

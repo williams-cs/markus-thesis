@@ -1,0 +1,6 @@
+# line_length.shard
+source cluster_setup.shard
+cluster -t data_parallel
+cat input.txt |
+    (echo $in | wc -c; echo 1)@@map/testcluster |
+    (paste -sd+ - | bc)@@reduce/testcluster

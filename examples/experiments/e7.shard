@@ -1,10 +1,10 @@
 # random_hash.shard
 source cluster_setup.shard
 source -l random_fail.shard
-crashpercent=$1
-_log -s
-crashcount=$i
-(rm -f /tmp/shard/crash.txt)@@testcluster
-(source -r fixed_crash.shard;
-head -c100000000 /dev/urandom | md5sum)@@testcluster
-_log -T $i
+for i in 0 10 20 30 40 50 60 70 80; do
+    _log -s
+    failpercent=$i
+    (source -r random_fail.shard;
+    head -c100000000 /dev/urandom | md5sum)@@testcluster
+    _log -T $i
+done

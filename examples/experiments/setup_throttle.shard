@@ -1,0 +1,3 @@
+if [ $index -ge $throttlecount ]; then
+    touch /tmp/shard/throttle.txt
+fi

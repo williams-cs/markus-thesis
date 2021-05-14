@@ -216,6 +216,7 @@ let internal_log ~env ~stdout:_ ~stderr ~args =
         if String.equal counter_string "" then 0 else Int.of_string counter_string
       in
       let counter = counter + 1 in
+      Env.assign_set env ~key:log_counter_key ~data:(Int.to_string counter) |> ignore;
       Log.printf log "%f,%d" time_elapsed counter;
       return 0
     | [ "b" ] ->
@@ -224,6 +225,7 @@ let internal_log ~env ~stdout:_ ~stderr ~args =
         if String.equal counter_string "" then 0 else Int.of_string counter_string
       in
       let counter = counter + 1 in
+      Env.assign_set env ~key:log_counter_key ~data:(Int.to_string counter) |> ignore;
       Log.printf log "%d,%s" counter (String.concat ~sep:" " args);
       return 0
     | [ "z" ] ->
