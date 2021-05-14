@@ -182,14 +182,14 @@
 Performing tasks that are distributed among many systems currently fail to achieve each of the goals of being reliable, easy to set up, closely resembling an existing technology, and friendly to users without distributed systems knowledge.
 Because distributed systems are inherently unreliable, succeeding in these goals require the system to provide an abstraction for error handling and recovery that account for the many failure cases that may arise.
 This thesis project attempts to define a set of error handling semantics that is simple to use, but powerful enough to be applied to a diverse set of use cases.
-The project will also involve implementing a shell-based programming language, Shard (standing for Ad hoc, Reliable, and Distributed Shell), to demonstrate the usefulness of the error handling semantics as defined.
+We demonstrate the utility of these semantics by implementing a shell-based programming language, Shard.
 Using this language, anyone with basic shell knowledge should be able to write and run scripts that runs over multiple machines reliably.
-This will greatly aid in increasing the accessibility and simplifying the process of running distributed programs in domains including systems administration and scientific computing.
+The Shard language will greatly aid in increasing the accessibility and simplifying the process of running distributed programs in domains including systems administration and scientific computing.
 
 
 \chapter*{Acknowledgments}
 
-I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbadical leaves, during a difficult time in the world, as we work through the COVID-19 pandemic in all facets of our lives, and to all of my family and friends who have supported by in these times.
+I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbadical leaves, at a time when the everyone's world has been affected by the COVID-19 pandemic, helping me with ideas, advice, editing, and making sure that I end up meeting certain deadlines. In addition, I would like to acknowledge all of my family and friends who have supported me in these times.
 
 % \todoi{Expand}
 
@@ -207,12 +207,12 @@ I could not have written this thesis without the help of my advisors, Dan Barowy
 The ability to run a program or task over a network is useful for programmers and computer users in many situations, particularly because of increasing popularity in moving computational resources to the cloud or remote datacenters.
 Many developments in distributed computing focus on designing and implementing systems that work well in a large-scale, complex, scalable, and highly performant environment, as discussed in the \textbf{Background} chapter.
 
-Frequently, the tradeoff for these systems is that they involve  complicated configuration and error handling to sure that they work in the first place, making it often take a disproportionate amount of effort to perform a simple task in a distributed manner.
-Examples of configuration needed in these systems include adding IP address whitelists, opening ports, installing the distributed platform on each machine, setting up external dependencies, creating a large project for each script, and tuning various parameters, just to name a few.
+Frequently, the tradeoff for these systems is that powerful, reliable distributed systems involve  complicated configuration and error handling to sure that they work in the first place, trading away simplicity in return for utility, making it often take a disproportionate amount of effort to perform a simple task in a distributed manner.
+Examples of configuration needed in these systems include adding IP address whitelists, opening ports, installing and configuring the distributed platform on each machine, setting up external dependencies, creating a large project for each program, and tuning various parameters, just to name a few.
 
 This thesis describes the design and implementation of the Shard distributed framework, designed to make it easy for any programmer to create and run a distributed program with minimal configuration, regardless of the programmer's background in distributed systems. The Shard distributed framework includes the Shard programming language, which extends the shell programming language by abstracting away the distributed system and automatically handling any errors that may occur in the running of the program as a result of failures in the distributed system.
 
-We have defined three \textit{core pillars} that combine to describe the goals of Shard: Distributed, Reliable, and Easy to use. Our claim is that Shard is specifically designed to achieve the goals set by each of the three core pillars, whereas most computing systems only satisfy at most two out of the three pillars.
+We have defined three \textit{core pillars} that combine to describe the goals of Shard: it should be distributed, reliable, and easy to use. Our claim is that Shard is specifically designed to achieve the goals set by each of the three core pillars, whereas most computing systems only satisfy at most two out of the three pillars.
 In the following section, we describe each of the core pillars in more detail, including why the core pillar is important in achieving the goals of Shard.
 
 \subsection{Distributed}
@@ -223,8 +223,8 @@ In the following section, we describe each of the core pillars in more detail, i
 % \end{itemize}
 
 The first core pillar of Shard is that it is distributed.
-This means that a Shard program should be able to interact with a set of many computers, some of which may be located across a network boundary.
-Shard should be explicity designed in a way to make it easy for parts of a program to be distributed, with syntax-level support for running parts of the code on the distributed system that seamlessly integrate with language features.
+This means that a Shard program should be able to interact with a set of many computers, which by default are assumted to be located across a network boundary.
+Shard is explicity designed to make it easy for parts of a program to be distributed, with syntax-level support for running parts of the code on the distributed system that seamlessly integrate with language features.
 A typical Shard program that utilizes the distributed system should not be significantly more complex than a comparable program that performs all of its computations locally.
 
 There are many reasons why a distributed program may be wanted or beneficial.
@@ -240,12 +240,12 @@ One reason why distributed computing support is limited among languages is that 
 % cite from somewhere? unsure
 One difficulty in particular is the problem of error handling, as a distributed system is inherently unreliable. This will be addressed in more detail in the description of the next core pillar, reliability.
 
-A notable programming language that includes specific fault-tolerant distributed systems support is Erlang \cite{armstrong2010erlang}. Erlang uses the approach of message passing between processes as the method of inter-process communication, in which processes on a distributed network can participate in a single appliccation using this message passing approach, taclking both the issues of concurrency and parallelism.
+A notable programming language that includes specific fault-tolerant distributed systems support is Erlang \cite{armstrong2010erlang}. Erlang uses the approach of message passing between processes as the method of inter-process communication, in which processes on a distributed network can participate in a single application using this message passing approach, tackling both the issues of concurrency and parallelism.
 However, this approach requires programmers to learn a completely new style of programming when working with distributed programs, and thus is not used in Shard.
 
 % \todoi{FIXNOW: Talk about Go}
 
-Instead, Shard builds on top of the shell programming language, specifically the POSIX shell, which is described in more detail in the \textbf{Command-line Shells} section of the \textbf{Background} chapter. Many extensions of the POSIX shell are widely used by system administrators, programmers, and other computer users.
+Instead, Shard builds on top of the shell programming language, specifically the POSIX shell, which is described in more detail in the \textbf{Command-line Shells} section of the \textbf{Background} chapter. Many extensions of the POSIX shell are widely used by system administrators, programmers, and other computer users, who are accustomed to using these programs when interacting with the computer.
 
 Notably, the POSIX shell does not contain special support for distributed computing. Shard is designed to be a superset of the POSIX shell, with additions to its syntax, semantics, and built-in functions that result in direct support for distributed computation, allowing Shard to satisfy the core pillar of being distributed.
 
@@ -263,12 +263,12 @@ This means that using Shard should result in a more reliable exprience than the 
 
 In general, this core pillar is much more difficult to satisfy for distributed programs compared to non-distributed programs, because while non-distributed computer programs are expected to be reliable in executing an average set of instructions, barring some exceptional circumstance, distributed programs work in the opposite manner, where reliability is assumed not to hold.
 
-The specific reasons why distributed systems are unreliable are explained in more detail in the \textbf{Distributed Computing} section of the \textbf{Background} chapter, but the basic summary is that distributed systems work on top of an ultimately unreliable network, and each machine in the system having a chance of failure means that it is exponentially more likely for the entire system to have one or more failures in total.
+The specific reasons why distributed systems are unreliable are explained in more detail in the \textbf{Distributed Computing} section of the \textbf{Background} chapter, but the basic summary is that distributed systems work on top of an ultimately unreliable network, and each machine in the system having a chance of failure means that it is significantly more likely for the entire system to have one or more failures in total.
 
-This pillar needs to be addressed by Shard in particular because many simple computer systems that satisfy the other two pillars of being distributed and easy to use fail to satisfy this pillar, which causes the system to be much less useful in practice, where failures in the distributed system often occur.
+This pillar needs to be addressed by Shard in particular because many simple computer systems that satisfy the other two pillars of being distributed and easy to use fail to satisfy this pillar, which causes the system to be less useful in practice, where failures in the distributed system often occur.
 For example, the examples mentioned in the \textbf{Distributed Command-line Shells} section of the \textbf{Background} chapter generally focus on performing the distributed task on the machines in the distributed cluster, but do not provide special handling to circumstances when one or more of the tasks fail to complete.
 
-Reliability is important because it allows Shard programs to be more predictable and deterministic, characteristics that are desirable for most computer programs. If reliability were not a part of the platform itself, then every program using the platform would have to include extra code to cover for any problems that occur, which can end up being inefficient, time-consuming, and error-prone itself, whereas building error-handling mechanisms at the platform-level as Shard does can provide reliability to all programs on that platform without extra or special care.
+Reliability is important because it allows Shard programs to be more predictable and deterministic, characteristics that are desirable for most computer programs. If reliability were not a part of the platform itself, then every program using the platform would have to include extra code to cover for any problems that occur, which can end up being inefficient, time-consuming, and error-prone itself. On the other hand, building error-handling mechanisms at the platform-level as Shard does can provide reliability to all programs on that platform without extra or special care.
 
 \subsection{Easy to use}
 % \begin{itemize}
@@ -284,7 +284,7 @@ This means that Shard should be useful in an ad hoc situation for any programmer
 Shard should be easy to use for someone with little to no background knowledge in distributed computing and in Shard itself, so from a language design standpoint, it should be as clear as possible in both reading a Shard program to understand what it does, and in creating a Shard program to complete a certain task.
 Shard should be also be easy to use on any single machine that is supported along with any cluster of machines used to perform a distributed computation on, with minimal amounts of installation and configuration on both the machine starting the Shard program and the machines in the cluster
 This minimal configuration and installation should be simple and also not require sophisticated background knowledge to perform.
-It should be fast and easy to get from the point of Shard being installed to running the program on Shard, particularly for somone who has already used Shard before.
+It should be fast and easy to get from the point of Shard being installed to running the program on Shard, particularly for someone who has already used Shard before.
 
 There are clear benefits to a computer system being easy to use.
 From the standpoint of having a low knowledge barrier, ease of use can mean that the system is useful to a larger audience of users, since the barrier of learning a new tool or its prerequisite background knowledge may stop larger numbers of people from trying it out in the first place, resulting in the system only being useful for a small niche of trained experts, even if the ultimate benefit of using the system is greater than the learning cost.
@@ -309,7 +309,7 @@ The Shard project's goal is to design and implement a distributed shell programm
 The work and evaluation of Shard  will be described in the remainder of the thesis, separated into the following parts:
 
 \begin{sloppypar}
-\textbf{Chapter 2} describes the background of related computer systems, including other non-distributed and distributed command-line shells, and other distributed systems.
+  \textbf{Chapter 2} describes the background of related computer systems, including other non-distributed and distributed command-line shells, and other distributed systems.
 \end{sloppypar}
 
 \textbf{Chapter 3} describes the design of the Shard, introducing the concept of application classes and providing details about the design of both the Shard programming language and the network layer used in the communication of the distributed framework.
@@ -335,7 +335,7 @@ UNIX is an operating system designed at Bell Labs, with the first versions appea
 UNIX was an influence in many operating systems in use today, with its original form evolving into various BSD distributions (NetBSD, FreeBSD, OpenBSD). The GNU operating system, which is the basis of Linux distributions today, was also designed to be UNIX compatible \cite{bretthauer2001open}.
 
 One of the standard ways of interacting with the UNIX operating system is through a command-line shell \cite{10.1145/361011.361061}.
-The operation of the shell involves reading in lines of text typed by the user, and performing a command based on the input text.
+The operation of the shell involves reading in lines of text typed by the user, interpreting the input as a program of the shell programming language, and performing a command based on the input text.
 The most basic command consists of a space-separated list of strings, with the first string being the name of the command, and the remaining strings being the arguments for the command.
 The shell searches the file system for the appropriate program to run, based on the name of the command, and feeds the arguments as input to the program.
 By default, the standard output of the program is displayed back to the user by the visual interface of the shell program, but indirections can modify this by transferring the output to a file or another program.
@@ -361,7 +361,7 @@ As such, there may be errors or faults that occur during the operation of the sy
 There has been significant work in the field of fault tolerant distributed systems, as one important goal in computer systems is to be dependable, which comes with significant challenges when in a distributed environment compared to a program running on a single machine \cite{10.1145/311531.311532}.
 
 % Safety/Liveliness
-The two classes of fault tolertance properties in distributed programs are properties of safety and liveliness \cite{1702415}.
+The two classes of fault tolerance properties in distributed programs are properties of \textit{safety} and \textit{liveliness} \cite{1702415}.
 Safety properties ensure that the state of the distributed system never reaches an illegal state, while liveliness properties ensure that the state of the distributed system must eventually reach a completed state.
 For example, a safety property of a distributed system may be that one part of a distributed program is not executed until a different part is complete, while a liveliness property of a distributed system may be that the program eventually provides a result, even if one or more machines are stuck in a loop during execution.
 
@@ -470,24 +470,24 @@ Fundamentally, the design philosophy of Shard is to create a computer system tha
 
 The central design choice of the Shard distributed system is creating a new programming language, rather than writing a library or a set of macros for an existing programming language.
 This is primarily due to the ability to provide better syntax level support for the remote execution capabilities of Shard, as the intent is to make writing a distributed program just as easy as writing a local program, in order to better satsify the ease of use property.
-The Shard programming language is built on top of the POSIX shell language, with Shard's syntax and semantics being a direct extension of the POSIX shell, since the POSIX shell is widely adopted by programmers on UNIX machines, and the level of familiarity with the language further reinforces Shard's ease of use \cite{posix2017}.
+The Shard programming language is built on top of the POSIX shell language, with Shard's syntax and semantics being a direct extension of the POSIX shell.
+The POSIX shell is chosen because is widely adopted by programmers on UNIX machines, and the level of familiarity with the language further reinforces Shard's ease of use \cite{posix2017}.
 Because of this, in a complete implementation of Shard, almost all valid POSIX shell programs would also be valid Shard programs.
 
 The defining feature of the Shard programming language that separates it from the POSIX shell is the it provides the ability for programs to execute commands on a cluster of remote machines.
 The remote commands work similarly to how a subshell works, and are valid Shard programs themselves with the full functionality of the Shard code running locally.
 
-The remote command execution is facilitated by using the Shard network layer to facilitate the execution of the remote command, designed specifically to work with the Shard shell, and focusing on the core pillars of being distributed and being reliable.
+Remote command execution is performed using the Shard network layer, which is designed specifically to work with the Shard shell, and focusing on the core pillars of being distributed and being reliable.
 The Shard network layer works by using a pair of communication channels between the local machine where the Shard program originated, and the remote machine where the Shard command should be executed, with messages being passed along the channel to perform the executing of the Shard command on the remote machine, and to ensure this execution is performed in a reliable manner.
 A custom network layer is used because it affords Shard full control over ensuring reliability, with a combination of features such as heartbeats, sequence numbers, and retry mechanisms to maximize the reliability of the distributed features of the system.
 
 The Shard network layer also makes it possible to configure its distributed execution so that the functionality is tuned for a certain type of distributed application.
-These are known as application classes in the Shard distributed system.
-
+These are known as \textit{application classes} in the Shard distributed system.
 The \texttt{single\_command} application class, which executes its program in a best-effort fashion on all machines in the cluster, and the \texttt{data\_parallel} application class, which executes its program many times in parallel on the machines in the cluster and builds on top of a MapReduce-like \cite{dean2004mapreduce} interface.
 
 The various components described in this chapter combine to form the design of the Shard distributed system, without prescribing the way in which this system must be implemented.
-Nonetheless, the design of the system is influenced by the practicality of its implementation, as an implementation is required to demonstrate the usefulness of the design.
-For details about a specific implementation of Shard, see the \texttt{Implementation} chapter that follows.
+Nonetheless, the design of the system is influenced by the practicality of its implementation, which is used to demonstrate the usefulness of the design.
+For implementation details, see the \texttt{Implementation} chapter that follows.
 
 \section{Language design}
 
@@ -579,7 +579,7 @@ More example programs of specific application classes will come in the \textbf{A
 
 \subsection{Cluster management}
 The first feature that Shard adds to its programming language is cluster management.
-In Shard, we define a cluster as an unordered collection of remote hosts, along with a name and a cluster type.
+In Shard, we define a \textit{cluster} as an unordered collection of remote hosts, along with a name and a cluster type.
 The cluster type is one of the application classes available to Shard.
 Clusters can also have miscellaneous settings configuring the application class.
 
@@ -590,7 +590,7 @@ A summary of the options for the \texttt{cluster} builtin are shown in Table \re
   \begin{center}
     \begin{tabularx}{\textwidth}{|l|X|X|}
       \hline
-      Option                        & Syntax                                                                                                                                                                                       & Definition                                                                                                        \\ \hline
+      Option                        & Syntax                                                                                                                                                                                       & Semantics                                                                                                         \\ \hline
       Set                           & \texttt{cluster -s <name>} \newline
       \texttt{<name> ::= <string>}  & Sets the active cluster to the cluster with \texttt{<name>}, creating it if it does not already exist.
       \\ \hline
@@ -618,10 +618,10 @@ A summary of the options for the \texttt{cluster} builtin are shown in Table \re
   \end{center}
 \end{table}
 
-The set of clusters defined at any point in time is held by the shell environment.
+The set of clusters defined at any point in time is stored in the shell's environment.
 Therefore, shell features that copy the environment, such as subshells, also copy the cluster definitions.
 At any given point in time, there is always an active cluster.
-By default, if no cluster has been set to be the active cluster, the cluster \texttt{default} with the default cluster type \texttt{single\_command} is set to the active cluster.
+By default, if no cluster has been set to be the active cluster, the cluster named \texttt{default} with the default cluster type \texttt{single\_command} is set to the active cluster.
 The user can run \texttt{cluster} with the \texttt{-s} (set) option to set the currently active cluster to a cluster with the specified name.
 If no cluster with the specified name exists, a new cluster is created.
 
@@ -677,7 +677,7 @@ cluster -o heartbeat_period 500
 \end{minipage}
 
 It is possible to clear the active cluster, including its hosts, options, and cluster type using the \texttt{-c} (clear) option.
-This results the cluster being identical to if it were just created.
+This results clearing the cluster of all state, returning it to how it was when it was just created.
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -718,7 +718,7 @@ Although the \texttt{cluster} builtin does not perform any remote execution by i
 
 \subsection{Remote execution}
 The remote execution language feature is used to execute Shard subprograms on remote machines in a distributed manner.
-The language feature consists of a single set of syntax additions, revolving around the remote execution operator \texttt{@@}.
+The language feature consists of a single of syntax addition, revolving around the remote execution operator \texttt{@@}.
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -737,7 +737,7 @@ The remote target for the program can either be the name of a cluster that has a
 This Shard subprogram is run on the remote machines in a manner as determined by the application class of the cluster.
 If a host is specified, the program will behave as if it were running on a cluster with default settings and the specified host as its only host.
 
-Some application classes, such as \texttt{data\_parallel}, expect a ``setting'' string in addition to its target.
+Some application classes, such as \texttt{data\_parallel}, expect a \textit{setting} string in addition to its target.
 Similar to the key-value pairs for the cluster \texttt{-o} option, the purpose and behavior of the setting string depends on the specific application class for the cluster, with some application classes completely ignoring the setting string.
 Providing an empty string as the setting string is equivalent to not providing a setting string at all.
 
@@ -747,6 +747,7 @@ Providing an empty string as the setting string is equivalent to not providing a
 # <remote_setting> ::= <program>@@<setting>/<target>
 #                   | (<program>)@@<setting>/<target>
 # Example:
+# In this example, "map" and "reduce" are setting strings
 (wc -c; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster)
 \end{lstlisting}
@@ -763,8 +764,8 @@ Any input can be piped into the remote execution with the shell pipe operator (\
 \end{minipage}
 
 In the execution on the remote machine, a copy of the local shell environment is used, including variable assignments.
-As such, assignments performed locally can be used by the remote machine, but assignments performed remotely will not update the local assignments.
-Additionally, the remote execution will perform synchronously unless explicitly made asynchronous with the \texttt{\&} operator.
+As such, assignments performed locally can be used by the remote machine, but assignments performed remotely do not update the local assignments.
+Additionally, the remote execution executes synchronously unless explicitly made asynchronous with the \texttt{\&} operator.
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -781,8 +782,8 @@ echo "Local: $tmpvar"
   \smallskip
 \end{minipage}
 
-As an additional feature in Shard, scripts on the local machine can be loaded to be used from the remote machine with the shell \texttt{source} builtin with the option \texttt{-l}.
-When this is done, the same script (using the same full path) can be run form the remote machine with the shell \texttt{source} builtin with the option \texttt{-r}.
+As an additional feature in Shard, scripts on the local machine can be loaded to be forwarded to the remote machine with the shell \texttt{source} builtin with the option \texttt{-l}.
+After this command is executed, the same script (using the same full path) can be run form the remote machine with the shell \texttt{source} builtin with the option \texttt{-r}.
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -853,12 +854,12 @@ The \texttt{data\_parallel} application class is a manifestation of the many-to-
 From this point on in the thesis, we will be referring to manifestations of application class as the application classes themselves, especially when we are describing specific manifestations such as \texttt{single\_command} or \texttt{data\_parallel}, but it is important to make the distinction here.
 Notably, an alternative design for the Shard language can provide alternative manifestations for the same application class models, or additional manifestations to cover other application class models.
 
-Although only two application classes are described here, an infinite number of potential application classes exist to support different types of distributed programs.
-One example of an application class not described is an application class that sends its program as a task to all of the machines in the cluster, and completes the remote execution when any of the tasks complete.
-A use case for this application class is if completion time is an utmost priority, and wasting computational resources by repeating tasks on multiple machines is not a concern.
-Additional application classes such as this one can be added to specific Shard implementations as needed.
+% Although only two application classes are described here, an infinite number of potential application classes exist to support different types of distributed programs.
+% One example of an application class not described is an application class that sends its program as a task to all of the machines in the cluster, and completes the remote execution when any of the tasks complete.
+% A use case for this application class is if completion time is an utmost priority, and wasting computational resources by repeating tasks on multiple machines is not a concern.
+% Additional application classes such as this one can be added to specific Shard implementations as needed.
 
-Both of the application classes in Shard utilize the task cluster abstraction as provided by the network layer, as described in the \textbf{Network layer design} section of this chapter, but with tuned differently to support the particular application class.
+Both of the application classes in Shard utilize the \textit{task cluster} abstraction as provided by the network layer, as described in the \textbf{Network layer design} section of this chapter, but tuned differently to support the particular application class.
 This task cluster abstraction provides error handling, timeouts, and retries.
 As such, specific details about the error handling will be discussed in the \textbf{Task cluster abstraction} section later in this chapter.
 However, it is not mandatory for an application class to use the cluster abstraction of the network layer, or the network layer at all, as the application class is free to decide its own semantics.
@@ -869,7 +870,7 @@ The \texttt{single\_command} application class is used for applications that wan
 
 When a remote execution on a cluster with this application class is invoked, the remote program is passed to each of the machines in the cluster in parallel.
 As the remote programs complete, their output is is directly printed to the local standard output, which may be piped or redirected by the shell as needed.
-Thus, the output from a given remote program always arrives in the same order, but there is no guarantee as to the order in which the output of different remote programs arrive.
+Thus, the output from a given remote program always arrives in the same order that it was sent by that remote machine, but there is no guarantee as to the order in which the output of different remote programs arrive.
 
 If a remote execution fails on a particular machine, due to connectivity issues or timeouts, it is retried on the same remote machine.
 Many retries may occur before the remote execution successfully completes, up to the maximum number of retries as configurable by the application class (the level of configurability is implementation specific).
@@ -937,13 +938,14 @@ machine4: 0.053404
 \end{minipage}
 
 This output provides information about the memory usage of each of the machines in the cluster, indicating that around 5\% of the memory is being used on each machine.
-Note that the order of the output does not necessarily correspond to the order that the machines are declared in the cluster, and the order may change each time the program is run, as the remote executions are performed in parallel.
+Note that the order of the output does not necessarily correspond to the order that the machines are declared in the cluster, and the order may change each time the program is run, as the remote executions are performed in parallel, and the order is nondeterministic.
 
 \subsection{Application class: \texttt{data\_parallel}}
 
 The \texttt{data\_parallel} application class is used for applications that want to execute many tasks on a cluster of remote machines using a simplified MapReduce computation model.
 
-When invoking a remote execution on a cluster with the \texttt{data\_parallel} application class, the program must specify a ``setting'' string of either \texttt{map} or \texttt{reduce}, corresponding to the map and reduce operations.
+When invoking a remote execution on a cluster with the \texttt{data\_parallel} application class, the program must specify a setting string of either \texttt{map} or \texttt{reduce}, corresponding to the map and reduce operations.
+Thse setting strings are defined by the \texttt{data\_parallel} application class to have a specific meaning for this application class.
 
 The map operation runs the remote program to convert the input into a set of key-value pairs.
 The map operation expects an input that is split into multiple lines.
@@ -1109,6 +1111,7 @@ Data sent in each of the communication channels are in the form of packets, wher
 Each packet contains an ID that corresponds to a specific instance performing a remote execution.
 The choice of ID can be arbitrary, but different instances of remote execution must use unique IDs.
 Packets sent from the remote sender, except for heartbeat packets, also contain a sequence number to ensure that responses are received in the order they are sent.
+Heartbeat packets do not use a sequence number because it is acceptable for some of them to be dropped.
 The first packet sent by the remote sender has sequence number 0, and subsequent packets have sequence number one greater than the sequence number of the previous packet.
 
 Before remote execution can occur, the local instance of Shard must ensure that a compatible Shard instance exists on the remote machine.
@@ -1122,13 +1125,13 @@ The remote receiver responds by acknowledging the Header packet.
 Next, the local receiver initializes the remote sender.
 At this point, all four roles have been initialized, and the remote program execution is can begin once the remote Shard runtime is ready.
 
-The remote receiver sends the program and environment to the remote Shard runtime to begin execution.
+The remote receiver sends the program and environment it obtained from the local sender to the remote Shard runtime to begin execution.
 During this period, packets from the local sender are sent to the remote receiver, which get passed to the remote Shard runtime, and packets from the remote sender are sent to the local receiver which get passed to the local Shard runtime.
 The local sender sends any standard input to the remote receiver with message packets, and the remote sender sends any standard output to the local receiver with message packets.
 The remote sender also sends heartbeat packets at a regular interval to indicate that the remote process is running correctly.
 When the standard input is closed, the local sender sends a close packet, and when the standard output is closed, the remote sender sends back a close packet.
 
-Although sequence numbers and heartbeats are sent in the data transfer process, the design does not prescribe how they should be handled.
+Although sequence numbers and heartbeats are sent in the data transfer process, the design does not proscribe how they should be handled.
 The data transfer abstraction can be utilized directly by an application class to implement its remote execution capabilities, where the packet transfer process on the local machine is controlled by the application class, or a higher-level abstraction on top of the data transfer abstraction may be used instead.
 
 \subsection{Task cluster abstraction}
@@ -1160,7 +1163,7 @@ First, there may be an error directly reported by the data transfer mechanism.
 Next, the remote Shard program may call the \texttt{exit} builtin command with a non-zero exit code, indicating a programmer-detected failure.
 
 In addition, a failure may be detected when an execution of a remote task times out.
-The two types of timeout that are considered are heartbeat timeouts and program timeouts.
+The two types of timeout that are considered are \textit{heartbeat timeouts} and \textit{program timeouts}.
 If the task cluster does not receive a heartbeat within a certain amount of time, the task is considered a failure.
 Furthermore, if the task is not completed within a much longer period of time, the task is also considered a failure.
 The timeouts for the task cluster are all configurable, depending on the specific needs of the application class and expected network conditions.
@@ -1169,7 +1172,7 @@ The timeout failures capture the remaining ways in which a Shard remote executio
 We can be confident that at least all of the packets are transferred when Shard determines a computation is succesful, because of the requirement that all packets up to and including the sequence number of the close packet are received, unless some highly improbable data corruption causes an incomplete set of packets to transform into a complete one.
 
 In the case that the remote program does not execute successfully, the the same remote program with the same input is retried, potentially on a different machine in the cluster, depending on what the caller specified.
-Even in the case of a retry, Shard still keeps alive the connection to the previous tries, using the ID of a packet to distinguish between different executions of the same remote program.
+Even in the case of a retry, Shard still keeps the connection alive to the previous tries, using the ID of a packet to distinguish between different executions of the same remote program.
 If any of the previous tries succeeds, that successful result will be used instead, and the responses for all other tries of that task are thrown away.
 After a maximum number of retries as specified by the caller, the entire task will fail, and the caller will be notified.
 
@@ -1189,6 +1192,7 @@ where
 $$ B(a, b) = \Gamma(a)\Gamma(b) / \Gamma(a+b), $$
 with $\Gamma$ being the gamma function.
 
+The beta distribution is used because it is a useful model for predicting the chance that a future task will succeed on a remote machine.
 The beta distrbution has the property that given the parameters $a$ and $b$, the expected value sampled from the distribution is $a/(a+b)$, which is equal to the proportion of attempts that are successful.
 % \todoi{Expand beta distribution importance}
 
@@ -1201,13 +1205,15 @@ This corresponds to choosing the remote target with the maximum likelihood of su
 Remote targets that are not yet connected to and remote targets that are at maximum capacity from throttling are excluded from this choice.
 
 If all sampled values are below a certain threshold, or if no remote targets are avaiable to be sampled in the first round, a second round of sampling is performed, this time between all of the remote targets, even those that are at maximum capacity, with a penalty applied to the sampled values of the remote targets at maximum capacity.
-This second round of sampling is performed because, even if a remote target is at maximum capacity, it may still be preferred to be chosen compared to a remote target that has a lowerly likelihood of success.
+This second round of sampling is performed because, even if a remote target is at maximum capacity, it may still be preferred to be chosen compared to a remote target that has a lower likelihood of success.
 
 There is also a small, configurable chance that the second round is bypassed, and a random remote target is selected instead.
 This is to allow remote target that have previous failures to sucessfully execute tasks in order to raise their proportion of successes.
 
 Once a maximum number of total attempts $m$ has been reached on each remote target, future attempts in addition to adding to $a$ or $b$ also remove a random previous attempt, so that $a+b$ does not exceed $m$.
-This is to help $a$ and $b$ more closely track recent successes and failures in long-runnning Shard programs, since a remote host being down for a long time would otherwise be penalized in selection once it is able to reexecute remote commands.
+An analogy to this is the scenario where each successful or failed attempt is added to an urn with a maximum capacity.
+When the urn is full, a randomly selected attempt must be removed from the urn before adding the latest attempt.
+This modification helps $a$ and $b$ more closely track recent successes and failures in long-runnning Shard programs, since a remote host being down for a long time would otherwise be penalized in selection once it is able to reexecute remote commands.
 
 Depending on the application class, the beta sampling remote target selection feature can also be turned off, with random remote target selection being the fallback mechanism.
 However, using this remote target selection mechanism with the beta distribution is usually a significant time-save over choosing the remote target randomly, as remote targets that result in failures are more likely to result in future failures.
@@ -1249,27 +1255,7 @@ Interactive mode allows Shard to function as a Read-Eval-Print-Loop, meaning tha
 Like for some other shells, Shard allows the user to use the keyboard shortcut \texttt{Ctrl-C} to interrupt the current executing Shard command, and the keyboard shortcut \texttt{Ctrl-\textbackslash} to immediately exit Shard.
 % Specific usage details can be found in the documentation of the project.
 
-Currently, Shard is specifically tested to support Ubuntu Linux version 20.04.2 LTS, but it should work with zero or few modifications on other UNIX systems, depending on the requirements of the library dependencies of Shard.
-
-\subsection{Dependencies}
-The Shard project depends on various other OCaml libraries and OCaml wrappers for non-OCaml libraries for important pieces of existing functionality.
-
-The entire project is written on top of Jane Street's open source libraries Core, Async, and Sexplib, along with the OCaml parser combinator library Angstrom and an OCaml wrapper for the SSH library libssh.
-
-Core is an alternative standard library for OCaml with many more features, including additional data structures and extensions to existing standard library modules \cite{ocamlcore}.
-Core also provides full UNIX support in its \texttt{Core.Unix} module, including API wrappers for many of the system calls found in Linux and other UNIX machines.
-
-Core depends on the Jane Street library Sexplib, which contains functionality for working with S-expressions, a human readable data representation format commonly used by the LISP family of languages \cite{mccarthy1960recursive}. Sexplib allows automatic generation of functions to convert OCaml objects to and from S-expressions, and is used extensively to convert objects for serialization purposes.
-
-Async provides promise-based asynchronous code support for OCaml, and includes its own \texttt{Async.Unix} that builds on top of \texttt{Core.Unix} to allow system calls and I/O operations to work asynchronously on top of an event queue, while still working under the OCaml language's single core restriction \cite{ocamlasync}.
-
-Shard's language parser depends on the OCaml parser combinator library Angstrom, which is designed to be an easy-to-use parser combinator library specifically for use with OCaml. \cite{ocamlangstrom}.
-Shard uses a forked version of Angstrom that adds a few more combinators to Angstrom's long list in order to support specific features of the shell grammar that would otherwise be more difficult to implement with Angstrom's existing interface.
-
-Shard's network layer depends on the SSH library libssh for all of its network communication \cite{libssh}.
-Libssh is a widely used SSH library implemented in C that includes compatibility with all of the SSH communication features needed by Shard.
-Because libssh is written in C, Shard uses an OCaml wrapper for libssh, mllibssh \cite{mllibssh}.
-Due to issues with mllibssh not being well maintained, the version of mllibssh used in Shard is forked and contains modifications including bugfixes and improvements to the wrapper code.
+Currently, Shard is specifically tested to support Ubuntu Linux version 20.04.2 LTS, but it likely works with few modifications on other UNIX systems, depending on the requirements of the library dependencies of Shard.
 
 \section{Architecture}
 
@@ -1278,7 +1264,7 @@ Due to issues with mllibssh not being well maintained, the version of mllibssh u
 %   \item Basic summary of each part, its purpose, and how they connect together
 % \end{itemize}
 
-The Shard project is split up into four parts: shell, language, network layer, and application classes. The split is informal, as all four parts belong to the same compilation unit, and reside in the same directory.
+The Shard project is split up into four parts: shell, language, network layer, and application classes. The split is conceptual, as all four parts belong to the same compilation unit, and reside in the same directory.
 Each of the sections of the architecture are designed in a way to be easily extensible, in that more functionality can be added without significantly changes to existing code.
 
 The shell is connects the program and the interactive mode to the remaining parts of Shard. This is also the entry point of a Shard program.
@@ -1294,6 +1280,27 @@ The network layer provides all of the distributed systems functionality, includi
 % \todoi{Simple figure for architecture}
 
 In addition to these specific parts of Shard, there are also modules for common utility functions, unit testing, and command-line interfacing.
+
+\subsection{Dependencies}
+The Shard project depends on various other OCaml libraries and OCaml wrappers for non-OCaml libraries for important pieces of existing functionality.
+
+The entire project is written on top of Jane Street's open source libraries Core, Async, and Sexplib, along with the OCaml parser combinator library Angstrom and an OCaml wrapper for the SSH library \texttt{libssh}.
+
+Core is an alternative standard library for OCaml with many more features, including additional data structures and extensions to existing standard library modules \cite{ocamlcore}.
+Core also provides full UNIX support in its \texttt{Core.Unix} module, including API wrappers for many of the system calls found in Linux and other UNIX machines.
+
+Core depends on the Jane Street library Sexplib, which contains functionality for working with S-expressions, a human readable data representation format commonly used by the LISP family of languages \cite{mccarthy1960recursive}. Sexplib allows automatic generation of functions to convert OCaml objects to and from S-expressions, and is used extensively to convert objects for serialization purposes.
+
+Async provides promise-based asynchronous code support for OCaml, and includes its own \texttt{Async.Unix} that builds on top of \texttt{Core.Unix} to allow system calls and I/O operations to work asynchronously on top of an event queue, while still working under the OCaml language's single core restriction \cite{ocamlasync}.
+
+Shard's language parser depends on the OCaml parser combinator library Angstrom, which is designed to be an easy-to-use parser combinator library specifically for use with OCaml. \cite{ocamlangstrom}.
+Shard uses a forked version of Angstrom that adds a few more combinators to Angstrom's long list in order to support specific features of the shell grammar that would otherwise be more difficult to implement with Angstrom's existing interface.
+
+Shard's network layer depends on the SSH library \texttt{libssh} for all of its network communication \cite{libssh}.
+\texttt{libssh} is a widely used SSH library implemented in C that includes compatibility with all of the SSH communication features needed by Shard.
+Because \texttt{libssh} is written in C, Shard uses a publicly available open source OCaml wrapper for \texttt{libssh}, \texttt{mllibssh} \cite{mllibssh}.
+Due to issues with \texttt{mllibssh} not being well maintained, the version of \texttt{mllibssh} used in Shard is forked and contains modifications including bugfixes and improvements to the wrapper code.
+
 
 \section{Shell implementation}
 
@@ -1330,11 +1337,12 @@ $
 Similarly, when the shell is invoked in non-interactive mode, the shell sends the input file or string to the parser, which results in either an AST corresponding to the input program, or an error if the input fails to parse, in which case the error is printed to stderr.
 
 The shell can be invoked with the \texttt{-s} command-line flag to indicate that the input is an S-expression that represents an AST object rather than a string in the Shard language grammar. In this case, the step of parsing with an AST is bypassed, and the AST is directly evaluated by the interpreter, behaving identically to if it were parsed from a program in the language.
+This is useful when using Shard to execute programs that have previously been parsed, such as when the Shard runtime wants to run a Shard program on a remote machine.
 
-The shell also uses the concept of jobs to support the keyboard interrupt feature, which allows the user to cancel the currently running task.
+The shell also uses the concept of jobs control support the keyboard interrupt feature, which allows the user to cancel the currently running task.
 Shard uses a signal handler to catch the \texttt{SIGINT} interrupt signal when \texttt{Ctrl-C} is pressed during a running task.
 Rather than exiting Shard itself, instead this causes the Shard evaluation to stop, as each evaluation function checks to make sure that the job is active before performing the evaluation.
-If an external command is currently being executed, the signal is passed to that command. If a remote command is currently being executed, further progress is stopped.
+If an external command is currently being executed, the signal is passed to that command. If a remote command is currently being executed, further progress is stopped by sending a message over the data transfer layer.
 
 \section{Language implementation}
 
@@ -1351,9 +1359,9 @@ The Shard programming language implementation is split up into two main parts --
 
 The parser is implemented using the parser combinator library Angstrom by following the grammar section in the POSIX shell specification, and extending it with the additional syntax found in the \textbf{Language design} section of the \textbf{Design} chapter \cite{ocamlangstrom} \cite{posix2017}.
 
-A successful parse transforms a \texttt{string} input to a \texttt{Ast.t} variant as output. The \texttt{Ast.t} variant is used to represent a Shard abstract syntrax tree, which is also used in the interpreter when walking through the AST.
-
 The OCaml variant type can be used very effectively to represent recursive structures with complex definitions, along with retrieving their data in a type-safe manner using pattern matching, which is one of the significant benefits to using OCaml for implementing programming languages \cite{realworldocaml}.
+
+A successful parse transforms a \texttt{string} input to a \texttt{Ast.t} variant as output. The \texttt{Ast.t} variant is used to represent a Shard abstract syntax tree, which is also used in the interpreter when walking through the AST.
 
 In addition to allowing the parsing of full strings that are defined by the Shard grammar, the parser also uses an Angstrom feature to support partial parsing, which uses a piece of state to describe whether a parse is complete (the input is a string in the grammar), incomplete (there exists some string that completes parse), or failed (there is no string that completes the parse).
 This allows the user to enter a new line after partially inputting their command in the interactive shell, and have the shell prompt for more input, rather than rejecting the input.
@@ -1418,7 +1426,7 @@ As we can see from this interface, the \texttt{parse} function performs a regula
 
 In addition to the \texttt{parse} function, the interface also exposes the \texttt{parse\_partial} function. This corresponds to the partial parsing behavior as described above, taking in an optional partial parsing state and the input string, and spitting out a new partial parsing state corresponding to the status of the partial parse.
 
-Furthermore, from the definition of \texttt{Ast.t}, we can see that it includes the OCaml ppx (preprocessing instruction) \texttt{[@@deriving sexp]}. This autogenerates functions that allow conversion of the \texttt{Ast.t} variant to and from the \texttt{Sexp.t} variant, which represents an S-expression that losslessly encodes the AST and can be transmitted as a string.
+Furthermore, from the definition of \texttt{Ast.t}, we can see that it includes the OCaml preprocessing instruction \texttt{[@@deriving sexp]}. This autogenerates functions that allow conversion of the \texttt{Ast.t} variant to and from the \texttt{Sexp.t} variant, which represents an S-expression that losslessly encodes the AST and can be transmitted as a string.
 
 \subsection{Shard interpreter}
 
@@ -1517,8 +1525,10 @@ The environment's stdin is used as the first command's stdin file descriptor, th
 This can be invoked recursively to easily extend support arbitrarily to many commands in a pipeline.
 When both programs exit, the pipe must be explicitly closed.
 Otherwise, a resource leak can occur, where the Shard runtime stops functioning due to reaching a limit on the number of open file descriptors.
+When this data is piped to a remote program, the way the data is handled depends on the application class of the remote cluster.
+For example, the \texttt{single\_command} application class passes the piped input to the standard input of each of the remote programs that is being executed.
 
-File I/O redirection works very similarly as pipelining, using the stdio file descriptor for a file with the specified filename.
+File I/O redirection works in a similar manner to pipelining, setting a stdio file descriptor to a file with the specified filename.
 Currently, the Shard interpreter does not support I/O redirection on custom file descriptors other than the standard I/O, but the \texttt{Eval\_args} can be augmented to support the additional redirection capabilities as needed.
 
 A defining feature of Shard is its remote command execution capabilities, where an example of a remote command is shown in the following example that prints out the operating system version of a remote machine:
@@ -1558,7 +1568,8 @@ More details of the remote execution will be specified in the \textbf{Network la
 % \todoi{Maybe include a section on asynchronous execution (shell ampersand operator)}
 
 As of the time of writing, some of the features in the POSIX shell specification are not supported by the parser or interpreter of the Shard shell.
-However, there is no reason why support for these features cannot be added if needed, with the primary constraint being that the POSIX shell specification is extremely long and contains many features that are not very commonly used by most users in practice.
+However, there is no reason why support for these features cannot be added if needed.
+We focused on implementing the most commonly used features, with the primary constraint being that the POSIX shell specification is extremely long and contains many features that are not very commonly used by most users in practice.
 
 \section{Network layer implementation}
 
@@ -1635,10 +1646,12 @@ These command-line arguments should only be used interally by the remote executi
 The local copy of Shard is made with a \textit{copy attempt}, with the source being the currently running executable, and the destination being a directory known as the Shard cache, using a fixed path.
 A copy attempt includes checking whether a Shard executable exists at the destination location, and comparing a cryptographic hash value of the destination file's contents with the source file to make sure that if the file exists, it is the exact same version.
 If either no file exists or the destination file has a different hash from the source file, a copy is made.
+The reason to make a copy attempt rather than to always make a copy is to save the network resouces used to perform such a copy when possible.
+
 Once the local copy of Shard is successfully created, the Local Sender and Local Receiver processes are spawned.
 Upon spawning, RPC servers are created for the Local Sender and Local Receiver, and their ports are printed to standard output so the parent processes is able to make dispatch RPC calls to the two processes.
 
-The second step that the Shard network layer performs is to distribute a copy of the Shard executable to the remote machine.
+The second step that the Shard network layer performs is to distribute a copy of the Shard executable to the remote machine, using the same copy attempt mechanism previously mentioned.
 This is done by dispatching an \texttt{Open} RPC query to the Local Sender, which has the following record type as its query type:
 
 \begin{minipage}[c]{\textwidth-15pt}
@@ -1686,6 +1699,8 @@ end
   \smallskip
 \end{minipage}
 
+% \todoi{ AST representation S-expression example }
+
 As shown here, the query for starting the remote program includes the program's AST representation \texttt{Ast.t} in S-expression form, as a \texttt{Sexp.t}, and a serializable image of the environment \texttt{Env.t}, which includes parts of the shell execution environment for this specific program's execution, such as assignments and cluster definitions.
 In addition to the \texttt{[@@deriving bin\_io]} and \texttt{[@@deriving fields]} mentioned in the previous section, this record type also contains the \texttt{[@@deriving sexp]} annotation to autogenerate functions for serialzing and deserializing the record as an S-expression, which is useful when sending the query as an S-expression string over SSH.
 % reasoning for remote sender/receiver will be explained in the design section
@@ -1727,6 +1742,7 @@ In addition to sending the program to be executed, the Local Sender is also resp
 The sender query type looks very similar to the receiver query type, except that the Local Sender has no control over the heartbeat and sequence number fields of receiver query, as they originate from the Remote Sender.
 
 \subsection{Heartbeat and sequence number handling}
+
 The Shard network layer exposes an interface for manually processing the \texttt{Receiver\_query} records from the Remote Sender.
 This allows for greater control over handling the specific pieces of functionality as provided by the network layer, such as the heartbeat, id, and sequence number. However, most users of the protocol can opt to use the \texttt{task\_cluster} interface that automatically handles reliablility and retries using these features:
 
@@ -1861,9 +1877,9 @@ The output is expected to be a single line.
 Finally, when all of the reduce tasks complete, the output is sorted by key and printed, with each line being a key-value pair, with the key and value separated by a comma.
 
 \begin{sloppypar}
-The specific implementation of the \texttt{data\_parallel} backend does not require in-depth knowledge about how the Shard network layer functions, as that is cleanly concealed by the \texttt{task\_cluster} abstraction.
-% This achieves the separation of concerns for the functionality of the application class itself and the Shard network layer, which also makes adding new application classes or improving the Shard network layer much easier.
-The separation of abstractions makes it much easier to add new application classes or improve the Shard network layer.
+  The specific implementation of the \texttt{data\_parallel} backend does not require in-depth knowledge about how the Shard network layer functions, as that is cleanly concealed by the \texttt{task\_cluster} abstraction.
+  % This achieves the separation of concerns for the functionality of the application class itself and the Shard network layer, which also makes adding new application classes or improving the Shard network layer much easier.
+  The separation of abstractions makes it much easier to add new application classes or improve the Shard network layer.
 \end{sloppypar}
 
 \section{Implementation trade-offs}
@@ -1919,6 +1935,7 @@ Another reason to use processes rather than threads comes from the limitations o
 As of the time of writing, OCaml does not have multi-core support in its standard release
 \cite{dolan2014multicore}.
 Multi-core OCaml is a planned feature for an upcoming OCaml release, but it is uncertain when this release will be finalized and merged into standard OCaml \cite{sivaramakrishnan2020retrofitting}.
+As such, OCaml is a concurrent but not parallel programming language.
 Similar to Python, OCaml uses a global runtime lock when running its code, and support for concurrency is implemented with an asynchronous event loop that runs in a single operating system thread.
 This means that a single OCaml process cannot send and receive data over SSH at the exact same time.
 This is especially problematic when Shard is trying to communicate with many different remote machines simultaneously, as Shard needs to maintain a communication channel to each remote machine in a cluster.
