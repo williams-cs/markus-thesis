@@ -498,20 +498,30 @@ These two language features are enough for Shard to support execution of arbitra
 A minimal set of language additions is deliberately chosen to make Shard as similar to the existing POSIX shell as possible, making it easier to learn the language, read existing programs, and write new programs, especially for someone familar with the POSIX shell.
 
 The syntax of the new features of the Shard programming language are shown in Table \ref{fig:pl_syntax}, with the parameters for the syntax shown in Table \ref{fig:pl_syntax_parameters}.
-The semantics of the new features will be explained in detail and supported by examples.
+The semantics of the new features will be explained in detail in the \textbf{Cluster management} and \textbf{Remote execution} sections that follow and supported by examples.
 
 \begin{table}
   \begin{center}
-    \begin{tabular}{|l|l|l|}
+    \begin{tabularx}{\textwidth}{|l|X|}
       \hline
-      Feature                           & Syntax                    & Example                              \\ \hline
-      Cluster management                & cluster -OPTION ARGS ...  & cluster -a machine1.cs.williams.edu  \\ \hline
-      \multirow{4}{*}{Remote execution} & (PROGRAM)@@TARGET         & (cat file.txt)@@example              \\ \cline{2-3}
-                                        & PROGRAM@@TARGET           & ps@@127.0.0.1                        \\ \cline{2-3}
-                                        & (PROGRAM)@@SETTING/TARGET & (echo \$in; echo 1)@@map/cluster1    \\ \cline{2-3}
-                                        & PROGRAM@@SETTING/TARGET   & (paste -sd+ - | bc)@@reduce/cluster1 \\ \hline
-    \end{tabular}
-    \caption{Syntax of the Shard programming language features}
+      Feature            & Syntax                                                   \\ \hline
+      Cluster management & \texttt{<cluster> ::= cluster -<option> <args>} \newline
+      \texttt{| cluster} \newline
+      \texttt{<option> ::= a | c | o | p | s | t} \newline
+      \texttt{<args> ::= <string>} \newline
+      \texttt{| <string> <args>}
+      \\ \hline
+      Remote execution   &
+      \texttt{<remote> ::= (<program>)@@<target>}
+      \newline \texttt{| <program>@@<target>}
+      \newline \texttt{| (<program>)@@<setting>/<target>}
+      \newline \texttt{| <program>@@<setting>/<target>} \newline
+      \texttt{<program> ::= <string>} \newline
+      \texttt{<setting> ::= <string>} \newline
+      \texttt{<target> ::= <string>}
+      \\ \hline
+    \end{tabularx}
+    \caption{Syntax of the Shard programming language features.}
     \label{fig:pl_syntax}
   \end{center}
 \end{table}
@@ -520,11 +530,11 @@ The semantics of the new features will be explained in detail and supported by e
   \begin{center}
     \begin{tabularx}{\textwidth}{|l|X|}
       \hline
-      Feature            & Parameters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      \\ \hline
-      Cluster management & The OPTION parameter specifies which cluster built-in command to use. \newline The ARGS parameter species the arguments to be passed to the specified cluster built-in command. \newline See Figure PLACEHOLDER for more details.                                                                                                                                                                                                                                                               \\ \hline
-      Remote execution   & The PROGRAM parameter is a legal Shard program, behaving similar to what is allowed in the subshell environment in the POSIX shell. \newline The TARGET parameter is either the name of a cluster defined by the cluster management, or a host as accepted by the underlying communication protocol. \newline The SETTING optional parameter may be used by the application class for the cluster; depending on the application class of the cluster, it may be required, optional, or ignored. \\ \hline
+      Feature            & Parameters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       \\ \hline
+      Cluster management & The \texttt{<option>} parameter specifies which cluster built-in command to use. \newline The \texttt{<args>} parameter species the arguments to be passed to the specified cluster built-in command. \newline See Figure \ref{fig:pl_cluster_options} for more details.                                                                                                                                                                                                                                                         \\ \hline
+      Remote execution   & The \texttt{<program>} parameter is a legal Shard program, behaving similar to what is allowed in the subshell environment in the POSIX shell. \newline The \texttt{<target>} parameter is either the name of a cluster defined by the cluster management, or a host as accepted by the underlying communication protocol. \newline The \texttt{<setting>} optional parameter may be used by the application class for the cluster; depending on the application class of the cluster, it may be required, optional, or ignored. \\ \hline
     \end{tabularx}
-    \caption{Parameters for the syntax of the Shard programming language}
+    \caption{Parameters for the syntax of the Shard programming language.}
     \label{fig:pl_syntax_parameters}
   \end{center}
 \end{table}
@@ -540,25 +550,32 @@ A summary of the options for the \texttt{cluster} builtin are shown in Table \re
 
 \begin{table}
   \begin{center}
-    \begin{tabularx}{\textwidth}{|l|l|X|}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
       \hline
-      Option & Syntax               & Definition                                                                                                                                                             \\ \hline
-      Set    & cluster -s NAME      & Sets the active cluster to the cluster with NAME, creating it if it does not already exist.
+      Option                        & Syntax                                                                                                                                                                                       & Definition                                                                                                        \\ \hline
+      Set                           & \texttt{cluster -s <name>} \newline
+      \texttt{<name> ::= <string>}  & Sets the active cluster to the cluster with \texttt{<name>}, creating it if it does not already exist.
       \\ \hline
-      Add    & cluster -a HOST      & Adds the host HOST to the active cluster.
+      Add                           & \texttt{cluster -a <host>} \newline
+      \texttt{<host> ::= <string>}  & Adds the host \texttt{<host>} to the active cluster.
       \\ \hline
-      Type   & cluster -t TYPE      & Sets the application class of the active cluster to TYPE. Valid types specified in this design are \texttt{single\_command} and \texttt{data\_parallel}.
+      Type                          & \texttt{cluster -t <type>} \newline
+      \texttt{<type> ::= single\_command} \newline
+      \texttt{| data\_parallel}     & Sets the application class of the active cluster to \texttt{<type>}. Valid types specified in this design are \texttt{single\_command} and \texttt{data\_parallel}.
       \\ \hline
-      Option & cluster -o KEY VALUE & Sets a configurable option for the active cluster, with the specified KEY to the specified VALUE. Valid options depend on the application class of the active cluster.
+      Option                        & \texttt{cluster -o <key> <value>} \newline
+      \texttt{<key> ::= <string>} \newline
+      \texttt{<value> ::= <string>} & Sets a configurable option for the active cluster, with the specified \texttt{<key>} to the specified \texttt{<value>}. Valid options depend on the application class of the active cluster.
       \\ \hline
-      Clear  & cluster -c           & Resets the active cluster, removing all hosts, clearing all options, and setting the cluster type to the default.
+      Clear                         & \texttt{cluster -c}                                                                                                                                                                          & Resets the active cluster, removing all hosts, clearing all options, and setting the cluster type to the default.
       \\ \hline
-      Print  & cluster -p NAME      & Prints out the details of the cluster with NAME. If NAME is not specified, instead prints out the details of all clusters.
+      Print                         & \texttt{cluster -p <name> | cluster -p} \newline
+      \texttt{<name> ::= <string>}  & Prints out the details of the cluster with \texttt{<name>}. If \texttt{<name>} is not specified, instead prints out the details of all clusters.
       \\ \hline
-      No arg & cluster              & Prints out the details of all clusters.
+      No arg                        & \texttt{cluster}                                                                                                                                                                             & Prints out the details of all clusters.
       \\ \hline
     \end{tabularx}
-    \caption{Parameters for the syntax of the Shard programming language}
+    \caption{Options for the \texttt{cluster} builtin function of the Shard programming language.}
     \label{fig:pl_cluster_options}
   \end{center}
 \end{table}
@@ -572,7 +589,8 @@ If no cluster with the specified name exists, a new cluster is created.
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
-cluster -s NAME
+# Syntax:
+# <cluster_set> ::= cluster -s <name>
 # Example:
 cluster -s testcluster
 \end{lstlisting}
@@ -584,7 +602,8 @@ The specifics behind host resolution is an implementation detail, but IPV4 addre
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
-cluster -a HOST
+# Syntax:
+# <cluster_add> ::= cluster -a <host>
 # Example:
 cluster -a machine1.cs.williams.edu
 \end{lstlisting}
@@ -597,7 +616,10 @@ As specified in this design, the choices for application classes are \texttt{sin
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
-cluster -t TYPE
+# Syntax:
+# <cluster_type> ::= cluster -t <type>
+# <type>         ::= single_command
+#                 |  data_parallel
 # Example:
 cluster -t data_parallel
 \end{lstlisting}
@@ -608,7 +630,8 @@ Application classes can support specifying options with key-value pairs to modif
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
-cluster -o KEY VALUE
+# Syntax:
+# <cluster_option> ::= cluster -o <key> <value>
 # Example:
 cluster -o heartbeat_period 500
 \end{lstlisting}
@@ -631,9 +654,10 @@ If no cluster name argument is provided, the details of all defined clusters are
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
-cluster -p NAME
-cluster -p
-cluster
+# Syntax:
+# <cluster_print> ::= cluster -p <name>
+#                  |  cluster -p
+#                  |  cluster
 # Example:
 cluster -a 127.0.0.1
 cluster -s cluster1
@@ -660,9 +684,10 @@ The language feature consists of a single set of syntax additions, revolving aro
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
-PROGRAM@@TARGET
-(PROGRAM)@@TARGET
-# Examples (assume a cluster named 'testcluster' is previously defined):
+# Syntax:
+# <remote> ::= <program>@@<target>
+#           |  (<program>)@@<target>
+# Examples:
 ps@@machine1.cs.williams.edu
 (echo -n "$(hostname): "; cat /etc/issue)@@testcluster
 \end{lstlisting}
@@ -680,8 +705,9 @@ Providing an empty string as the setting string is equivalent to not providing a
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
-PROGRAM@@SETTING/TARGET
-(PROGRAM)@@SETTING/TARGET
+# Syntax:
+# <remote_setting> ::= <program>@@<setting>/<target>
+#                   | (<program>)@@<setting>/<target>
 # Example:
 (wc -c; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster)
@@ -769,13 +795,43 @@ In the next section, \texttt{Application class design}, the semantics of the app
 %   \item Describe the existing application classes
 % \end{itemize}
 
-One quality that distributed programs vary in is the way that they should be executed on a distributed system.
-We define an application class as a set of semantics for how remote programs are executed on a cluster.
-The implementation of the application class has a large degree of control of the process of the remote execution, starting from when Shard passes the program, remote target, and inputs to the application class, until the outputs of the remote execution are passed back to Shard.
+One quality that distributed programs vary in is the way that they are executed on a distributed system.
+We define an \textit{application class model} as a collection of remote execution properties that are shared by a set of remote programs, and an \textit{application class manifestation} as a set of semantics that define how remote programs that follow the application class model are executed on a cluster.
+Application class models and manifestations provide a way to collect distributed programs into groups of shared behavior.
+This creates an avenue for designing and implementing systems that support distributed programs with wildly different requirements and priorities.
 
-The design of Shard describes two application classes, \texttt{single\_command}, and \texttt{data\_parallel}, which cover two mostly distinct subsets of possible distributed programs.
-The \texttt{single\_command} application class represents a remote command that reliably executes its program on all machines in the cluster.
-The \texttt{data\_parallel} application class represents a remote program that executes its program many times in parallel in a MapReduce-like fashion.
+Table \ref{fig:application_class_models} describes several application class models, along with the way tasks are distributed to remote machines in those models, and their corresponding application class manifestations in Shard, if any.
+Note that not all of the application class models described in this table have corresponding manifestations in Shard, and there are many more possible application class models that are not described here.
+
+\begin{table}[h]
+  \begin{center}
+    \begin{tabularx}{\textwidth}{|l|l|X|}
+      \hline
+      Application class model & Manifestation in Shard   & Task distribution
+      \\ \hline
+      One-to-one              & \texttt{single\_command} & There is an equal number of tasks and remote machines in the cluster. Tasks are distributed so that each task is assigned a remote machine, and retries must be on the same machine.
+      \\ \hline
+      Many-to-one             & \texttt{data\_parallel}  & There are many more tasks than remote machines in the cluster. Tasks are distributed so that any task can be run on any machine, as controlled by the application class manifestation, and retries can occur on any machine.
+      \\ \hline
+      One-to-many             & N/A                      & There are more machines in the cluster than tasks.
+      Tasks are distributed so that each task is assigned to a remote machine, but a retry will prioritize an unused machine.
+      \\ \hline
+      Single task             & N/A                      & There is only a single task to complete, and many machines in the cluster. The one task is run in parallel on some or all of the machines, with each machine competing to be the first one to complete.
+      \\ \hline
+    \end{tabularx}
+    \caption{Application class models and manifestations.}
+    \label{fig:application_class_models}
+  \end{center}
+\end{table}
+
+
+The application class manifestation is more focused on the way Shard supports a given application class model.
+The manifestation has a large degree of control over the remote execution, starting from when Shard passes the program, remote target, and inputs to the application class, until the outputs of the remote execution are passed back to Shard.
+The design of Shard describes two manifestations of application classes, \texttt{single\_command}, and \texttt{data\_parallel}, which cover two mostly distinct subsets of possible distributed programs.
+The \texttt{single\_command} application class is a manifestation of the one-to-one application class model, which represents a remote command that executes its program in a best-effort fashion on all machines in the cluster.
+The \texttt{data\_parallel} application class is a manifestation of the many-to-one application class model, which represents a remote command that executes its program many times in parallel on the machines in the cluster and builds on top of a MapReduce-like interface.
+From this point on in the thesis, we will be referring to manifestations of application class as the application classes themselves, especially when we are describing specific manifestations such as \texttt{single\_command} or \texttt{data\_parallel}, but it is important to make the distinction here.
+Notably, an alternative design for the Shard language can provide alternative manifestations for the same application class models, or additional manifestations to cover other application class models.
 
 Although only two application classes are described here, an infinite number of potential application classes exist to support different types of distributed programs.
 One example of an application class not described is an application class that sends its program as a task to all of the machines in the cluster, and completes the remote execution when any of the tasks complete.
@@ -822,7 +878,7 @@ source cluster_setup.shard
         Because no cluster type is specified, Shard assumes the cluster has the default application class \texttt{single\_command}.
   \item On lines 3-5 of the program, the portion of the program executed on the remote machine is indicated by the part of the program between the pair of parentheses located before the \texttt{@@} remote execution operator, and the cluster to perform the remote execution on, \texttt{testcluster}, is located after the \texttt{@@} operator.
   \item On line 3 of the program, the hostname of the remote machine is printed, followed by a colon. This is to allow the user to know which remote machine the memory usage data originated from, in the case that there is more than one remote machine in the cluster.
-  \item On line 4 of the program, the \texttt{free} UNIX executable is ran, which collects information about the memory usage of the current machine, among other memory related statistics.
+  \item On line 4 of the program, the \texttt{free} UNIX executable was run, which collects information about the memory usage of the current machine, among other memory related statistics.
   \item On line 5 of the program, the output of \texttt{free} is processed by the \texttt{awk} UNIX program, which selects the second line of the output, and prints the value of the third column (memory used) by the value of the second column (total memory). This is printed together with the hostname and remote machine.
 \end{itemize}
 
@@ -982,7 +1038,7 @@ Figure \ref{fig:network_layer_design} shows the layers of abstraction in for exe
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.5]{img/shard_network_design.png}
-    \caption{The layers of abstraction of Shard used to execute remote command}
+    \caption{The layers of abstraction of Shard used to execute remote command.}
     \label{fig:network_layer_design}
   \end{center}
 \end{figure}
@@ -1006,7 +1062,7 @@ Table \ref{fig:roles_design} gives a summary of each of the four roles.
       Local Receiver  & Local machine  & Remote sender   & Receives the data from the remote sender and passes it to the local Shard program as the results.
       \\ \hline
     \end{tabularx}
-    \caption{Parameters for the syntax of the Shard programming language}
+    \caption{The four roles involved in the Shard network layer's data transfer.}
     \label{fig:roles_design}
   \end{center}
 \end{table}
@@ -1221,7 +1277,7 @@ In the case of a parse error, the error is printed back to the standard error (s
 The text below showcases an example of the output when running Shard interactively:
 
 \begin{minipage}[c]{\textwidth-15pt}
-  \begin{lstlisting}[language=]
+  \begin{lstlisting}[language=Shard]
 $ echo "Hello, world!"
 Hello, world!
 $ (cat /etc/issue)@@machine1
@@ -1504,7 +1560,7 @@ The procedure for executing a remote command is shown in Figure \ref{fig:network
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.5]{img/shard_protocol_impl.png}
-    \caption{The procedure for executing a remote command with the Shard network layer}
+    \caption{The procedure for executing a remote command with the Shard network layer.}
     \label{fig:network_layer_impl}
   \end{center}
 \end{figure}
@@ -1530,7 +1586,7 @@ These command line arguments should only be used by remote execution mechanism f
       Remote Sender   & Local Receiver  & -Rrs     & Port of Remote Receiver RPC server \\ \hline
       Remote Receiver & Local Sender    & -Rrr     &                                    \\ \hline
     \end{tabular}
-    \caption{The command line arguments for running the executable as each of the four process roles}
+    \caption{The command line arguments for running the executable as each of the four roles in Shard's data transfer.}
     \label{fig:process_role_args}
   \end{center}
 \end{table}
@@ -1835,8 +1891,9 @@ This implementation will be tested in the \textbf{Evaluation} chapter that follo
 
 \chapter{Evaluation}
 
-This chapter will describe the criteria in which the Shard distributed system is evaluated, the experiments designed to evaluate these critera, and the results of running the experiments.
-When evaluating Shard, particular emphasis on satisfying the three core pillars for Shard, of being distributed, reliable, and easy to use, as described in the \textbf{Motivation} section of the \textbf{Introduction} chapter.
+This chapter describes the criteria in which Shard is evaluated, the experiments designed to evaluate these critera, and the results of running the experiments.
+In the evaluation, particular emphasis is placed on satisfying the three core pillars for Shard, as described in the \textbf{Motivation} section of the \textbf{Introduction} chapter.
+Three pillars are being distributed, being reliable, and being easy to use.
 
 \section{Distributed}
 % \begin{itemize}
@@ -1845,25 +1902,28 @@ When evaluating Shard, particular emphasis on satisfying the three core pillars 
 % \end{itemize}
 
 The first step in the evaluation of Shard is ensuring that it satisfies its stated goal of being a distributed system.
-This is carried out by running Shard programs over a network and ensuring that example programs produce the correct output as specified by the design.
+This is carried out by running Shard programs over a network and ensuring that example programs produce the correct output.
 These experiments will also demonstrate that the application classes function correctly as defined by the specification.
 
-The local machine containing the entry point of the Shard program is a personal machine located at Williams College and connected to Williams College network.
-The experiments in this section will be carried out multiple times, each time with one of the following two sets of remote machines:
+The local machine containing the entry point of the Shard program is a machine located at Williams College and connected to Williams College network.
+The experiments in this section are carried out multiple times, each time with one of the following two sets of remote machines:
 \begin{itemize}
   \item The same local machine itself (localhost);
-  \item A cluster of machines in the same local area network (Williams CS machines);
+  \item A cluster of machines in the same local area network (Williams CS machines).
         % \item A cluster of machines hosted on the cloud, in a different geographical location.
 \end{itemize}
 In each of these experiments, we measure the amount of time it takes for the Shard program to run, and the success rate of correctly receiving the result of the program on the local machine.
 % \todoi{Figure out renting out some cloud VMs to help perform these experiments; as an alternative, connect to the Williams CS machines with a VPN to simulate a longer-area network connection, by setting the VPN location to a farther location}
 Each machine used in the evaluation is running Ubuntu Linux version 20.04.2 LTS.
-% \todoi{What detail specs should I include}
+The local machine has 32 GB of RAM, while each of the machines on the Williams CS cluster has 16 GB of RAM.
+The architecture of the CPUs on these machines is x86\_64.
+
+% \todoi{What detail specs should I include: more detailed CPU specs}
 
 \subsection{Single command}
 % \todoi{Compare to a simple SSH script}
 \begin{sloppypar}
-  The first experiment in this section uses the Shard program \texttt{memory\_usage.shard} to verify that the \texttt{single\_command} application class works correctly on a simple program.
+  The first experiment in this section verifies that the \texttt{single\_command} application class works correctly on a simple program.
 \end{sloppypar}
 
 \begin{minipage}[c]{\textwidth-15pt}
@@ -1877,7 +1937,8 @@ source cluster_setup.shard
   \smallskip
 \end{minipage}
 
-This program, which was previously described in the \textbf{Application class: }\texttt{single\_command} section of the \textbf{Design} chapter, collects the memory usage for each of the machines in the cluster.
+The program used in this experiment, \texttt{memory\_usage.shard}, was previously described in the \textbf{Application class: }\texttt{single\_command} section of the \textbf{Design} chapter.
+This program collects the memory usage for each of the machines in the cluster.
 
 The contents of \texttt{cluster\_setup.shard} vary depending on which set of remote machines the experiment is being run on.
 For testing on the local machine, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding the localhost to the cluster:
@@ -1925,21 +1986,22 @@ cluster -a machine4.cs.williams.edu
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e1_1620966966721.png}
-    \caption{Number of iterations complete over time when running \texttt{memory\_usage.shard}.}
+    \caption{Number of iterations completed over time when running \texttt{memory\_usage.shard}.}
     \label{fig:memoryusage}
   \end{center}
 \end{figure}
 
-The \texttt{memory\_usage.shard} program is ran 100 times sequentially on each of the two clusters.
+The \texttt{memory\_usage.shard} program was run 100 times sequentially on each of the two clusters.
 Figure \ref{fig:memoryusage} shows the number of iterations complete at a given point in time.
 
+In general, the experiment on the localhost cluster acts as a baselin for comparison.
 As we can see from the graph, the first iteration of executing the program is slower to complete, as it involves performing some extra computation to set up the connection to the remote machine, and the remainder of the iterations complete at a relatively constant pace for both ot the clusters.
 When we compare the clusters, the Williams CS cluster takes longer to initiate a connection with, since the endpoints of the connection are on different machines, but overall there is not much of a penalty to using the Williams CS machine cluster, as the network latency is quite small compared to the execution time.
 Note that the \texttt{single\_command} application class requires the Shard command to be run on each of the machines in the cluster, so the each iteration on localhost would be expected to complete slightly faster, even with disregarding the network delay of running the programs on a remote machine.
 
 
 \subsection{Data parallel}
-The second experiment in this section uses the program \texttt{word\_count.shard} to verify that the \texttt{data\_parallel} application class works correctly.
+The second experiment in this section verifies that the \texttt{data\_parallel} application class works correctly in producing the expected program output.
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -1955,9 +2017,10 @@ cat input.txt |
   \smallskip
 \end{minipage}
 
-This program, which was previously described in the \textbf{Application class: }\texttt{data\_parallel} section of the \textbf{Design} chapter, takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
+The program used in this experiment, \texttt{word\_count.shard}, was previously described in the \textbf{Application class: }\texttt{data\_parallel} section of the \textbf{Design} chapter.
+This program takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
 
-The input document for this experiment is Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, which was chosen as an example of a famous passage with some amounts of repeating words.
+The input document for this experiment is Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, which was chosen as an example of a famous passage with a non-trivial amount of repeated words.
 This passage has a total of 288 words, which means that each remote machine would have to execute multiple tasks, as opposed to a single task as is the case for the \texttt{memory\_usage.shard} experiment.
 The full text of the input document and the expected output can be found in the appendix.
 
@@ -1965,12 +2028,12 @@ The full text of the input document and the expected output can be found in the 
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e2_1620960581241.png}
-    \caption{Number of iterations complete over time when running \texttt{word\_count.shard}.}
+    \caption{Number of iterations completed over time when running \texttt{word\_count.shard}.}
     \label{fig:wordcount}
   \end{center}
 \end{figure}
 
-The \texttt{word\_count.shard} program is ran 10 times sequentially on each of the two clusters.
+The \texttt{word\_count.shard} program was run 10 times sequentially on each of the two clusters.
 Figure \ref{fig:wordcount} shows the cumulative number of trials complete at a given point in time.
 
 As we can see from the graph, the first iteration of executing the program is once again slower to complete due to the setup of Shard.
@@ -1978,8 +2041,8 @@ As opposed when running the \texttt{memory\_usage.shard} script, this time the p
 This is because the Williams CS cluster consists of four machines, and the work is divided up among those machines, which lets them process tasks simultaneously, as opposed to having only the local machine itself for the localhost cluster.
 
 \subsection{Data parallel with delay}
-The third experiment in this section uses the Shard program \texttt{word\_count\_slow.shard} to demonstrate Shard's ability to run many tasks in parallel on the same remote machine.
-The program \texttt{word\_count\_slow.shard} is almost identical to the previous \texttt{word\_count.shard} experiment, except that each \texttt{map} remote command sleeps for 1 second in the middle before its completion.
+The third experiment in this demonstrates Shard's ability to run many tasks in parallel on the same remote machine.
+This purpose of this experiment is to demonstrate that Shard's distributed computation capability is extended by its ability to run multiple Shard commands at once, over a single connection, even on the same remote machine, which is achieved by sending the data over a single channel with the Shard network layer, as described in the \textbf{Shard network layer} section of the \textbf{Design} chapter.
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -1995,18 +2058,18 @@ cat input.txt |
   \smallskip
 \end{minipage}
 
+The program used in this experiment, \texttt{word\_count\_slow.shard} is almost identical to the previous \texttt{word\_count.shard} experiment, except that each \texttt{map} remote command sleeps for 1 second in the middle before its completion.
 This program takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
 To simulate a longer-running program with delays in its processing, instead of completing the \texttt{map} portion immediately, a \texttt{sleep 1} command is added to make the program sleep for one second.
 
 This program is expected to take longer to run when compared to \texttt{word\_count.shard}, due to the added sleep command.
 However, because multiple remote commands can run simultaneously on the same machine, in a single Shard execution process, a sleeping command does not prevent further commands from being executed, up to a limit based on the number of remote commands that can be ran simultaneously.
-This experiment's purpose is to demonstrate that Shard's distributed computation capability is extended by its ability to run multiple Shard commands at once, over a single connection, even on the same remote machine, which is achieved by sending the data over a single channel with the Shard network layer, as described in the \textbf{Shard network layer} section of the \textbf{Design} chapter.
 
 % Experiment (e3)
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e3_1620960581241.png}
-    \caption{Number of iterations complete over time when running \texttt{word\_count\_slow.shard}.}
+    \caption{Number of iterations completed over time when running \texttt{word\_count\_slow.shard}.}
     \label{fig:wordcountslow}
   \end{center}
 \end{figure}
@@ -2017,10 +2080,10 @@ Figure \ref{fig:wordcountslow} shows the cumulative number of trials complete at
 This graph looks very similar to the graph for the \texttt{word\_count.shard} program, except that each trial look much longer to complete, due to the delay added to the remote command portion.
 However, even though this Shard program runs over 300 total tasks, the amount of time taken to run this program did not increase to over 300 seconds even on the localhost cluster with a single machine.
 Once again, note that the \texttt{data\_parallel} application class splits up the task of counting an individual word to the various machines on the cluster, so while the local machine cluster had the lowest latency, it only uses one process to execute remote commands, whereas the remote machine clusters use multiple processes simultaneously (one process to execute the code for each remote machine).
-This is especially important because there is a cap to how many simultanous commands can be ran on a single remote process, which can be quickly reached from many of the remote commands spending a large portion of its time sleeping.
+This is especially important because there is a cap to how many simultanous commands can be ran on a single remote process, which can be quickly reached from many of the remote commands spending a large portion of their time sleeping.
 
-The experiments described in this section collectively show that the Shard distributed system functions as described in the design section, including for both the \texttt{single\_command} and \texttt{data\_parallel} application classes.
-Producing the correct results for these experiments is a baseline for showing that Shard is a distributed shell programming language.
+The experiments described in this section collectively show that the Shard distributed system functions as described in the design section for both the \texttt{single\_command} and \texttt{data\_parallel} application classes.
+Producing the correct results for these experiments is a baseline for showing that Shard is a correctly functioning distributed shell programming language.
 % Currently, the performance of Shard has not been optimized, so comparable programs written for other distributed systems may be significantly faster than Shard.
 
 Further potential experiments to test the distributed features of the Shard system include testing more complicated programs with multiple remote command invocations on different clusters, including clusters of machines in located in different geographical regions, and running Shard programs on much larger clusters of hundreds or thousands of machines instead of just the handful of machines as used in the experiments here.
@@ -2033,12 +2096,12 @@ Further potential experiments to test the distributed features of the Shard syst
 %   \item Graph completion time vs random failure rate for \texttt{data\_parallel} programs with both temporarily and permanently failing hosts
 % \end{itemize}
 
-After showing that Shard is a distributed system, the next step is to show that Shard works reliably in the distributed context.
-This is what separates Shard from some other systems with naive distributed computing support, some of which are mentioned in the \textbf{Distributed Command-line Shells} section in the \textbf{Background} chapter.
+After showing that Shard supports distributed computations, the next step is to show that Shard works reliably.
+This is what separates Shard from some other systems with naive distributed computing support, as described in the \textbf{Distributed Command-line Shells} section in the \textbf{Background} chapter.
 
-Evaluating shard for reliability is carried out by running Shard programs over a network, introducing various types of failures that may occur in the real world, and ensuring that the Shard program manages to complete successfully.
+Evaluating Shard for reliability is carried out by running Shard programs over a network, introducing various types of failures that may occur in the real world, and ensuring that Shard manages to complete the computations successfully.
 Each experiment also includes a baseline where the failure is not introduced as a point of comparison.
-The experiments in this section will measure the the completion progress of several Shard programs over time, showing that the error handling features in the design of Shard are effective at recovering the failures that are introduced.
+The experiments in this section will measure the the completion progress of several Shard programs over time, showing that the error handling features in Shard are effective at recovering from the failures that are introduced.
 For more information on the error handling features of Shard, see the \textbf{Shard network layer} section in the \textbf{Design} chapter.
 % The failures being explored in this chapter include trying to connect an unreachable host, remote process crashes, packets being dropped, and slow-running programs.
 
@@ -2056,8 +2119,10 @@ source cluster_setup.shard
   \smallskip
 \end{minipage}
 
-This program takes one hundred million random bytes from the system random source \texttt{/dev/urandom} and pipes it to the \texttt{md5sum} UNIX program, uses the non-cryptographically-secure MD5 hashing algorithm to compute a checksum of the input.
-The purpose of this program is to simulate a computationally expensive program that needs to be reliably executed on each remote machine.
+\begin{sloppypar}
+  This program takes one hundred million random bytes from the system random source \texttt{/dev/urandom} and pipes it to the \texttt{md5sum} UNIX program, using the non-cryptographically-secure MD5 hashing algorithm to compute a checksum of the input.
+  The purpose of this program is to simulate a computationally expensive program that needs to be reliably executed on each remote machine.
+\end{sloppypar}
 
 \begin{sloppypar}
   The program used in this section for testing the reliability of the \texttt{data\_parallel} application class is \texttt{word\_length.shard}, which counts the average length of each word based on the first letter of the word.
@@ -2085,8 +2150,8 @@ Parts of this program are identical to the program \texttt{word\_count.shard}, w
 \begin{itemize}
   \item
         Line 2, which appears in \texttt{word\_count.shard}, runs the \texttt{cluster\_setup.shard} script to set up the cluster \texttt{testcluster}.
-        The cluster of machines used will be exclusively the Williams CS machine cluster, composed of remote machines on the same local area network as the local machine, but the results should still hold for the local machine cluster and the cloud machine cluster.
-  \item Lines 3-5, which also appear in \texttt{word\_count.shard}, transforms the input into lowercase words separated by newlines.
+        The cluster of machines used are exclusively the Williams CS machine cluster, composed of remote machines on the same local area network as the local machine. However, the results should still hold for the local machine cluster and the cloud machine cluster.
+  \item Lines 3-5, which also appear in \texttt{word\_count.shard}, transform the input into lowercase words separated by newlines.
   \item On lines 6-7 of the program, the input is split up by line and sent to be executed remotely on the cluster \texttt{testcluster}.
         Line 6 outputs the key of the map operation, which uses the \texttt{cut} UNIX program to take the first letter of the word as the key.
         Line 7 outputs the value of the map operation, which uses the \texttt{wc} UNIX program to count the number of letters in the word.
@@ -2097,7 +2162,7 @@ Parts of this program are identical to the program \texttt{word\_count.shard}, w
 \end{itemize}
 The purpose of this program is to provide another example program that simulates a MapReduce-style data parallel computation similar to the \texttt{word\_count.shard} program, which includes both a custom key and a custom value in the mapping portion, and a post-processing sorting step.
 
-For this section, the \texttt{word\_length.shard} program is run once again on the same input document as previously, which is Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet.
+For this section, the \texttt{word\_length.shard} program was run once again on the same input document as previously, which is Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet.
 The full text of the input document and the expected output can be found in the appendix.
 
 \subsection{Permanently unreachable host}
@@ -2225,7 +2290,7 @@ If the randomly generated value is less than or equal to the crash percent, the 
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e6_1620960581241.png}
-    \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} based on the chance for a job to randomly crash}
+    \caption{Tasks completed over time when running \texttt{word\_length.shard} based on the chance for a job to randomly crash.}
     \label{fig:crashwordlength}
   \end{center}
 \end{figure}
@@ -2243,7 +2308,7 @@ Nevertheless, Shard is able to recover from the remote Shard process unexpectedl
 The third experiment in this section tests the behavior of Shard in the case of a remote program failing, by explicitly exiting with a non-zero exit code.
 An example of a real world scenario that is simulated by this experiment is when the remote Shard program encounters some unrecoverable situation and the best strategy is to retry the entire remote task rather than recover in some other fashion.
 The program failure is simulated by modifying the script to randomly call the \texttt{exit} builtin with a nonzero exit code in a similar fashion to the random Shard crashing simulated with the previous experiment.
-The programs \texttt{word\_length.shard} is run with different chances of random program failure, and the results are compared.
+The program \texttt{word\_length.shard} is run with different chances of random program failure, and the results are compared.
 
 A program failing is very similar to the case of a Shard process crashing, with the key difference being that Shard crashing is more disruptive -- rather than losing all progress on currently executing tasks on the remote machine and having to restart the remote process, the Shard network layer can communicate that the remote task has failed, and a retry can be issued by the Shard newtork layer immediately on the same remote process.
 This means that the time to completion for failing programs should be lower than for crashing processes.
@@ -2256,7 +2321,7 @@ This means that the time to completion for failing programs should be lower than
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e8_1620960581241.png}
-    \caption{Cumulative time taken to complete map and reduce tasks for \texttt{word\_length.shard} based on the chance for a job to randomly fail}
+    \caption{Tasks completed over time when running \texttt{word\_length.shard} based on the chance for a job to randomly fail.}
     \label{fig:failwordlength}
   \end{center}
 \end{figure}
@@ -2290,7 +2355,7 @@ If the data packet is lost, the sequence number mechanism prevents the close pac
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e9_1620960581241.png}
-    \caption{Cumulative time taken to complete trials of \texttt{random\_hash.shard} for different packet loss rates}
+    \caption{Time taken to run \texttt{random\_hash.shard} for different packet loss rates.}
     \label{fig:packetlosshash}
   \end{center}
 \end{figure}
@@ -2313,7 +2378,7 @@ The experiment involving the \texttt{word\_length.shard} program will be slightl
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e10_1620960581241.png}
-    \caption{Cumulative number of map and reduce tasks completed by \texttt{word\_length.shard} for different packet loss rate configurations}
+    \caption{Tasks completed over time when running \texttt{word\_length.shard} by each machine in a cluster with the machines having different packet loss probabilities.}
     \label{fig:packetlosswordlength}
   \end{center}
 \end{figure}
@@ -2337,12 +2402,12 @@ Examples of real world scenarios simulated by this experiment are when certain m
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e11_1620960581241.png}
-    \caption{Cumulative number of map and reduce tasks completed by \texttt{word\_length.shard} for each machine with some machines being rate-limited}
+    \caption{Tasks completed over time when running \texttt{word\_length.shard} by each machine in a cluster with some machines rate-limited.}
     \label{fig:slowwordlength}
   \end{center}
 \end{figure}
 
-For this experiment, the \texttt{word\_length.shard} program is run on the Williams CS cluster with four machines.
+For this experiment, the \texttt{word\_length.shard} program was run on the Williams CS cluster with four machines.
 The first two machines are ``fast'' machines, which behave normally and have no restrictions on rate of processing tasks.
 The latter two machines are ``slow'' machines, which have a restriction that only one task can be processed at a time on the machine, and tasks take an additional 0.5 seconds longer to process.
 Figure \ref{fig:slowwordlength} shows the cumulative number of jobs completed by each of the machines in the cluster after a certain point in time.
@@ -2563,7 +2628,7 @@ done < unique_keys.txt
 \begin{figure}[h]
   \begin{center}
     \includegraphics[scale=0.9]{img/experiments/e12_1620960581241.png}
-    \caption{Cumulative number of trials complete given a certain amount of time passed for \texttt{line\_length.shard} versus \texttt{line\_length\_ssh.sh}}
+    \caption{Tasks completed over time when running \texttt{line\_length.shard} on Shard versus \texttt{line\_length\_ssh.sh} on Bash.}
     \label{fig:linelength}
   \end{center}
 \end{figure}
@@ -2624,7 +2689,7 @@ Finally, a qualitative analysis of setting up Shard, writing Shard programs, and
 
 In this thesis, we explore the research question of how to create a reliable and easy to use general purpose distributed system.
 This thesis proposes the Shard distributed system, which provides a solution that satisfies the three goals of being distributed, reliable, and easy to use, which we deem as the three core pillars of Shard.
-Many existing computer systems exist, but from our research, none of them satisfy all of the core pillars to the extent that Shard does.
+Many existing computer systems achieve some of these goals, but to our knowledge, none of them satisfy all of the core pillars to the extent that Shard does.
 
 Shard builds on the POSIX shell programming language by adding a small set of language and syntax additions to create a new programming language that supports executing remote subprograms within a Shard program.
 Using the concept of application classes, which describe a set of semantics for remote execution, it is possible to write many different types of distributed programs with different properties in Shard.
@@ -2632,11 +2697,13 @@ A network layer designed specifically for Shard provides the functionality of ru
 
 This thesis describes a specific implementation of Shard using the OCaml programming language, the way that the various parts of Shard are structured in the implementation, and how the implementation can be easily extended to add additional language features or application classes.
 
-Shard is evaluated by running experiments to demonstrate that the design and implementation satisfy the core pillars. The expriments show that, with the programs being tested, Shard does an excellent job in functioning as a general purpose reliable distributed shell programming language, while still maintaining the ease of use in setting up Shard, writing Shard code, and running Shard programs.
+Shard is evaluated by running experiments to demonstrate that the design and implementation satisfy the core pillars. The experiments show that, with the programs being tested, Shard does an excellent job in functioning as a general purpose reliable distributed shell programming language, while still maintaining the ease of use in setting up Shard, writing Shard code, and running Shard programs.
 
 There are many possible directions to extend this work.
 Some of them include peer-to-peer communication between remote machines in a cluster, compatibility on different architectures, performance improvements, alternative language features, and additional application classes.
 Many of these directions can be investigated by extending the existing implementation of Shard as provided by this thesis, but it is also viable to create an alternative implementation with different trade-offs.
+
+% \todoi{Lesson learned}
 
 Shard offers a glimpse to the future of distributed programming, where, with a few minutes of setup, any programmer can write an ad hoc script that executes reliably on a cluster of remote machines, without needing to learn all of the intricacies of programming for a distributed system.
 
