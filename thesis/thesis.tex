@@ -308,7 +308,9 @@ The core pillar of being easy to use is what separates Shard from many tradition
 The Shard project's goal is to design and implement a distributed shell programming language that accomplishes the goals outlined by the three core pillars of being distributed, reliable, and easy to use.
 The work and evaluation of Shard  will be described in the remainder of the thesis, separated into the following parts:
 
+\begin{sloppypar}
 \textbf{Chapter 2} describes the background of related computer systems, including other non-distributed and distributed command-line shells, and other distributed systems.
+\end{sloppypar}
 
 \textbf{Chapter 3} describes the design of the Shard, introducing the concept of application classes and providing details about the design of both the Shard programming language and the network layer used in the communication of the distributed framework.
 
@@ -878,7 +880,9 @@ Note that due to the retry mechanism, a the Shard program may run many times on 
 
 \subsubsection{Example program: Memory usage in cluster}
 
-One example of a program that uses the \texttt{single\_command} application class is \texttt{memory\_usage.shard}, a program that collects memory usage information from all machines in a cluster, as defined by another script, \texttt{cluster\_setup.shard}.
+\begin{sloppypar}
+  One example of a program that uses the \texttt{single\_command} application class is \texttt{memory\_usage.shard}, a program that collects memory usage information from all machines in a cluster, as defined by another script, \texttt{cluster\_setup.shard}.
+\end{sloppypar}
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -892,8 +896,11 @@ source cluster_setup.shard
 \end{minipage}
 
 \begin{itemize}
-  \item On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
-        Because no cluster type is specified, Shard assumes the cluster has the default application class \texttt{single\_command}.
+  \item
+        \begin{sloppypar}
+          On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
+          Because no cluster type is specified, Shard assumes the cluster has the default application class \texttt{single\_command}.
+        \end{sloppypar}
   \item On lines 3-5 of the program, the portion of the program executed on the remote machine is indicated by the part of the program between the pair of parentheses located before the \texttt{@@} remote execution operator, and the cluster to perform the remote execution on, \texttt{testcluster}, is located after the \texttt{@@} operator.
   \item On line 3 of the program, the hostname of the remote machine is printed, followed by a colon. This is to allow the user to know which remote machine the memory usage data originated from, in the case that there is more than one remote machine in the cluster.
   \item On line 4 of the program, the \texttt{free} UNIX executable is run, which collects information about the memory usage of the current machine, among other memory related statistics.
@@ -963,8 +970,10 @@ Example use cases include sorting, searching, or aggergating large amounts of in
 
 \subsubsection{Example program: Word count in large file}
 
-One example of a program that uses the \texttt{data\_parallel} application class is \texttt{word\_count.shard}, a program that counts the number of occurrences of each word in a given input file, \texttt{input.txt}.
-Like the earlier \texttt{memory\_usage.shard} example program, this program also uses the \texttt{cluster\_setup.shard} script to define the machines in the cluster that will be used to run the remote programs.
+\begin{sloppypar}
+  One example of a program that uses the \texttt{data\_parallel} application class is \texttt{word\_count.shard}, a program that counts the number of occurrences of each word in a given input file, \texttt{input.txt}.
+  Like the earlier \texttt{memory\_usage.shard} example program, this program also uses the \texttt{cluster\_setup.shard} script to define the machines in the cluster that will be used to run the remote programs.
+\end{sloppypar}
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -981,7 +990,10 @@ cat input.txt |
 \end{minipage}
 
 \begin{itemize}
-  \item On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
+  \item
+        \begin{sloppypar}
+          On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
+        \end{sloppypar}
   \item On line 3 of the program, the cluster type \texttt{data\_parallel} is specified, which indicates that this cluster will use the \texttt{data\_parallel} application class.
   \item
         On line 4 of the program, the input text is read from the file \texttt{input.txt}.
@@ -1275,7 +1287,9 @@ The language provides the Shard programming language features, including a recur
 
 The network layer provides all of the distributed systems functionality, including maintaining network connections to remote machines, spawning helper processes, and error detection/handling.
 
-The application class includes the interfaces of the application class subsystem and the implementation of the specific application classes that are currently supported, which are the \texttt{single\_command} and \texttt{data\_parallel} application classes. Application classes are described in more detail in the \textbf{Application Classes} section of the \textbf{Design} chapter.
+\begin{sloppypar}
+  The application class includes the interfaces of the application class subsystem and the implementation of the specific application classes that are currently supported, which are the \texttt{single\_command} and \texttt{data\_parallel} application classes. Application classes are described in more detail in the \textbf{Application Classes} section of the \textbf{Design} chapter.
+\end{sloppypar}
 
 % \todoi{Simple figure for architecture}
 
@@ -1846,9 +1860,11 @@ The program's standard input is now each of the values associated with the key, 
 The output is expected to be a single line.
 Finally, when all of the reduce tasks complete, the output is sorted by key and printed, with each line being a key-value pair, with the key and value separated by a comma.
 
+\begin{sloppypar}
 The specific implementation of the \texttt{data\_parallel} backend does not require in-depth knowledge about how the Shard network layer functions, as that is cleanly concealed by the \texttt{task\_cluster} abstraction.
 % This achieves the separation of concerns for the functionality of the application class itself and the Shard network layer, which also makes adding new application classes or improving the Shard network layer much easier.
 The separation of abstractions makes it much easier to add new application classes or improve the Shard network layer.
+\end{sloppypar}
 
 \section{Implementation trade-offs}
 
@@ -2475,7 +2491,7 @@ The following steps were used to set Shard up for the Williams CS machine cluste
   \item Obtain the Shard executable.
   \item Write a script setting up the cluster of machines, using the \texttt{cluster} builtin. This involves giving the cluster a name, and adding the hosts to the cluster.
 
-        \begin{minipage}[c]{\textwidth-15pt}
+        \begin{minipage}[c]{\textwidth-25pt}
           \begin{lstlisting}[language=Shard]
 # cluster_setup.shard for Williams CS cluster
 # Hostnames here differ from the ones used in the actual experiment
@@ -2491,7 +2507,7 @@ cluster -a machine4.cs.williams.edu
   \item Run the Shard executable.
   \item Include the cluster setup script with the \texttt{source} builtin.
 
-        \begin{minipage}[c]{\textwidth-15pt}
+        \begin{minipage}[c]{\textwidth-25pt}
           \begin{lstlisting}[language=Shard]
 source cluster_setup.shard
 \end{lstlisting}
@@ -2500,7 +2516,7 @@ source cluster_setup.shard
 
   \item Write a one line program to run a remote command on the cluster.
 
-        \begin{minipage}[c]{\textwidth-15pt}
+        \begin{minipage}[c]{\textwidth-25pt}
           \begin{lstlisting}[language=Shard]
 (uname -a)@@testcluster
 \end{lstlisting}
@@ -2662,10 +2678,12 @@ done < unique_keys.txt
   \end{center}
 \end{figure}
 
-The two programs, \texttt{line\_length.shard} and \texttt{line\_length\_ssh.sh}, are each run with the input of Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, with \texttt{line\_length.shard} running in Shard, and \texttt{line\_length\_ssh.sh} running in the Bash shell.
-The full text of the input document and the expected output can be found in the appendix.
-Figure \ref{fig:linelength} shows the number of tasks completed by \texttt{line\_length.shard} and \texttt{line\_length\_ssh.sh} over time.
-Note that the \texttt{line\_length\_ssh.sh} script is slightly modified so it reports the elapsed time whenever a task is completed.
+\begin{sloppypar}
+  The two programs, \texttt{line\_length.shard} and \texttt{line\_length\_ssh.sh}, are each run with the input of Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, with \texttt{line\_length.shard} running in Shard, and \texttt{line\_length\_ssh.sh} running in the Bash shell.
+  The full text of the input document and the expected output can be found in the appendix.
+  Figure \ref{fig:linelength} shows the number of tasks completed by \texttt{line\_length.shard} and \texttt{line\_length\_ssh.sh} over time.
+  Note that the \texttt{line\_length\_ssh.sh} script is slightly modified so it reports the elapsed time whenever a task is completed.
+\end{sloppypar}
 
 As we can see from this graph, the Shard script completes much faster than the equivalent Bash script.
 The differences between the two programs that cause the Shard script to complete significantly faster are that the Bash script requires setting up a new SSH connection to the remote machine for each remote task execution, and that the Bash script cannot execute multiple remote tasks in parallel.
