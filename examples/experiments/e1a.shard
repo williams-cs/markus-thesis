@@ -2,7 +2,11 @@
 source local_cluster_setup.shard
 _log -s
 _log -z
-for i in 0 1 2 3 4 5 6 7 8 9; do
-    (head -c100000000 /dev/urandom | md5sum)@@testcluster
+i=0
+while [ $i -lt 100 ]; do
+    (echo "$(hostname): $(
+        free |
+        awk "FNR == 2 {print \$3/\$2}")")@@testcluster
     _log -i
+    i=$(echo "$i+1" | bc)
 done

@@ -102,6 +102,13 @@ module Application_class_impl = struct
           List.fold l ~init:[] ~f:(fun accum (key, data) ->
               let program = program in
               let env_image = Env_image.add_assignment env_image ~key:"key" ~data:key in
+              (* TODO temporary workaround *)
+              let env_image =
+                Env_image.add_assignment
+                  env_image
+                  ~key:"value"
+                  ~data:(String.concat ~sep:"\n" data)
+              in
               let process =
                 let%bind.Deferred.Or_error res =
                   Task_cluster.run_task

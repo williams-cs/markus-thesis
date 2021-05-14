@@ -8,7 +8,7 @@ import logreader
 
 start_timestamp = 0
 
-word_count_tasks = "1620537060074021903"
+# Make sure to run this in the ../examples/experiments folder
 
 def test():
     run = ""
@@ -251,7 +251,7 @@ if __name__ == "__main__":
     os.mkdir("out/{ts}".format(ts=start_timestamp))
     ensure_cluster_setup()
     # test()
-    e1(e1a=1620956251960841308, e1b=1620956261041915473)
+    e1(e1a=1620966969887989680, e1b=1620967019227319065)
     e2(e2a=1620956288546195659, e2b=1620956316161957438)
     e3(e3a=1620956329450936696, e3b=1620956402203034470)
     e4(e4a=1620960222925117370, e4b=1620960227020405998)
