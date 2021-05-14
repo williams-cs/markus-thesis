@@ -571,50 +571,67 @@ By default, if no cluster has been set to be the active cluster, the cluster \te
 The user can run \texttt{cluster} with the \texttt{-s} (set) option to set the currently active cluster to a cluster with the specified name.
 If no cluster with the specified name exists, a new cluster is created.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 cluster -s NAME
 # Example:
 cluster -s testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Hosts can be added to the active cluster with the \texttt{-a} (add) option.
 The specifics behind host resolution is an implementation detail, but IPV4 addresses and ASCII domain names should always be accepted as hosts.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 cluster -a HOST
 # Example:
 cluster -a machine1.cs.williams.edu
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 The type of the active cluster can be changed with the \texttt{-t} (type) option.
 Valid choices for the cluster type are all of the application classes supported by the implementation of Shard.
 As specified in this design, the choices for application classes are \texttt{single\_command} and \texttt{data\_parallel}, with \texttt{single\_command} being the default if none is set.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 cluster -t TYPE
 # Example:
 cluster -t data_parallel
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Application classes can support specifying options with key-value pairs to modify their behavior. Such options are set for the active cluster with the \texttt{-o} option.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 cluster -o KEY VALUE
 # Example:
 cluster -o heartbeat_period 500
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 It is possible to clear the acive cluster, including its hosts, options, and cluster type using the \texttt{-c} (clear) option.
 This results the cluster being identical to if it were just created.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 cluster -c
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Finally, the \texttt{-p} (print) option can be used to print out the details of the cluster to standard output.
 Specifically, the output printed by this option should be a list of \texttt{cluster} builtin commands that can be used to reconstruct the state of the specified cluster.
 If no cluster name argument is provided, the details of all defined clusters are printed, and if the \texttt{cluster} builtin is called with no arguments at all, it behaves as if it were called with the \texttt{-p} option.
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 cluster -p NAME
 cluster -p
 cluster
@@ -633,6 +650,8 @@ cluster -p cluster1
 # cluster -a "machine2.cs.williams.edu"
 # cluster -t "data_parallel"
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Although the \texttt{cluster} builtin does not perform any remote execution by itself, it is essential in specifying the remote hosts, application type, and other options used in the remote execution.
 
@@ -640,13 +659,16 @@ Although the \texttt{cluster} builtin does not perform any remote execution by i
 The remote execution language feature is used to execute Shard subprograms on remote machines in a distributed manner.
 The language feature consists of a single set of syntax additions, revolving around the remote execution operator \texttt{@@}.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 PROGRAM@@TARGET
 (PROGRAM)@@TARGET
 # Examples (assume a cluster named 'testcluster' is previously defined):
 ps@@machine1.cs.williams.edu
 (echo -n "$(hostname): "; cat /etc/issue)@@testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 The remote program provided can be any valid Shard program, without constraints, making Shard generally useful for running shell code remotely.
 The remote target for the program can either be the name of a cluster that has already been defined by Shard, or a host, with the same host resolution policy as that of adding hosts to a cluster.
@@ -657,25 +679,32 @@ Some application classes, such as \texttt{data\_parallel}, expect a ``setting'' 
 Similar to the key-value pairs for the cluster \texttt{-o} option, the purpose and behavior of the setting string depends on the specific application class for the cluster, with some application classes completely ignoring the setting string.
 Providing an empty string as the setting string is equivalent to not providing a setting string at all.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 PROGRAM@@SETTING/TARGET
 (PROGRAM)@@SETTING/TARGET
 # Example:
 (wc -c; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster)
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Any input can be piped into the remote execution with the shell pipe operator (\texttt{|}) or redirected with the redirection operator (\texttt{>}), and the output of the remote execution can be further piped or redirected, which makes the remote execution feature composable with other shell commands.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 <input.txt sort@@testcluster | tee output.txt
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 In the execution on the remote machine, a copy of the local shell environment is used, including variable assignments.
 As such, assignments performed locally can be used by the remote machine, but assignments performed remotely will not update the local assignments.
 Additionally, the remote execution will perform synchronously unless explicitly made asynchronous with the \texttt{\&} operator.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 tmpvar=64
 (echo "Remote 1: $tmpvar";
     tmpvar=32;
@@ -686,21 +715,29 @@ echo "Local: $tmpvar"
 # Remote 2: 32
 # Local: 64
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 As an additional feature in Shard, scripts on the local machine can be loaded to be used from the remote machine with the shell \texttt{source} builtin with the option \texttt{-l}.
 When this is done, the same script (using the same full path) can be run form the remote machine with the shell \texttt{source} builtin with the option \texttt{-r}.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 source -l setup.shard
 (source -r setup.shard)@@testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Because there are no restrictions to the Shard programs that can be executed remotely, it is possible to use Shard's remote execution capabilities on a remote machine.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # Examples (assume clusters named 'cluster1' and 'cluster2' is previously defined):
 ((echo -n "$(hostname): "; cat /etc/issue)@@cluster2)@@cluster1
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 The syntax and semantics for remote execution is similar to that of a subshell, with the addition of a remote target, since the subshell is a familiar shell feature for many shell users.
 Since any code within the parenthases for the program are executed on a remote machine instead of the local one, it is clear which parts of the program will be running remotely versus locally.
@@ -710,9 +747,12 @@ With its freedom to use all shell and Shard features remotely, along with its co
 
 This section will conclude with an example Shard program that uses its remote execution capabilities to print the text ``Hello, world!''.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 (echo "Hello, world!")@@machine1.cs.williams.edu
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 This is one of the simplest examples of a program utilizing remote execution in Shard.
 The program for this remote execution is the program \texttt{echo "Hello, world!"}, which prints the text ``Hello, world!'' to the standard output.
@@ -767,13 +807,16 @@ Note that due to the retry mechanism, a the Shard program may run many times on 
 
 One example of a program that uses the \texttt{single\_command} application class is \texttt{memory\_usage.shard}, a program that collects memory usage information from all machines in a cluster, as defined by another script, \texttt{cluster\_setup.shard}.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # memory_usage.shard
 source cluster_setup.shard
 (echo "$(hostname): $(
     free |
     awk "FNR == 2 {print \$3/\$2}")")@@testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 \begin{itemize}
   \item On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
@@ -788,7 +831,8 @@ The following script is an example of the contents of \texttt{cluster\_setup.sha
 This script sets up a cluster of the name \texttt{testcluster} and adds four remote hosts to the cluster.
 Once this is set up, another Shard script can import this script using the \texttt{source} builtin, as seen above, which means that the cluster setup code can be configured independenly of each script using the cluster.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # cluster_setup.shard for Williams CS machines
 # Hostnames here differ from the actual hostnames used
 cluster -s testcluster
@@ -797,15 +841,20 @@ cluster -a machine2.cs.williams.edu
 cluster -a machine3.cs.williams.edu
 cluster -a machine4.cs.williams.edu
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Here is an example output of the program when run on the machines in the Williams CS machiens cluster (with the machine names here differing from the actual machine names):
 
-\begin{lstlisting}[language=]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=]
 machine3: 0.0529418
 machine2: 0.0507266
 machine1: 0.0516429
 machine4: 0.053404
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 This output provides information about the memory usage of each of the machines in the cluster, indicating that around 5\% of the memory is being used on each machine.
 Note that the order of the output does not necessarily correspond to the order that the machines are declared in the cluster, and the order may change each time the program is run, as the remote executions are performed in parallel.
@@ -840,7 +889,8 @@ Example use cases include sorting, searching, or aggergating large amounts of in
 One example of a program that uses the \texttt{data\_parallel} application class is \texttt{word\_count.shard}, a program that counts the number of occurrences of each word in a given input file, \texttt{input.txt}.
 Like the earlier \texttt{memory\_usage.shard} example program, this program also uses the \texttt{cluster\_setup.shard} script to define the machines in the cluster that will be used to run the remote programs.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # word_count.shard
 source cluster_setup.shard
 cluster -t data_parallel
@@ -850,6 +900,8 @@ cat input.txt |
     (echo $in; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 \begin{itemize}
   \item On line 2 of the program, the \texttt{source} shell builtin is used to execute the \texttt{cluster\_setup.shard} script, which sets up the cluster \texttt{testcluster}.
@@ -881,14 +933,20 @@ cat input.txt |
 \end{itemize}
 
 Here is a very short example \texttt{input.txt} for the program:
-\begin{lstlisting}[language=]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=]
 The quick brown fox jumped over the lazy dog.
 The small red fox jumped over the quiet cat.
 The slow green fox jumped over the lazy deer.
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Here is an example output of the program when run with the above input:
-\begin{lstlisting}[language=]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=]
 brown,1
 cat,1
 deer,1
@@ -900,6 +958,8 @@ red,1
 slow,1
 the,6
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 This output gives the number of times each word appeared in the input.
 Each line of the output contains a key-value pair, with the key being the word in the input text, and the value being the number of occurrences of that word, and the two parts separated by a comma.
@@ -1161,7 +1221,8 @@ In the case of the incomplete parse, another line is read from standard input an
 In the case of a parse error, the error is printed back to the standard error (stderr), and the REPL waits for further input for a new command.
 The text below showcases an example of the output when running Shard interactively:
 
-\begin{lstlisting}[language=]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=]
 $ echo "Hello, world!"
 Hello, world!
 $ (cat /etc/issue)@@machine1
@@ -1169,6 +1230,8 @@ Ubuntu 20.04.2 LTS \n \l
 
 $
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Similarly, when the shell is invoked in non-interactive mode, the shell takes the input file or string to the parser, which results in either an AST corresponding to the input program, or an error if the input fails to parse, in which case the error is printed to stderr.
 
@@ -1203,33 +1266,46 @@ This allows the user to enter a new line after partially inputting their command
 Note that inputting an empty line will force the parse to attempt to complete, which will in this case indicate that the parse failed.
 
 For example, inputting the Shard command gives a prompt of \texttt{>} to continue with the command, as the parser sees the unmatched open parenthases.
-\begin{lstlisting}[language=shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=shard]
 $ (echo
 >
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 This command can be completed by adding some input and closing the parenthases.
-\begin{lstlisting}[language=shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=shard]
 $ (echo
 >  hello)
 hello
 $
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 One notable distinction between Shard and other shell parsers is that nested shell environments such as subshells in Shard are parsed together with the entire command, rather than as needed.
 In the Bash shell, for example, if a subshell is defined in a branch of a boolean expression, and there is a syntax error in the subshell, the result would only be a syntax error if the branch gets evaluated.
 On the other hand, in Shard, the parser would fail to parse the entire expression due to failing to parse the subshell.
 
 As such, the following shell program would result in a syntax error in Shard, but not Bash, because the right-hand-side of the boolean expression is never evaluated:
-\begin{lstlisting}[language=shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=shard]
 false && $(|)
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 \todoi{Do I need to cite subshell behavior for other shells?}
 
 The parser's interface exposes the functions that are called by the other parts of the program to convert between Shard programs as strings to its AST. The following OCaml interface describes the input and output types of the parser:
 
-\begin{lstlisting}
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}
 (* Excerpt from ast.mli *)
 (* AST type definition omitted *)
 type t
@@ -1243,6 +1319,8 @@ val parse_partial
   -> string
   -> t Angstrom_extended.Buffered.state
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 As we can see from this interface, the \texttt{parse} function is performs a regular parse of any input string, and emits a \texttt{Ast.t Or\_error.t} variant, which either holds the value of an \texttt{Ast.t} variant (the representation of the AST itself), indicating a successful parse, or an \texttt{Error.t} record, indicating a failed one.
 
@@ -1309,7 +1387,8 @@ In the case of an external command, it is executed using the Spawn library, a de
 
 During evaluation, a record of the type \texttt{Eval.Eval\_args.t} is passed to each \texttt{eval\_PART} function to represent the input state required for the evaluation to succeed. The definition of the record is shown below:
 
-\begin{lstlisting}
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}
 (* Excerpt from eval.ml *)
 module Eval_args = struct
   type t =
@@ -1323,15 +1402,22 @@ module Eval_args = struct
   (* some function definitions omitted *)
 end
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 The \texttt{Eval\_args.t} is made up of the shell environment (\texttt{Cluster\_type.t Env.t}), file descriptors for the standard I/O of the command being evaluated, and a verbose flag.
 By default, the standard I/O corresponds to the standard I/O of the Shard program itself.
 This is modified when pipelining and I/O redirecting are introduced.
 
 A pipeline indicates that the output of a command should be passed to the input of the next command with a pipe, as shown in the following example shell program that finds all of the lines of the input with the character `!':
-\begin{lstlisting}[language=shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=shard]
 cat input.txt | grep "!"
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 Originally, this was achieved by manually transferring the data from one program to the next with a virtual pipe-like construct, but this resulted in many practical problems, such as producing the correct behavior when the pipe is closed on either end.
 
 Thus, the piping behavior was changed to use UNIX pipes.
@@ -1346,9 +1432,12 @@ Currently, the Shard interpreter does not support I/O redirection on custom file
 
 A defining feature of Shard is its remote command execution capabilities, where an example of a remote command is shown in the following example command that prints out the currently running operating system of a remote machine:
 
-\begin{lstlisting}[language=shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=shard]
 (cat /etc/issue)@@machine1.cs.williams.edu
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Evaluating a remote command is implemented in a similar fashion to evaluating a subshell.
 However, for remote execution, all of the pieces of information needed to evaluate the expression are serialized into s-expression form and sent across the network to a remote instance of the Shard runtime.
@@ -1511,7 +1600,9 @@ In addition the the \texttt{Header.t} query, the Local Sender also generates a u
 This ID helps keep track of the responses from the Remote Sender, as the Remote Sender may be running more than one remote program execution simultaneously, and the output from these programs may be interlaced.
 
 The output of the execution on the Remote Sender is sent over the SSH stream back to the Local Receiver with records of the \texttt{Receiver\_query} type serialized to s-expression form:
-\begin{lstlisting}
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}
 (* Excerpt from rpc_common.ml *)
 module Receiver_data = struct
   type t =
@@ -1530,6 +1621,8 @@ module Receiver_query = struct
   [@@deriving sexp, bin_io, fields]
 end
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 A \texttt{Receiver\_query} record contains a \texttt{data} field of the \texttt{Receiver\_data} variant type, in addition to the ID of the program execution and a sequence number.
 The \texttt{Receiver\_data} variant shows the three types of data that can be delivered by the Remote Sender: a message for the standard output, a close notification indicating that execution is complete, and a heartbeat to indicate that the connection is still alive.
@@ -1542,7 +1635,8 @@ The sender query type looks very similar to the receiver query type, except that
 The Shard network layer exposes an interface for manually processing the \texttt{Receiver\_query} records from the Remote Sender.
 This makes sense for achieving greater control over handling the specifics pieces of functionality as provided by the network layer, such as the heartbeat, id, and sequence number, but most users of the protocol can opt to use the \texttt{task\_cluster} interface that automatically handles reliablility and retries using these features:
 
-\begin{lstlisting}
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}
 (* Excerpt from task_cluster.mli *)
 type t
 
@@ -1563,6 +1657,8 @@ val run_task
   -> send_lines:string list
   -> string Deferred.Or_error.t
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 The \texttt{task\_cluster} interface exposes the abstraction of tasks that need to be completed on a cluster.
 When a \texttt{tasnk\_cluster} is created, the set of possible remote targets need to be initialized with \texttt{init\_targets}, which performs the data transfer setup of getting the remote machine ready for accepting remote commands on each remote target passed in.
@@ -1595,7 +1691,8 @@ Even though the many levels of abstraction used result in a more heavyweight net
 
 Application classes are implemented in the Shard project as instances of an application class module type, which specifies the following interface that needs to be conformed by each application class backend:
 
-\begin{lstlisting}
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}
 (* Excerpt from application_class.ml *)
 module type Backend = sig
   val remote_run
@@ -1611,6 +1708,8 @@ module type Backend = sig
     -> unit Deferred.Or_error.t
 end
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 This function is called by the Shard evaluator's remote execution evaluation, which supplies the application class with each of the parameters of the \texttt{remote\_run} function as necessary to sucessfully perform the remote execution.
 The implementation of this function depends on the specific application class backend, but generally involves calling functions in one of the remote invocation abstractions provided by the Shard network layer implementation, which then performs the actual remote program execution.
@@ -1625,9 +1724,12 @@ At the current moment, the project needs to be modified directly to add builtin 
   The \texttt{single\_command} application class supports functionality for running a command that should be reliably executed on each of the machines in a cluster. The following example \texttt{single\_command} program gets the system information of all machines in a cluster named \texttt{csmachines}, and prints it to the local output:
 \end{sloppypar}
 
-\begin{lstlisting}
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}
 (uname -a)@@csmachines 
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 \begin{sloppypar}
   The implementation of this application class is very simple, and does not require directly using the the Shard network layer's RPC queries: it takes the program input, and uses the \texttt{task\_cluster} abstraction to reliabily execute the program as a task on each machine in the cluster.
@@ -1639,11 +1741,14 @@ At the current moment, the project needs to be modified directly to add builtin 
 The \texttt{data\_parallel} application class supports MapReduce-style functionality for running intensive data-parallel applications.
 The following example \texttt{data\_parallel} program calculates the number of occurrences of each line length in an input file on the cluster named \texttt{testcluster}, which has already been defined and set to be \texttt{data\_parallel}:
 
-\begin{lstlisting}[language=shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=shard]
 cat input.txt |
     (echo $in | wc -c; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 When the \texttt{data\_parallel} application class backend receives the \texttt{remote\_run} call, it gets two separate calls, one with the ``map'' setting and one with the ``reduce'' setting.
 The backend's functionality is based on the setting of the call, and fails if the setting is not either ``map'' or ``reduce'', as these are required by the \texttt{data\_parallel} application class backend.
@@ -1761,24 +1866,36 @@ Each machine used in the evaluation is running Ubuntu Linux version 20.04.2 LTS.
 \begin{sloppypar}
   The first experiment in this section, \texttt{memory\_usage.shard}, involves using verifying the \texttt{single\_command} application class works correctly on a simple program.
 \end{sloppypar}
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # memory_usage.shard
 source cluster_setup.shard
 (echo -n "$(hostname): ";
     free |
     awk "FNR == 2 {print \$3/\$2}")@@testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 This program, which was previously described in the \textbf{Application class: }\texttt{single\_command} section of the \textbf{Design} chapter, collects the memory usage for each of the machines in the cluster.
 
 The contents of \texttt{cluster\_setup.shard} vary depending on which set of remote machines the experiment is being run on.
 For testing on the local machine, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding the localhost to the cluster:
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # cluster_setup.shard for localhost
 cluster -s testcluster
 cluster -a localhost
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 For testing on the Williams CS machines, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding each Williams CS machine in the experiment to the cluster:
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # cluster_setup.shard for Williams CS machines
 # Hostnames here differ from the ones used in the actual experiment
 cluster -s testcluster
@@ -1787,8 +1904,13 @@ cluster -a machine2.cs.williams.edu
 cluster -a machine3.cs.williams.edu
 cluster -a machine4.cs.williams.edu
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 Similarly, for testing on the cloud machines, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding each remote machine in the experiment to the cluster:
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # cluster_setup.shard for cloud machines
 # IP addresses here differ from the ones used in the actual experiment
 cluster -s testcluster
@@ -1797,6 +1919,8 @@ cluster -a 203.0.113.31
 cluster -a 203.0.113.184
 cluster -a 203.0.113.201
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 The \texttt{memory\_usage.shard} program is ran a total of 100 trials sequentially on each of the three clusters.
 Figure \ref{fig:memoryusage} shows the cumulative number of trials complete at a given point in time.
@@ -1815,7 +1939,9 @@ Note that the \texttt{single\_command} application class requires the Shard comm
 
 \subsection{Data parallel}
 The second experiment in this section, \texttt{word\_count.shard}, verifies that the \texttt{data\_parallel} application class works correctly.
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # word_count.shard
 source cluster_setup.shard
 cluster -t data_parallel
@@ -1825,6 +1951,9 @@ cat input.txt |
     (echo $in; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 This program, which was previously described in the \textbf{Application class: }\texttt{data\_parallel} section of the \textbf{Design} chapter, takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
 
 The input document for this experiment is Hamlet's Soliloquy (``To be or not to be'') from Shakespeare's Hamlet, which was chosen as an example of a famous passage with some amounts of repeating words.
@@ -1847,7 +1976,8 @@ The \texttt{word\_count.shard} program is ran a total of 20 trials sequentially 
 \subsection{Data parallel with delay}
 The third experiment in this section, \texttt{word\_count\_slow.shard}, is almost identical to the previous \texttt{word\_count.shard} experiment, except that each \texttt{map} remote command sleeps for 1 second in the middle before its completion.
 
-\begin{lstlisting}[language=Shard]
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # word_count_slow.shard
 source cluster_setup.shard
 cluster -t data_parallel
@@ -1857,6 +1987,8 @@ cat input.txt |
     (echo $in; sleep 1; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 This program takes an input from the file \texttt{input.txt} and outputs the number of occurrences for each word present in the file.
 To simulate a longer-running program with delays in its processing, instead of completing the \texttt{map} portion immediately, a \texttt{sleep 1} command is added to make the program sleep for one second.
@@ -1902,19 +2034,25 @@ For more information on the error handling features of Shard, see the \textbf{Sh
 % The failures being explored in this chapter include trying to connect an unreachable host, remote process crashes, packets being dropped, and slow-running programs.
 
 The program used in this section for testing the reliability of the \texttt{single\_command} application class is \texttt{random\_hash.shard}, which takes a string of random bytes and computes the MD5 checksum of the input string.
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # random_hash.shard
 source cluster_setup.shard
-(head -c1000000000 /dev/urandom | md5sum)@@testcluster
+(head -c100000000 /dev/urandom | md5sum)@@testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
-This program takes one billion random bytes from the system random source \texttt{/dev/urandom} and pipes it to the \texttt{md5sum} UNIX program, uses the non-cryptographically-secure MD5 hashing algorithm to compute a checksum of the input.
+This program takes one hundred million random bytes from the system random source \texttt{/dev/urandom} and pipes it to the \texttt{md5sum} UNIX program, uses the non-cryptographically-secure MD5 hashing algorithm to compute a checksum of the input.
 The purpose of this program is to simulate a computationally expensive program that needs to be reliably executed on each remote machine.
 
 \begin{sloppypar}
   The program used in this section for testing the reliability of the \texttt{data\_parallel} application class is \texttt{word\_length.shard}, which counts the average length of each word based on the first letter of the word.
 \end{sloppypar}
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # word_length.shard
 source cluster_setup.shard
 cluster -t data_parallel
@@ -1927,6 +2065,8 @@ cat input.txt |
           END {total/NR}')@@reduce/testcluster |
     sort -t, -nk2 -r
 \end{lstlisting}
+  \smallskip
+\end{minipage}
 
 Parts of this program are identical to the program \texttt{word\_count.shard}, which is previously explained in more depth in the \textbf{Application class: }\texttt{data\_parallel} section of the \textbf{Design} chapter.
 
@@ -1985,7 +2125,9 @@ The two programs, \texttt{random\_hash.shard} and \texttt{word\_length.shard}, a
 
 In the case of the \texttt{random\_hash.shard} experiment, the remote machines are set up so that each machine crashes the Shard process a fixed number of times before successfully completing.
 This is done by including a \texttt{fixed\_crash.shard} script before running the experiment, using the language feature that allows running local scripts on the remote machine, and passing the number of crashes as the \texttt{crashcount} variable:
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # fixed_crash.shard
 file=crash.txt
 if [ ! -a $file ]; then
@@ -1997,12 +2139,19 @@ if [ $count -ge 1 ]; then
     killall shard.exe
 fi
 \end{lstlisting}
-\begin{lstlisting}[language=Shard]
+  \smallskip
+\end{minipage}
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # random_hash.shard with forced crashes
 source cluster_setup.shard
 source -l fixed_crash.shard
 (source -r fixed_crash.shard; head -c1000000000 /dev/urandom | md5sum)@@testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 This program checks if a file named \texttt{crash.txt} exists in the current directory.
 If \texttt{crash.txt} does not exist, is initialized with the crash count as specified by the \texttt{crashcount} variable.
 Then, the program reads and updates the file's contents as a numerical input, indicating the number of crashes left on this machine.
@@ -2024,7 +2173,9 @@ Figure \ref{fig:crashhash} shows the time it takes for the program to complete, 
 The remote crashes experiment is also run on the \texttt{word\_length.shard} program.
 This time, rather than having all remote Shard processes deterministically crashing a fixed number of times, instead, there is random chance for each remote job to crash the remote process.
 This is done by including a \texttt{random\_crash.shard} script before running the experiment:
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # random_crash.shard
 crashpercent=1
 rand=shuf -i 1-100 -n 1
@@ -2032,6 +2183,9 @@ if [ rand -le crashpercent ]; then
     killall shard.exe
 fi
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 This program uses the \texttt{shuf} UNIX command to randomly generate a number between 1 and 100, inclusive.
 This value is compared to the crash percent, and if it is less than or equal to the crash percent, the \texttt{killall} UNIX command is used to crash the Shard process.
 
@@ -2184,7 +2338,9 @@ The following steps were used to set Shard up for the Williams CS machine cluste
         \end{enumerate}
   \item Obtain the Shard executable.
   \item Write a script setting up the cluster of machines, using the \texttt{cluster} builtin. This involves giving the cluster a name, and adding the hosts of the machines to the cluster.
-        \begin{lstlisting}[language=Shard]
+
+        \begin{minipage}[c]{\textwidth-15pt}
+          \begin{lstlisting}[language=Shard]
 # cluster_setup.shard for Williams CS machines
 # Hostnames here differ from the ones used in the actual experiment
 cluster -s testcluster
@@ -2193,15 +2349,28 @@ cluster -a machine2.cs.williams.edu
 cluster -a machine3.cs.williams.edu
 cluster -a machine4.cs.williams.edu
 \end{lstlisting}
+          \smallskip
+        \end{minipage}
+
   \item Run the Shard executable.
   \item Include the cluster setup script with the \texttt{source} builtin.
-        \begin{lstlisting}[language=Shard]
+
+        \begin{minipage}[c]{\textwidth-15pt}
+          \begin{lstlisting}[language=Shard]
 source cluster_setup.shard
 \end{lstlisting}
+          \smallskip
+        \end{minipage}
+
   \item Write a one line program to run a remote command on the cluster.
-        \begin{lstlisting}[language=Shard]
+
+        \begin{minipage}[c]{\textwidth-15pt}
+          \begin{lstlisting}[language=Shard]
 (uname -a)@@testcluster
 \end{lstlisting}
+          \smallskip
+        \end{minipage}
+
 \end{enumerate}
 
 Other than setting up SSH access, all steps of the setup were performed on the local machine where Shard is running, and each step only supplies the necessary information needed by Shard to run the remote command.
@@ -2233,10 +2402,15 @@ As an example, assume that the user wants to write a Shard script that uses the 
 The user wants to write a script that finds the length of each line of an input file, \texttt{input.txt}, and calculates the number of occurrences for each of the line lengths present.
 
 The first step is to import the \texttt{cluster\_setup.shard} script, and set the application class of the cluster to \texttt{data\_parallel}, which is achieved by two Shard builtins.
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 source cluster_setup.shard
 cluster -t data_parallel
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 The next step is to figure out what the specifics of the map and reduce operations in order to solve the problem.
 For this problem, because the goal is to find the number of occurrences grouped by line length, the key of the map operation should be the line length.
 Since the value should be a simple count, each instance in the input contributes 1 to the count, so the value of the map operation should be 1.
@@ -2246,22 +2420,34 @@ Note the syntax for the remote execution:
   \item The \texttt{@@} operator is located directly after the closing parenthases;
   \item After the \texttt{@@} operator, the ``target'' is specified. In this case, the target is running the remote program with the \texttt{map} operation on the cluster \texttt{testcluster}. Here, \texttt{map} is a special string used by the \texttt{data\_parallel} application class, and may vary depending on which application class the cluster utilizes.
 \end{itemize}
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 source cluster_setup.shard
 cluster -t data_parallel
 (wc -c $in; echo 1)@@map/testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 The reduce operation aggregates the values for each key, which is a list of 1's equal to the number of occurrences.
 Therefore, to get the total number of occurrences for each key, a shell command to find the sum of the input should be used for the reduce operation.
 Because of how the \texttt{data\_parallel} application class is designed, the output of the map operation is piped to the input of the reduce operation.
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 source cluster_setup.shard
 cluster -t data_parallel
 (wc -c $in; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 Finally, the input text comes from the text file \texttt{input.txt}, which should be piped to input of the map operation to complete the program, \texttt{line\_length.shard}.
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 # line_length.shard
 source cluster_setup.shard
 cluster -t data_parallel
@@ -2269,11 +2455,15 @@ cat input.txt |
     (wc -c $in; echo 1)@@map/testcluster |
     (paste -sd+ - | bc)@@reduce/testcluster
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 Here, we have shown that, by reasoning about the functionality of the program, it is reasonably straightforward to write the Shard program, with only a basic understanding of the additions of Shard needed to write this program.
 
 We can compare the above to the following shell program, \texttt{line\_length\_ssh.sh}, that utilizes SSH to perform the same task in counting the occurrences of each line length in a distributed fashion.
 The specifics of the program will not be explained in detail.
 Notably, however, this implementation in shell is much more complicated (we can simply compare the line and character counts between the two programs), while lacking the reliability provided by the Shard runtime.
+
 \begin{lstlisting}[language=sh]
 # line_length_ssh.sh
 # Define hosts of machine in cluster
@@ -2355,10 +2545,15 @@ As shown in the \texttt{Reliable} section of this chapter, Shard is capable of a
 These would not be handled if the user were using SSH on an existing shell instead, unless the user adds special case-specific code to handle each of the situations previously described.
 This means that, in the case that one of the failure circumstances does arise, using Shard's automatic error detection and recovery mechanisms is much easier than trying to figure out where and why the failure occurred.
 As an example, let's say the user is trying to run a cleanup task on each of the machines in some cluster \texttt{remotes} with hundreds of machines, and print out a success message, as defined in the \texttt{cluster.shard} script.
-\begin{lstlisting}[language=Shard]
+
+\begin{minipage}[c]{\textwidth-15pt}
+  \begin{lstlisting}[language=Shard]
 source cluster.shard
 (rm -r /tmp/cache_to_be_removed; echo "$(hostname) - cleanup success")@@remotes
 \end{lstlisting}
+  \smallskip
+\end{minipage}
+
 Without using Shard, if a remote single machine on the cluster is unreachable, the program may immediately fail and not try to continue on the remaining machines, or even worse, the failure may be silently ignored.
 When Shard is used, the reliable execution behavior of the \texttt{single\_command} application class results in retrying the task if a failure occured, until it succeeds or the user exits Shard.
 If Shard is exited without completing the task on all hosts, the success message will print exactly once on the remote hosts where the command executed, allowing the user to accurately figure out which machines the command did not execute on, in spite of multiple retries.
