@@ -1,20 +1,15 @@
 # line_length_ssh.sh
 # Define hosts of machine in cluster
-m1=21myf1@devon.cs.williams.edu
-m2=21myf1@brava.cs.williams.edu
-m3=21myf1@rathi.cs.williams.edu
-m4=21myf1@guernsey.cs.williams.edu
+m1=machine1.cs.williams.edu
+m2=machine2.cs.williams.edu
+m3=machine3.cs.williams.edu
+m4=machine4.cs.williams.edu
 
 # Cleanup from prior runs
 rm -f map_*.txt
 rm -f all_keys.txt
 rm -f unique_keys.txt
-rm -f log_raw.txt
-rm -f log.txt
 rm -f result.txt
-
-# Start the timer
-tsstart=$(date '+%s%N')
 
 map () {
     # Choose a random host
@@ -32,8 +27,6 @@ map () {
     echo "$value" >> $outfile
     # Keep track of the set of all keys
     echo "$key" >> all_keys.txt
-    tsnow=$(date '+%s%N')
-    python3 -c "print('{t}'.format(t=($tsnow - $tsstart) / 1000000000))" >> log_raw.txt
 }
 
 reduce () {
@@ -46,8 +39,6 @@ reduce () {
     result=$(cat "$infile" | ssh "$target" "(paste -sd+ - | bc)")
     # Print result to the standard output
     echo "$line,$result" >> result.txt
-    tsnow=$(date '+%s%N')
-    python3 -c "print('{t}'.format(t=($tsnow - $tsstart) / 1000000000))" >> log_raw.txt
 }
 
 # Map operation
@@ -77,6 +68,3 @@ wait
 
 # Sort results
 sort -t, -nk1 result.txt
-
-# Process result file
-awk 'BEGIN { OFS = "," } ; { print $0, FNR }' log_raw.txt > log.txt

@@ -230,8 +230,8 @@ def e11(e11=None):
 def e12(e12a=None, e12b=None):
     re12a, e12a = run_shard("e12", True, "time", "Shard script", run=e12a)
     def run_shard_ssh():
-        if e12b is None:
-            os.system("cd tmp; bash ./e12b.sh")
+        if e12b is not True:
+            os.system("cd tmp; bash ../e12b.sh")
         fpath = "./tmp/log.txt"
         data = pd.read_csv(fpath, delimiter=",", names=["time", "Shell script with SSH"])
         return "true", data
@@ -265,7 +265,7 @@ if __name__ == "__main__":
     e9(e9=1620956765048516288)
     e10(e10=1620959834725407126)
     e11(e11=1620959869052132943)
-    e12(e12a=1620960543995083444, e12b=True)
+    e12(e12a=1620960543995083444, e12b=None)
 
 
     # Bad runs:

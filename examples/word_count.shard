@@ -5,4 +5,4 @@ cat input.txt |
     tr '[:upper:]' '[:lower:]' |
     tr -cs '[:alnum:]' '\n' |
     (echo $in; echo 1)@@map/testcluster |
-    (echo $value | paste -sd+ - | bc)@@reduce/testcluster
+    (paste -sd+ - | bc)@@reduce/testcluster
