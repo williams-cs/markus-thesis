@@ -1897,13 +1897,13 @@ Performance is of the highest priority in large-scale contexts, where ease of us
 On the other hand, consumer computers today are powerful enough that a suboptimal implementation of Shard performance-wise does not have as significant of an impact as it might have in the past.
 
 \subsection{Scalability}
-Another trade-off made by Shard is that Shard does not put an emphasis on scalability.
-Shard network layer uses a single machine, the local machine, as one of the endpoints of all of its connections to remote machines in the cluster.
+Another trade-off made by Shard is that Shard does not place an emphasis on scalability.
+The Shard network layer uses a single machine, the local machine, as one of the endpoints of all connections to remote machines in the cluster.
 This means that the number of machines the Shard can communicate to at once is bottlenecked by the network resources available to the single local machine.
-Although it is possible to run remote Shard programs on the remote machines in a nested fashion, the Shard runtime is currently not optimized for this use case.
+Although it is possible to run remote Shard programs on the remote machines in a nested fashion, the Shard runtime is currently not optimized for this use case, as the different nested instances of Shard do not directly coordinate with each other.
 
 Similar to the justification for sacrificing performance, the justification for sacrificing scalability is that Shard is targeted towards an audience that is less invested in large-scale distributed computing.
-For uses cases that require more scalability, other distributed systems may be more suitable.
+For uses cases that do require scalability, other distributed systems may be more suitable for the task.
 
 \subsection{Alternative Approaches}
 % \begin{itemize}
@@ -2732,9 +2732,9 @@ sort -t, -nk1 result.txt
 As we can see from this graph, the Shard script completes much faster than the equivalent Bash script.
 Both the Shard script and the Bash script attempt to schedule jobs in parallel.
 However, the primary difference between the two programs that causes the Shard script to complete significantly faster is that the Bash script requires setting up a new SSH connection to the remote machine for each remote task execution.
-In addition, when running the experiment, the Bash script failed several times before completing successfully, due to errors in using too many SSH connections at once.
-This can be avoided in the Bash script by running the jobs synchronously rather than in parallel, at the cost of taking even longer to complete.
-It is possible to work around these limitations, but the resulting code would be even more complicated that it already is, especially compared to the simplicity of the equivalent Shard script.
+In addition, when running the experiment, the Bash script failed several times before completing successfully, due to errors caused by making too many SSH connections at once.
+The errors can be avoided by modifying the Bash scripts to run the tasks synchronously rather than in parallel, at the cost of taking much longer to complete the tasks.
+It is possible to work around these limitations, but the resulting code would be even more complicated than it already is, especially compared to the simplicity of the equivalent Shard script.
 
 In addition to being easy to create a new Shard program from scratch, it is also easy to port an existing shell program to Shard, adding remote execution functionality in the process.
 At the most basic level, a valid shell program is also a valid Shard program, with some caveats that the current implementation of Shard does not have all of the features as defined by the POSIX shell specification, nor many of the additional features in various shell implementations.
