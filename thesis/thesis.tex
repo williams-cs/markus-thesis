@@ -191,8 +191,6 @@ The Shard language will greatly aid in increasing the accessibility and simplify
 
 I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbatical leaves, at a time when the everyone's world has been affected by the COVID-19 pandemic, helping me with ideas, advice, editing, and making sure that I end up meeting certain deadlines. In addition, I would like to acknowledge all of my family and friends, including the Williams Jesup community, who have supported me in these times.
 
-% \todoi{Expand}
-
 %%%%%%%% Chapters %%%%%%%%%%%%
 
 %% Introduction
@@ -243,7 +241,7 @@ One difficulty in particular is the problem of error handling, as a distributed 
 A notable programming language that includes specific fault-tolerant distributed systems support is Erlang \cite{armstrong2010erlang}. Erlang uses the approach of message passing between processes as the method of inter-process communication, in which processes on a distributed network can participate in a single application using this message passing approach, tackling both the issues of concurrency and parallelism.
 However, this approach requires programmers to learn a completely new style of programming when working with distributed programs, and thus is not used in Shard.
 
-% \todoi{FIXNOW: Talk about Go}
+% \todoi{Future: Talk about Go; goroutine does not quite do the same thing}
 
 Instead, Shard builds on top of the shell programming language, specifically the POSIX shell, which is described in more detail in the \textbf{Command-line Shells} section of the \textbf{Background} chapter. Many extensions of the POSIX shell are widely used by system administrators, programmers, and other computer users, who are accustomed to using these programs when interacting with the computer.
 
@@ -302,8 +300,6 @@ The core pillar of being easy to use is what separates Shard from many tradition
 % \begin{itemize}
 %   \item Explain the layout of the rest of my thesis
 % \end{itemize}
-
-% \todoi{Add story to motivate reader?}
 
 The Shard project's goal is to design and implement a distributed shell programming language that accomplishes the goals outlined by the three core pillars of being distributed, reliable, and easy to use.
 The work and evaluation of Shard  will be described in the remainder of the thesis, separated into the following parts:
@@ -1193,7 +1189,6 @@ with $\Gamma$ being the gamma function.
 
 The beta distribution is used because it is a useful model for predicting the chance that a future task will succeed on a remote machine.
 The beta distribution has the property that given the parameters $a$ and $b$, the expected value sampled from the distribution is $a/(a+b)$, which is equal to the proportion of attempts that are successful.
-% \todoi{Expand beta distribution importance}
 
 A successful attempt is counted when a task successfully completes without reaching the timeout that invokes a retry.
 A failed attempt is counted when a task causes a retry to be invoked.
@@ -1276,7 +1271,7 @@ The network layer provides all of the distributed systems functionality, includi
   The application class includes the interfaces of the application class subsystem and the implementation of the specific application classes that are currently supported, which are the \texttt{single\_command} and \texttt{data\_parallel} application classes. Application classes are described in more detail in the \textbf{Application Classes} section of the \textbf{Design} chapter.
 \end{sloppypar}
 
-% \todoi{Simple figure for architecture}
+% \todoi{Future: Simple figure for architecture}
 
 In addition to these specific parts of Shard, there are also modules for common utility functions, unit testing, and command-line interfacing.
 
@@ -1564,7 +1559,7 @@ If the target of the remote command is a cluster, the application class implemen
 On the other hand, if the target is a host (which is assumed to be the case when the cluster with the given name is not found), the default application class implementation behaving similarly to the \texttt{single\_command} application class is used instead.
 More details of the remote execution will be specified in the \textbf{Network layer implementation} section.
 
-% \todoi{Maybe include a section on asynchronous execution (shell ampersand operator)}
+% \todoi{Future: Maybe include a section on asynchronous execution (shell ampersand operator)}
 
 As of the time of writing, some of the features in the POSIX shell specification are not supported by the parser or interpreter of the Shard shell.
 However, there is no reason why support for these features cannot be added if needed.
@@ -1698,7 +1693,7 @@ end
   \smallskip
 \end{minipage}
 
-% \todoi{ AST representation S-expression example }
+% \todoi{Future: AST representation S-expression example }
 
 As shown here, the query for starting the remote program includes the program's AST representation \texttt{Ast.t} in S-expression form, as a \texttt{Sexp.t}, and a serializable image of the environment \texttt{Env.t}, which includes parts of the shell execution environment for this specific program's execution, such as assignments and cluster definitions.
 In addition to the \texttt{[@@deriving bin\_io]} and \texttt{[@@deriving fields]} mentioned in the previous section, this record type also contains the \texttt{[@@deriving sexp]} annotation to autogenerate functions for serialzing and deserializing the record as an S-expression, which is useful when sending the query as an S-expression string over SSH.
@@ -1891,18 +1886,24 @@ As with any real-world system, there are some trade-offs made in this implementa
 % \begin{itemize}
 %   \item Quantify performance tradeoffs? examples, stats, graphs, etc
 % \end{itemize}
-% \todoi{Needs work: Need to wait for a bit more data collection in the evaluation section before finishing up this section with some data and maybe comparisons}
+% \todoi{Future: Quantitative evaluation}
 
 The most obvious and significant trade-off to this implementation of Shard is the sacrifice of performance in return for ease of use and implementation.
-
 Out of the three core pillars of Shard (distributed, reliable, easy to use), performance does not directly related to any of these.
 At some level, performance matters for the usability, but Shard achieves its usability goal as long as Shard can complete tasks at a rate reasonable to its users.
 
 The sacrifice to performance is justified by the targeted use-case of Shard.
-Performance is of the highest priority in contexts where scalability matters, where ease of use may be less of a necessity, and other existing distributed systems better fit the niche.
+Performance is of the highest priority in large-scale contexts, where ease of use may be less of a necessity, and other existing distributed systems better fit the niche.
 On the other hand, consumer computers today are powerful enough that a suboptimal implementation of Shard performance-wise does not have as significant of an impact as it might have in the past.
 
-% \todoi{FIXNOW: Scalability}
+\subsection{Scalability}
+Another trade-off made by Shard is that Shard does not put an emphasis on scalability.
+Shard network layer uses a single machine, the local machine, as one of the endpoints of all of its connections to remote machines in the cluster.
+This means that the number of machines the Shard can communicate to at once is bottlenecked by the network resources available to the single local machine.
+Although it is possible to run remote Shard programs on the remote machines in a nested fashion, the Shard runtime is currently not optimized for this use case.
+
+Similar to the justification for sacrificing performance, the justification for sacrificing scalability is that Shard is targeted towards an audience that is less invested in large-scale distributed computing.
+For uses cases that require more scalability, other distributed systems may be more suitable.
 
 \subsection{Alternative Approaches}
 % \begin{itemize}
@@ -1922,7 +1923,6 @@ Alternatives such as directly building on top of TCP sockets can also be viable 
 As mentioned in the \textbf{Shell implementation} section, rather than building a shell implementation from scratch, it is possible to leverage an existing shell implementation and get a much larger feature set.
 However, one problem is that this approach sacrifices some flexibility, especially because many existing shell libraries are not written in OCaml, so foreign language bindings would have to be used to connect with the OCaml code used for the remainder of the project.
 For the purposes of Shard, it currently suffices to use its own shell implementation, though future work may include considering substituting it for a fully-fledged existing shell implementation, as not all useful shell features or language semantics are currently available in Shard.
-% \todoi{Cite examples of existing shells as libraries}
 
 Another trade-off already mentioned is using processes rather than threads for creating the Local Sender and Local Receiver in the network layer implementation.
 Processes are more heavyweight than threads, both in terms of the performance penalty when creating new processes, and in terms of memory usage while the process is alive.
@@ -1976,15 +1976,14 @@ The experiments in this section are carried out multiple times, each time with o
         % \item A cluster of machines hosted on the cloud, in a different geographical location.
 \end{itemize}
 In each of these experiments, we measure the amount of time it takes for the Shard program to run, and the success rate of correctly receiving the result of the program on the local machine.
-% \todoi{Figure out renting out some cloud VMs to help perform these experiments; as an alternative, connect to the Williams CS machines with a VPN to simulate a longer-area network connection, by setting the VPN location to a farther location}
+% \todoi{Future: Figure out renting out some cloud VMs to help perform these experiments; as an alternative, connect to the Williams CS machines with a VPN to simulate a longer-area network connection, by setting the VPN location to a farther location}
 Each machine used in the evaluation is running Ubuntu Linux version 20.04.2 LTS.
 The local machine has 32 GB of RAM, while each of the machines on the Williams CS cluster has 16 GB of RAM.
 The architecture of the CPUs on these machines is x86\_64.
 
-% \todoi{What detail specs should I include: more detailed CPU specs}
+% \todoi{Future: What detail specs should I include: more detailed CPU specs}
 
 \subsection{Single command}
-% \todoi{Compare to a simple SSH script}
 \begin{sloppypar}
   The first experiment in this section verifies that the \texttt{single\_command} application class works correctly on a simple program.
 \end{sloppypar}
@@ -2242,8 +2241,6 @@ The two programs, \texttt{random\_hash.shard} and \texttt{word\_length.shard}, a
   As one of the machines in the cluster is unreachable, the application class will continually retry the execution of the remote command, after timing out, because it does not know if the failure to reach the host is due to a temporary or permanent disconnection.
   On the other hand, when running \texttt{random\_hash.shard} without the additional unreachable host, the program reaches completion reliably.
 \end{sloppypar}
-
-% \todoi{Actually run this experiment to verify the above; What graph/figure, if any, should I include for the above case?}
 
 On the other hand, \texttt{word\_length.shard} is able to successfully complete, even when there is an unreachable host.
 This is because \texttt{word\_length.shard} uses the \texttt{data\_parallel} application class, which allows tasks to be allocated to any machine on the cluster, and supports reallocating tasks that fail to complete.
@@ -2742,7 +2739,6 @@ It is possible to work around these limitations, but the resulting code would be
 In addition to being easy to create a new Shard program from scratch, it is also easy to port an existing shell program to Shard, adding remote execution functionality in the process.
 At the most basic level, a valid shell program is also a valid Shard program, with some caveats that the current implementation of Shard does not have all of the features as defined by the POSIX shell specification, nor many of the additional features in various shell implementations.
 Even if the original program does not support remote execution, such support can be added incrementally, with each intermediate program being a valid Shard program.
-% \todoi{Maybe do one of these incremental transformations?}
 
 \subsection{Error recovery}
 
@@ -2800,7 +2796,7 @@ There are many possible directions to extend this work.
 Some of them include peer-to-peer communication between remote machines in a cluster, compatibility on different architectures, performance improvements, alternative language features, and additional application classes.
 Many of these directions can be investigated by extending the existing implementation of Shard as provided by this thesis, but it is also viable to create an alternative implementation with different trade-offs.
 
-% \todoi{FIXNOW: Lesson learned}
+% \todoi{Future: Lesson learned}
 
 Shard offers a glimpse to the future of distributed programming, where, with a few minutes of setup, any programmer can write an ad hoc script that executes reliably on a cluster of remote machines, without needing to learn all of the intricacies of programming for a distributed system.
 
@@ -2812,6 +2808,7 @@ Shard offers a glimpse to the future of distributed programming, where, with a f
 
 Source: Project Gutenburg \cite{hamlet}.
 
+\lstset{xleftmargin=15pt}
 \begin{lstlisting}[language=]
 To be, or not to be, that is the question:
 Whether 'tis nobler in the mind to suffer
