@@ -1,9 +1,9 @@
 %% Thesis template conforming to Williams College rules.
 % Thanks to Ben Wood '08 and other contributors.
 %
-\documentclass[twoside]{report}
+\documentclass[oneside]{report}
 
-\usepackage[top=1.0in, bottom=1in, left=1.5in, right=1in, includehead]{geometry}
+\usepackage[top=1.0in, bottom=1in, left=1in, right=1in, includehead]{geometry}
 \pagestyle{headings}
 \usepackage{setspace}
 
@@ -63,7 +63,7 @@
   escapeinside={$}{$},
 }
 % Shell listing definition: https://tex.stackexchange.com/questions/310335/using-bash-listings-to-bold-variables-and-functions
-\lstdefinelanguage{sh}%
+\lstdefinelanguage{bash}%
   {morekeywords={awk,break,case,cat,cd,continue,do,done,echo,elif,else,%
       env,esac,eval,exec,exit,export,expr,false,fi,for,function,getopts,%
       hash,history,if,in,kill,login,newgrp,nice,nohup,ps,pwd,read,%
@@ -116,7 +116,7 @@
     stepnumber=1,
     numbersep=10pt,
     captionpos=t,
-    escapeinside={\%*}{*)}
+    escapeinside={\%*}{*)},
 }
 
 %% More kinds of arrow with stuff
@@ -189,7 +189,7 @@ The Shard language will greatly aid in increasing the accessibility and simplify
 
 \chapter*{Acknowledgments}
 
-I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbatical leaves, at a time when the everyone's world has been affected by the COVID-19 pandemic, helping me with ideas, advice, editing, and making sure that I end up meeting certain deadlines. In addition, I would like to acknowledge all of my family and friends who have supported me in these times.
+I could not have written this thesis without the help of my advisors, Dan Barowy and Jeannie Albrecht, who have both been invaluable in guiding me along in the process. Special thanks to both Dan and Jeannie for taking me on as a thesis student during their sabbatical leaves, at a time when the everyone's world has been affected by the COVID-19 pandemic, helping me with ideas, advice, editing, and making sure that I end up meeting certain deadlines. In addition, I would like to acknowledge all of my family and friends, including the Williams Jesup community, who have supported me in these times.
 
 % \todoi{Expand}
 
@@ -389,13 +389,15 @@ In the implementation used by Google in 2004, a typical MapReduce cluster contai
 The problem of making data available to other machines is solved through the use of a distributed file system formed by the disks located at each of the machines in the cluster, which partitions the data storage to individual machines.
 Because the data is stored on a particular machine, that same machine can be in charge of performing the necessary map and reduce computations, which optimizes performance.
 
-Apache Hadoop is an open source distributed programming framework that can be used to run MapReduce-style computation on large datasets \cite{Hadoop}.
-Hadoop is designed to target the use case of data processing with extremely large data sets that cannot be handled with ordinary programming techniques that depend on all of the data being available on one machine and the work being done by a single process.
-Hadoop uses a distributed filesystem in a similar manner to Google's MapReduce implementation, with explicit goals of being able to handle faults such as hardware failure, using techniques including replication to make sure that the data is stored reliably across the cluster \cite{borthakur2007hadoop}.
-The fault tolerant properties of Hadoop makes it useful in production usage, where errors are to be expected to occur when dealing with large clusters of machines.
-Both of these systems deal with a problem known as the straggler problem, where a small proportion of the tasks take a much longer time to complete than the remaining tasks.
-The straggler problem is mitigated by reexecuting tasks that are slow to complete, with the hope that the newly executed task will finish faster.
-This must be done while ensuring that the result of the program remains correct.
+\begin{sloppypar}
+  Apache Hadoop is an open source distributed programming framework that can be used to run MapReduce-style computation on large datasets \cite{Hadoop}.
+  Hadoop is designed to target the use case of data processing with extremely large data sets that cannot be handled with ordinary programming techniques that depend on all of the data being available on one machine and the work being done by a single process.
+  Hadoop uses a distributed filesystem in a similar manner to Google's MapReduce implementation, with explicit goals of being able to handle faults such as hardware failure, using techniques including replication to make sure that the data is stored reliably across the cluster \cite{borthakur2007hadoop}.
+  The fault tolerant properties of Hadoop makes it useful in production usage, where errors are to be expected to occur when dealing with large clusters of machines.
+  Both of these systems deal with a problem known as the straggler problem, where a small proportion of the tasks take a much longer time to complete than the remaining tasks.
+  The straggler problem is mitigated by reexecuting tasks that are slow to complete, with the hope that the newly executed task will finish faster.
+  This must be done while ensuring that the result of the program remains correct.
+\end{sloppypar}
 
 Shard borrows some of the ideas from the MapReduce framework in using parts of its programming model for some language features, though its implementation does not intend to mirror all of the exact details of MapReduce.
 
@@ -514,10 +516,7 @@ A minimal set of language additions is deliberately chosen to make Shard as simi
 The syntax of the new features of the Shard programming language are shown in Table \ref{fig:pl_syntax}, with the parameters for the syntax shown in Table \ref{fig:pl_syntax_parameters}.
 The semantics of the new features will be explained in detail in the \textbf{Cluster management} and \textbf{Remote execution} sections that follow and supported by examples.
 
-% Spacing for section
-\vspace{4cm}
-
-\begin{table}
+\begin{table}[h]
   \begin{center}
     \begin{tabularx}{\textwidth}{|l|X|}
       \hline
@@ -543,7 +542,7 @@ The semantics of the new features will be explained in detail in the \textbf{Clu
   \end{center}
 \end{table}
 
-\begin{table}
+\begin{table}[h]
   \begin{center}
     \begin{tabularx}{\textwidth}{|l|X|}
       \hline
@@ -586,7 +585,7 @@ Clusters can also have miscellaneous settings configuring the application class.
 The Shard programming language adds support for creating and updating clusters, using its \texttt{cluster} builtin function.
 A summary of the options for the \texttt{cluster} builtin are shown in Table \ref{fig:pl_cluster_options}.
 
-\begin{table}
+\begin{table}[h]
   \begin{center}
     \begin{tabularx}{\textwidth}{|l|X|X|}
       \hline
@@ -1609,7 +1608,7 @@ The procedure for executing a remote command is shown in Figure \ref{fig:network
 
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.5]{img/shard_protocol_impl.png}
+    \includegraphics[scale=0.49]{img/shard_protocol_impl.png}
     \caption{The procedure for executing a remote command with the Shard network layer.}
     \label{fig:network_layer_impl}
   \end{center}
@@ -1778,11 +1777,13 @@ When a task is created with \texttt{run\_task}, it is executed on an arbitrary o
 If the arbitrary target is selected, a beta sampler is used to choose the remote machine with the maximum likelihood of success, following the selection process as described in the \textbf{Remote target selection} section of the \textbf{Design} chapter.
 Successful and failed remote execution attempts are recorded by the beta sampler, which help future remote task executions prioritize remote machines that are more likely to succeed.
 
-All of the information of the program execution is contained in the \texttt{program}, \texttt{env\_image}, and \texttt{send\_lines} parameters, the first two of which are sent as a \texttt{Header.t} record to start the remote computation. The third parameter is the lines provided to the standard input of the program.
-This task is created with a timeout mechanism that will cause the task to be retried, based on various conditions: if the first heartbeat is not received after a set amount of time; if further heartbeats are not received after some time; or if the entire processes's execution takes too long.
-A retry is also invoked if an error occurs during the task's execution.
-In this case, a further error recovery mechanism is used to reinitialize the remote target with a new set of processes, which allows the task to recover from Shard crashes.
-This retry mechanism can result in the same task being executed multiple times on different machines, until the task comes back with a successful result (a close message).
+\begin{sloppypar}
+  All of the information of the program execution is contained in the \texttt{program}, \texttt{env\_image}, and \texttt{send\_lines} parameters, the first two of which are sent as a \texttt{Header.t} record to start the remote computation. The third parameter is the lines provided to the standard input of the program.
+  This task is created with a timeout mechanism that will cause the task to be retried, based on various conditions: if the first heartbeat is not received after a set amount of time; if further heartbeats are not received after some time; or if the entire processes's execution takes too long.
+  A retry is also invoked if an error occurs during the task's execution.
+  In this case, a further error recovery mechanism is used to reinitialize the remote target with a new set of processes, which allows the task to recover from Shard crashes.
+  This retry mechanism can result in the same task being executed multiple times on different machines, until the task comes back with a successful result (a close message).
+\end{sloppypar}
 
 In addition, the \texttt{task\_cluster} keeps track of the sequence number of the \texttt{Receiver\_query}s being sent by the Remote Sender, to make sure the queries are processed in the correct order.
 It does so by keeping track of the highest sequence number currently seen, storing messages out of sequence in a hash table until they are the next message in sequence, and producing the final output string when the close query is received.
@@ -2014,7 +2015,9 @@ cluster -a localhost
   \smallskip
 \end{minipage}
 
-For testing on the Williams CS cluster, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding each Williams CS machine in the experiment to the cluster:
+\begin{sloppypar}
+  For testing on the Williams CS cluster, the cluster setup involves setting the active cluster to \texttt{testcluster}, and adding each Williams CS machine in the experiment to the cluster:
+\end{sloppypar}
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -2233,10 +2236,12 @@ Examples of real world scenarios that are simulated by this experiment include h
 The experiment is set up by adding an fifth addition host to the \texttt{cluster\_setup.shard} script that is known to be unreachable, to the four existing machines in the cluster.
 The two programs, \texttt{random\_hash.shard} and \texttt{word\_length.shard}, are both run without and with the additional host, and the results of the execution are compared.
 
-When the \texttt{random\_hash.shard} program is run with this additional host, the program consistently hangs forever until interrupted by the user.
-This is due to \texttt{random\_hash.shard} using the \texttt{single\_command} application class, which ensures the remote command completes in a best-effort manner on each remote machine in the cluster.
-As one of the machines in the cluster is unreachable, the application class will continually retry the execution of the remote command, after timing out, because it does not know if the failure to reach the host is due to a temporary or permanent disconnection.
-On the other hand, when running \texttt{random\_hash.shard} without the additional unreachable host, the program reaches completion reliably.
+\begin{sloppypar}
+  When the \texttt{random\_hash.shard} program is run with this additional host, the program consistently hangs forever until interrupted by the user.
+  This is due to \texttt{random\_hash.shard} using the \texttt{single\_command} application class, which ensures the remote command completes in a best-effort manner on each remote machine in the cluster.
+  As one of the machines in the cluster is unreachable, the application class will continually retry the execution of the remote command, after timing out, because it does not know if the failure to reach the host is due to a temporary or permanent disconnection.
+  On the other hand, when running \texttt{random\_hash.shard} without the additional unreachable host, the program reaches completion reliably.
+\end{sloppypar}
 
 % \todoi{Actually run this experiment to verify the above; What graph/figure, if any, should I include for the above case?}
 
@@ -2447,6 +2452,7 @@ The experiment involving the \texttt{word\_length.shard} program will be slightl
 
 The \texttt{word\_length.shard} program was run on the Williams CS cluster with four machines, where the probability that a packet is loss on the four machines were 0\%, 1\%, 5\%, and 50\%.
 Figure \ref{fig:packetlosswordlength} shows the of number of tasks completed over time by each of the machines in the cluster.
+Note that for this figure and for the next figure, each line represents the number of tasks completed by a single machine, as opposed to all machines in a trial.
 
 In the first few seconds, the connection is established to each remote machine, and tasks are distributed to all of the machines in the cluster.
 However, each of the machines completes a different number of tasks before grinding to a halt, due to the dropped packets resulting in incomplete tasks.
@@ -2633,7 +2639,8 @@ We can compare the above to the following shell program, \texttt{line\_length\_s
 The specifics of the program will not be explained in detail.
 Notably, however, this implementation in shell is much more complicated (we can simply compare the line and character counts between the two programs), while lacking the features and the reliability provided by the Shard runtime.
 
-\begin{lstlisting}[language=sh]
+\lstset{xleftmargin=15pt}
+\begin{lstlisting}[language=bash]
 # line_length_ssh.sh
 # Define hosts of machine in cluster
 m1=machine1.cs.williams.edu
@@ -2642,22 +2649,21 @@ m3=machine3.cs.williams.edu
 m4=machine4.cs.williams.edu
 
 # Cleanup from prior runs
-rm map_*.txt
-rm all_keys.txt
-rm unique_keys.txt
+rm -f map_*.txt
+rm -f all_keys.txt
+rm -f unique_keys.txt
+rm -f result.txt
 
-# Map operation
-# Loop through each line of the input
-# Make sure to read last line if the file does not end in EOF
-while IFS= read -r line || [[ -n "$line" ]]; do
+# Map function
+map () {
     # Choose a random host
     # Note that the POSIX shell does not support arrays
     target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)
     # Execute map job on remote host
-    result=$(echo "" | ssh "$target" "(echo \"$line\" | wc -c; echo 1)")
-    # Retrieve the key
+    result=$(echo "" | ssh "$target" "(echo \"$1\" | wc -c; echo 1)")
+    # Retreive the key
     key=$(echo "$result" | head -n 1)
-    # Retrieve the value
+    # Retreive the value
     value=$(echo "$result" | tail -n 1)
     # Generate the output file depending on the key
     outfile="map_$key.txt"
@@ -2665,7 +2671,31 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     echo "$value" >> $outfile
     # Keep track of the set of all keys
     echo "$key" >> all_keys.txt
+}
+
+# Reduce function
+reduce () {
+    # Choose a random host
+    # Note that the POSIX shell does not support arrays
+    target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)
+    # Generate the input file depending on the key
+    infile="map_$1.txt"
+    # Execute reduce job on remote host
+    result=$(cat "$infile" | ssh "$target" "(paste -sd+ - | bc)")
+    # Print result to the standard output
+    echo "$line,$result" >> result.txt
+}
+
+# Map operation
+# Loop through each line of the input
+# Make sure to read last line if the file does not end in EOF
+while IFS= read -r line || [[ -n "$line" ]]; do
+    # Asynchronously call the map function, which executes a map task
+    map "$line" &
 done < input.txt
+
+# Wait for tasks to complete
+wait
 
 # Deduplicate key list
 sort all_keys.txt | uniq > unique_keys.txt
@@ -2674,22 +2704,22 @@ sort all_keys.txt | uniq > unique_keys.txt
 # Loop through each key
 # Make sure to read last line if the file does not end in EOF
 while IFS= read -r line || [[ -n "$line" ]]; do
-    # Choose a random host
-    # Note that the POSIX shell does not support arrays
-    target=$(echo -e "$m1\n$m2\n$m3\n$m4" | shuf -n 1)
-    # Generate the input file depending on the key
-    infile="map_$line.txt"
-    # Execute reduce job on remote host
-    result=$(cat "$infile" | ssh "$target" "(paste -sd+ - | bc)")
-    # Print result to the standard output
-    echo "$line,$result"
+    # Asynchronously call the reduce function, which executes a reduce task
+    reduce "$line" &
 done < unique_keys.txt
+
+# Wait for tasks to complete
+wait
+
+# Sort results
+sort -t, -nk1 result.txt
 \end{lstlisting}
+\lstset{xleftmargin=0pt}
 
 % Experiment (e12)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/e12_1620960581241.png}
+    \includegraphics[scale=0.9]{img/experiments/e12_1621061398991.png}
     \caption{Tasks completed over time when running \texttt{line\_length.shard} on Shard versus \texttt{line\_length\_ssh.sh} on Bash.}
     \label{fig:linelength}
   \end{center}
@@ -2703,7 +2733,10 @@ done < unique_keys.txt
 \end{sloppypar}
 
 As we can see from this graph, the Shard script completes much faster than the equivalent Bash script.
-The differences between the two programs that cause the Shard script to complete significantly faster are that the Bash script requires setting up a new SSH connection to the remote machine for each remote task execution, and that the Bash script cannot execute multiple remote tasks in parallel.
+Both the Shard script and the Bash script attempt to schedule jobs in parallel.
+However, the primary difference between the two programs that causes the Shard script to complete significantly faster is that the Bash script requires setting up a new SSH connection to the remote machine for each remote task execution.
+In addition, when running the experiment, the Bash script failed several times before completing successfully, due to errors in using too many SSH connections at once.
+This can be avoided in the Bash script by running the jobs synchronously rather than in parallel, at the cost of taking even longer to complete.
 It is possible to work around these limitations, but the resulting code would be even more complicated that it already is, especially compared to the simplicity of the equivalent Shard script.
 
 In addition to being easy to create a new Shard program from scratch, it is also easy to port an existing shell program to Shard, adding remote execution functionality in the process.
