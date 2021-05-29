@@ -146,7 +146,7 @@
   \onehalfspacing
   \begin{center}
     {\LARGE
-      Shard : Ad hoc, Reliable, Distributed Shell
+      Shard: Ad hoc, Reliable, Distributed Shell
     }
     \large
     \vskip.25in
@@ -181,7 +181,7 @@
 
 Performing tasks that are distributed among many systems currently fail to achieve each of the goals of being reliable, easy to set up, closely resembling an existing technology, and friendly to users without distributed systems knowledge.
 Because distributed systems are inherently unreliable, succeeding in these goals require the system to provide an abstraction for error handling and recovery that account for the many failure cases that may arise.
-This thesis project attempts to define a set of error handling semantics that is simple to use, but powerful enough to be applied to a diverse set of use cases.
+This thesis project defines a set of error handling semantics that is simple to use, but powerful enough to be applied to a diverse set of use cases.
 We demonstrate the utility of these semantics by implementing a shell-based programming language, Shard.
 Using this language, anyone with basic shell knowledge should be able to write and run scripts that runs over multiple machines reliably.
 The Shard language will greatly aid in increasing the accessibility and simplifying the process of running distributed programs in domains including systems administration and scientific computing.
@@ -223,7 +223,7 @@ In the following section, we describe each of the core pillars in more detail, i
 The first core pillar of Shard is that it is distributed.
 This means that a Shard program should be able to interact with a set of many computers, which by default are assumed to be located across a network boundary.
 Shard is explicitly designed to make it easy for parts of a program to be distributed, with syntax-level support for running parts of the code on the distributed system that seamlessly integrate with language features.
-A typical Shard program that utilizes the distributed system should not be significantly more complex than a comparable program that performs all of its computations locally.
+A typical Shard program that utilizes distributed resources should not be significantly more complex than a comparable program that performs all of its computations locally.
 
 There are many reasons why a distributed program may be wanted or beneficial.
 One example of why a program may want to be distributed is that a program wishes to use resources on other machines across a network, where the remote machine may have more abundance or even exclusive access to certain resources.
@@ -233,9 +233,9 @@ Another example of a program that benefits from being distributed is a program t
 
 Most programming languages are not designed to seamlessly support distributed computing.
 Assumptions are made that the program is run entirely on one machine (and sometimes even a single core), and adding distributed features to an existing program may involve rewriting large parts of the original program, including clunky external dependencies, or restricting the program to limited functionality within the programming language.
+These languages force programmers to mix reliability logic with application logic, rather than eliminating the concern of reliability for the programmer and pushing it to the language itself.
 
 One reason why distributed computing support is limited among languages is that there are numerous difficulties that arise specifically in distributed systems. Some of these include discovery of remote systems, connecting to the system, data transfer, system state serialization, and concurrency.
-% cite from somewhere? unsure
 One difficulty in particular is the problem of error handling, as a distributed system is inherently unreliable. This will be addressed in more detail in the description of the next core pillar, reliability.
 
 A notable programming language that includes specific fault-tolerant distributed systems support is Erlang \cite{armstrong2010erlang}. Erlang uses the approach of message passing between processes as the method of inter-process communication, in which processes on a distributed network can participate in a single application using this message passing approach, tackling both the issues of concurrency and parallelism.
@@ -280,7 +280,7 @@ Reliability is important because it allows Shard programs to be more predictable
 The third core pillar of Shard is that it should be easy to use.
 This means that Shard should be useful in an ad hoc situation for any programmer to run a distributed program.
 Shard should be easy to use for someone with little to no background knowledge in distributed computing and in Shard itself, so from a language design standpoint, it should be as clear as possible in both reading a Shard program to understand what it does, and in creating a Shard program to complete a certain task.
-Shard should be also be easy to use on any single machine that is supported along with any cluster of machines used to perform a distributed computation on, with minimal amounts of installation and configuration on both the machine starting the Shard program and the machines in the cluster
+Shard should be also be easy to use on any single machine that is supported along with any cluster of machines used to perform a distributed computation on, with minimal amounts of installation and configuration on both the machine starting the Shard program and the machines in the cluster.
 This minimal configuration and installation should be simple and also not require sophisticated background knowledge to perform.
 It should be fast and easy to get from the point of Shard being installed to running the program on Shard, particularly for someone who has already used Shard before.
 
@@ -363,10 +363,10 @@ For example, a safety property of a distributed system may be that one part of a
 
 % Masking/Fail-safe/Nonmasking
 When designating a system to be fault tolerant, it is important to specify which types of faults that the system is tolerant against, and what types of fault tolerant properties are satisfied by the system \cite{10.1145/311531.311532}.
-In the strongest form, a system with masking fault tolerance is able to satisfy both safety and liveliness properties against a given set of faults.
-Slightly weaker is fail-safe fault tolerance, which ensures safety but does not make liveliness guarantees, capturing the notion that certain illegal states will never appear.
+In the strongest form, a system with \textit{masking fault tolerance} is able to satisfy both safety and liveliness properties against a given set of faults, which casues all faults to be masked from the user.
+Slightly weaker is \textit{fail-safe fault tolerance}, which ensures safety but does not make liveliness guarantees, capturing the notion that certain illegal states will never appear.
 Safety is important in many situations, such as making sure that a missile does not launch in case of individual component failures.
-On the other hand, nonmasking fault tolerance, which ensures liveliness but does not make safety guarantees, captures the notion of a system always making progress towards completion, despite the possibility of some amount of incorrect behavior during execution.
+On the other hand, \textit{nonmasking fault tolerance}, which ensures liveliness but does not make safety guarantees, captures the notion of a system always making progress towards completion, despite the possibility of some amount of incorrect behavior during execution.
 Traditionally less focus has been placed on systems in ensuring liveliness compared to ensuring safety, as liveliness issues can be resolved in many cases by manually stopping the system, whereas safety issues can lead to large amounts of damage.
 
 % Potential sections:
@@ -429,6 +429,7 @@ One method of making an ad hoc distributed shell is to invoke the SSH secure she
 The SSH utility allows users to connect to remote machines over TCP and access the command-line shell on those machines \cite{rfc4251}.
 Given a command to run and a list of remote hosts, the shell can iterate over the list, invoke SSH with that remote host as an argument, run the command on the remote host, and finally collect the results back on the local machine.
 Notably, this method does not handle error recovery well, or guarantee reliable execution in the event of failures.
+Shard builds on top of the SSH protocol for data transfer, but is focused on running many distributed programs at once in a reliable manner, rather than a single remote program.
 
 \subsubsection{DSH (Dancer's Shell)}
 The DSH (Dancer's Shell) Unix program allows the user to send a shell command to all machines in a cluster defined by the user \cite{dshdancer}.
@@ -436,12 +437,14 @@ DSH uses an underlying remote execution protocol, such as SSH, for executing she
 The command invocation occurs in a hierarchical fashion, with each node sending the command to some amount of child nodes until the program is executed on all nodes in the cluster.
 Notably, for the DSH program, there does not exist an emphasis of reliable execution and error recovery from failures that may arise from the distributed nature of the program.
 Other similar implementations of the DSH program exist in various forms, some of them implemented with a different language or work on different platforms.
+Shard has a similar goal to DSH, but once again, Shard has an emphasis on reliable execution through its error handling features, while DSH does not appear to have the same emphasis on reliability.
 
 \subsubsection{Distsh}
 Distsh (Distributed Command-Line Interface) is an implementation of a generic distributed shell environment, with steps taken to make accessing a remote machine just like accessing a local one \cite{distsh}.
 The Distsh shell language only specifies semantics for connecting to a single remote machine at a time, rather than having the unit of remote computation being a cluster of remote machiens as is the case in DSH.
 Similar to DSH, there does not exist error handling semantics to allow reliable execution and error recovery.
 The paper specifies that the implementation currently only works when the machine to access is localhost, and there does not appear to have been visible progress on the project since the paper was made public.
+Compared to the prototype of Distsh that only works on the local machine, Shard has a full implementation that works on a cluster of machines across a network, while providing features for reliable execution.
 
 \section{Summary}
 Command-line shells are an important and useful interface for interacting with a computer.
@@ -516,21 +519,25 @@ The semantics of the new features will be explained in detail in the \textbf{Clu
   \begin{center}
     \begin{tabularx}{\textwidth}{|l|X|}
       \hline
-      Feature            & Syntax                                                   \\ \hline
-      Cluster management & \texttt{<cluster> ::= cluster -<option> <args>} \newline
-      \texttt{| cluster} \newline
-      \texttt{<option> ::= a | c | o | p | s | t} \newline
-      \texttt{<args> ::= <string>} \newline
-      \texttt{| <string> <args>}
+      Feature            & Syntax \\ \hline
+      Cluster management &
+      \texttt{<cluster> ::= cluster -<option> <args>} \newline
+      \texttt{\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32|\char32\char32cluster} \newline
+      \texttt{<option>\char32\char32::= a | c | o | p | s | t} \newline
+      \texttt{<args>\char32\char32\char32\char32::= <string>} \newline
+      \texttt{\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32|\char32\char32<string> <args>}
       \\ \hline
       Remote execution   &
-      \texttt{<remote> ::= (<program>)@@<target>}
-      \newline \texttt{| <program>@@<target>}
-      \newline \texttt{| (<program>)@@<setting>/<target>}
-      \newline \texttt{| <program>@@<setting>/<target>} \newline
+      \texttt{<remote>\char32\char32::= (<program>)@@<target>}
+      \newline
+      \texttt{\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32|\char32\char32<program>@@<target>}
+      \newline
+      \texttt{\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32|\char32\char32(<program>)@@<setting>/<target>}
+      \newline
+      \texttt{\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32\char32|\char32\char32<program>@@<setting>/<target>} \newline
       \texttt{<program> ::= <string>} \newline
       \texttt{<setting> ::= <string>} \newline
-      \texttt{<target> ::= <string>}
+      \texttt{<target>\char32\char32::= <string>}
       \\ \hline
     \end{tabularx}
     \caption{Syntax of the Shard programming language features.}
@@ -585,30 +592,28 @@ A summary of the options for the \texttt{cluster} builtin are shown in Table \re
   \begin{center}
     \begin{tabularx}{\textwidth}{|l|X|X|}
       \hline
-      Option                        & Syntax                                                                                                                                                                                       & Semantics                                                                                                         \\ \hline
-      Set                           & \texttt{cluster -s <name>} \newline
-      \texttt{<name> ::= <string>}  & Sets the active cluster to the cluster with \texttt{<name>}, creating it if it does not already exist.
+      Option & Syntax                                                                                                                                                                                       & Semantics                                                                                                         \\ \hline
+      Set    & \texttt{cluster -s <name>}
+             & Sets the active cluster to the cluster with \texttt{<name>}, creating it if it does not already exist.
       \\ \hline
-      Add                           & \texttt{cluster -a <host>} \newline
-      \texttt{<host> ::= <string>}  & Adds the host \texttt{<host>} to the active cluster.
+      Add    & \texttt{cluster -a <host>}
+             & Adds the host \texttt{<host>} to the active cluster.
       \\ \hline
-      Type                          & \texttt{cluster -t <type>} \newline
-      \texttt{<type> ::= single\_command} \newline
-      \texttt{| data\_parallel}     & Sets the application class of the active cluster to \texttt{<type>}. Valid types specified in the current version are \texttt{single\_command} and \texttt{data\_parallel}.
+      Type   & \texttt{cluster -t <type>}
+             & Sets the application class of the active cluster to \texttt{<type>}. Valid types specified in the current version are \texttt{single\_command} and \texttt{data\_parallel}.
       \\ \hline
-      Option                        & \texttt{cluster -o <key> <value>} \newline
-      \texttt{<key> ::= <string>} \newline
-      \texttt{<value> ::= <string>} & Sets a configurable option for the active cluster, with the specified \texttt{<key>} to the specified \texttt{<value>}. Valid options depend on the application class of the active cluster.
+      Option & \texttt{cluster -o <key> <value>}
+             & Sets a configurable option for the active cluster, with the specified \texttt{<key>} to the specified \texttt{<value>}. Valid options depend on the application class of the active cluster.
       \\ \hline
-      Clear                         & \texttt{cluster -c}                                                                                                                                                                          & Resets the active cluster, removing all hosts, clearing all options, and setting the cluster type to the default.
+      Clear  & \texttt{cluster -c}                                                                                                                                                                          & Resets the active cluster, removing all hosts, clearing all options, and setting the cluster type to the default.
       \\ \hline
-      Print                         & \texttt{cluster -p <name> | cluster -p} \newline
-      \texttt{<name> ::= <string>}  & Prints out the details of the cluster with \texttt{<name>}. If \texttt{<name>} is not specified, instead prints out the details of all clusters.
+      Print  & \texttt{cluster -p | cluster -p <name>}
+             & Prints out the details of the cluster with \texttt{<name>}. If \texttt{<name>} is not specified, instead prints out the details of all clusters.
       \\ \hline
-      No arg                        & \texttt{cluster}                                                                                                                                                                             & Prints out the details of all clusters.
+      No arg & \texttt{cluster}                                                                                                                                                                             & Prints out the details of all clusters.
       \\ \hline
     \end{tabularx}
-    \caption{Options for the \texttt{cluster} builtin function of the Shard programming language.}
+    \caption{Options for the \texttt{cluster} builtin function of the Shard programming language. Each of the parameters are of the type \texttt{string}.}
     \label{fig:pl_cluster_options}
   \end{center}
 \end{table}
@@ -1177,7 +1182,7 @@ Notably, the task may be completed more than once, particularly if a retry was i
 Using the task cluster abstraction means that the application class can take advantage of its error detection and retry mechanisms in order to reliably execute remote tasks, configuring the task cluster to suit the specific application class's needs.
 
 \subsection{Remote target selection}
-When the task cluster needs to select a remote target for program execution, by default, it tries to select the remote target in a principled way that tries to maximize the chance of success, based on data from previous tasks scheduled by the cluster.
+When the task cluster needs to select a remote target for program execution, by default, it selects the remote target in a principled way to maximize the chance of success, based on data from previous tasks scheduled by the cluster.
 
 Each remote target's chance of success is modeled by the beta distribution $\beta(a, b)$, parameterized by the number of successful attempts and failed attempts on that remote target, with $a$ equal to the number of successful attempts and $b$ equal to the number of failed attempts.
 
@@ -1194,7 +1199,7 @@ A successful attempt is counted when a task successfully completes without reach
 A failed attempt is counted when a task causes a retry to be invoked.
 This means that a task can correspond to any number of failed attempts, and up to one successful attempt.
 
-When choosing a remote target for a task, the beta distribution of each machine is sampled, and the target with the maximum value is chosen.
+When choosing a remote target for a task, the beta distribution of each machine is sampled once, and the target with the maximum value is chosen.
 This corresponds to choosing the remote target with the maximum likelihood of success.
 Remote targets that are not yet connected to and remote targets that are at maximum capacity from throttling are excluded from this choice.
 
@@ -1205,9 +1210,12 @@ There is also a small, configurable chance that the second round is bypassed, an
 This is to allow remote target that have previous failures to successfully execute tasks in order to raise their proportion of successes.
 
 Once a maximum number of total attempts $m$ has been reached on each remote target, future attempts in addition to adding to $a$ or $b$ also remove a random previous attempt, so that $a+b$ does not exceed $m$.
-An analogy to this is the scenario where each successful or failed attempt is added to an urn with a maximum capacity.
-When the urn is full, a randomly selected attempt must be removed from the urn before adding the latest attempt.
+This is based on Polya's urn model, where each successful or failed attempt is added to an urn with a maximum capacity.
+When the urn is full, a randomly selected attempt must be removed from the urn before adding the latest attempt \cite{chung2003generalizations}.
 This modification helps $a$ and $b$ more closely track recent successes and failures in long-running Shard programs, since a remote host being down for a long time would otherwise be penalized in selection once it is able to reexecute remote commands.
+
+Because the beta distribution is sampled once, and there is a chance to allocate a task at random when remote targets are overloaded, a suboptimal target may be chosen for remote execution.
+In return, the remote target selection mechanism is able to dynamically adapt to the changing conditions of machines in the cluster, while still converging to allocating tasks based on optimality in the long run.
 
 Depending on the application class, the beta sampling remote target selection feature can also be turned off, with random remote target selection being the fallback mechanism.
 However, using this remote target selection mechanism with the beta distribution is usually a significant time-save over choosing the remote target randomly, as remote targets that result in failures are more likely to result in future failures.
@@ -1888,18 +1896,18 @@ As with any real-world system, there are some trade-offs made in this implementa
 % \end{itemize}
 % \todoi{Future: Quantitative evaluation}
 
-The most obvious and significant trade-off to this implementation of Shard is the sacrifice of performance in return for ease of use and implementation.
+The most obvious and significant trade-off to this implementation of Shard is the sacrifice of high performance in return for ease of use and implementation.
 Out of the three core pillars of Shard (distributed, reliable, easy to use), performance does not directly related to any of these.
 At some level, performance matters for the usability, but Shard achieves its usability goal as long as Shard can complete tasks at a rate reasonable to its users.
 
 The sacrifice to performance is justified by the targeted use-case of Shard.
-Performance is of the highest priority in large-scale contexts, where ease of use may be less of a necessity, and other existing distributed systems better fit the niche.
+High performance is of greater priority in large-scale contexts, where ease of use may be less of a necessity, and other existing distributed systems better fit the niche.
 On the other hand, consumer computers today are powerful enough that a suboptimal implementation of Shard performance-wise does not have as significant of an impact as it might have in the past.
 
 \subsection{Scalability}
 Another trade-off made by Shard is that Shard does not place an emphasis on scalability.
-The Shard network layer uses a single machine, the local machine, as one of the endpoints of all connections to remote machines in the cluster.
-This means that the number of machines the Shard can communicate to at once is bottlenecked by the network resources available to the single local machine.
+The Shard network layer uses a single control machine, the local machine, as one of the endpoints of all connections to remote machines in the cluster.
+This means that the number of machines the Shard can communicate to at once is bottlenecked by the network resources available to the single control machine, and all distributed computation is only as reliable as that machine.
 Although it is possible to run remote Shard programs on the remote machines in a nested fashion, the Shard runtime is currently not optimized for this use case, as the different nested instances of Shard do not directly coordinate with each other.
 
 Similar to the justification for sacrificing performance, the justification for sacrificing scalability is that Shard is targeted towards an audience that is less invested in large-scale distributed computing.
@@ -1969,7 +1977,7 @@ This is carried out by running Shard programs over a network and ensuring that e
 These experiments will also demonstrate that the application classes function correctly as defined by the specification.
 
 The local machine containing the entry point of the Shard program is a machine located at Williams College and connected to Williams College network.
-The experiments in this section are carried out multiple times, each time with one of the following two sets of remote machines:
+The experiments in this section are carried out one time with each of the following two sets of remote machines:
 \begin{itemize}
   \item The same local machine itself (localhost);
   \item A cluster of machines in the same local area network (Williams CS).
@@ -2148,6 +2156,7 @@ This is especially important because there is a cap to how many simultaneous com
 
 The experiments described in this section collectively show that the Shard distributed framework functions as described in the design section for both the \texttt{single\_command} and \texttt{data\_parallel} application classes.
 Producing the correct results for these experiments is a baseline for showing that Shard is a correctly functioning distributed shell programming language.
+As such, the program for each experiment was checked to produce the correct output when run using Shard.
 % Currently, the performance of Shard has not been optimized, so comparable programs written for other distributed systems may be significantly faster than Shard.
 
 Further potential experiments to test the distributed features of the Shard system include testing more complicated programs with multiple remote command invocations on different clusters, including clusters of machines in located in different geographical regions, and running Shard programs on much larger clusters of hundreds or thousands of machines instead of just the handful of machines as used in the experiments here.
@@ -2240,6 +2249,7 @@ The two programs, \texttt{random\_hash.shard} and \texttt{word\_length.shard}, a
   This is due to \texttt{random\_hash.shard} using the \texttt{single\_command} application class, which ensures the remote command completes in a best-effort manner on each remote machine in the cluster.
   As one of the machines in the cluster is unreachable, the application class will continually retry the execution of the remote command, after timing out, because it does not know if the failure to reach the host is due to a temporary or permanent disconnection.
   On the other hand, when running \texttt{random\_hash.shard} without the additional unreachable host, the program reaches completion reliably.
+  In practice, the user can override the hanging behavior by configuring the application class options to set a maximum number of retries.
 \end{sloppypar}
 
 On the other hand, \texttt{word\_length.shard} is able to successfully complete, even when there is an unreachable host.
@@ -2258,7 +2268,7 @@ For \texttt{word\_length.shard}, we look at the number of tasks completed by the
 
 The first thing to notice for this graph is that for the first few seconds, no tasks are being completed.
 This is because this is the period of time when Shard sets up its connection to the remote machines, and is necessary even when the correct version of Shard is already installed on those machines.
-
+Note that the cluster with one unreachable host takes longer to complete its first task, because Shard attempts to complete its initial round of setup of connecting to all remote machines before sending out the first rmote task.
 Once this setup is complete, on the cluster with no unreachable hosts, the tasks are completed in the span of less than one second.
 However, on the cluster with one unreachable host, the tasks allocated to the one unreachable host cannot be completed, which blocks the progress to completing the Shard program, while the remaining tasks allocated to the four other hosts complete normally.
 When Shard detects that one of the hosts is unreachable for a certain timeout, it performs a reallocation of the tasks, using the strategy as described in the \textbf{Remote target selection} section of the \textbf{Design} chapter.
@@ -2369,7 +2379,8 @@ Because many tasks run in parallel on each of the remote machines in the cluster
 Nevertheless, Shard is able to recover from the remote Shard process unexpectedly crashing many times, which shows the resilience of the Shard distributed framework to severe disruptions.
 
 \subsection{Program failure}
-The third experiment in this section tests the behavior of Shard in the case of a remote program failing, by explicitly exiting with a non-zero exit code.
+The third experiment in this section tests the behavior of Shard in the case of a remote program failing, by explicitly exiting with a non-zero exit code using the \texttt{exit} builtin command.
+This is different from implicitly exiting with a non-zero exit code due to the final command having a non-zero exit code, which is not considered a program failure by Shard.
 An example of a real world scenario that is simulated by this experiment is when the remote Shard program encounters some unrecoverable situation and the best strategy is to retry the entire remote task rather than recover in some other fashion.
 The program failure is simulated by modifying the script to randomly call the \texttt{exit} builtin with a nonzero exit code in a similar fashion to the random Shard crashing simulated with the previous experiment.
 The program \texttt{word\_length.shard} is run with different chances of random program failure, and the results are compared.
@@ -2441,7 +2452,7 @@ The experiment involving the \texttt{word\_length.shard} program will be slightl
 % Experiment (e10)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/e10_1620960581241.png}
+    \includegraphics[scale=0.9]{img/experiments/e10_1622303333499.png}
     \caption{Tasks completed over time when running \texttt{word\_length.shard} by each machine in a cluster with the machines having different packet loss probabilities.}
     \label{fig:packetlosswordlength}
   \end{center}
@@ -2466,7 +2477,7 @@ Examples of real world scenarios simulated by this experiment are when certain m
 % Experiment (e11)
 \begin{figure}[h]
   \begin{center}
-    \includegraphics[scale=0.9]{img/experiments/e11_1620960581241.png}
+    \includegraphics[scale=0.9]{img/experiments/e11_1622303333499.png}
     \caption{Tasks completed over time when running \texttt{word\_length.shard} by each machine in a cluster with some machines rate-limited.}
     \label{fig:slowwordlength}
   \end{center}
@@ -2604,7 +2615,7 @@ cluster -t data_parallel
 
 The reduce operation aggregates the values for each key, which is a list of 1's equal to the number of occurrences.
 Therefore, to get the total number of occurrences for each key, a shell command to find the sum of the input should be used for the reduce operation.
-Because of how the \texttt{data\_parallel} application class is designed, the output of the map operation is piped to the input of the reduce operation.
+Because of how the \texttt{data\_parallel} application class is designed, the output of the map operation is piped to the input of the reduce operation. This pipe works just like any other pipe, sending the key-value pairs from the fromer command to the latter in the form of a string.
 
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
@@ -2751,7 +2762,7 @@ As an example, let's say the user is trying to run a cleanup task on each of the
 \begin{minipage}[c]{\textwidth-15pt}
   \begin{lstlisting}[language=Shard]
 source cluster.shard
-(rm -r /tmp/cache_to_be_removed; echo "$(hostname) - cleanup success")@@remotes
+(rm -rf /tmp/cache_to_be_removed; echo "$(hostname) - cleanup success")@@remotes
 \end{lstlisting}
   \smallskip
 \end{minipage}
@@ -2779,6 +2790,8 @@ Finally, a qualitative analysis of setting up Shard, writing Shard programs, and
 %   \item Future work
 %   \item What did this thesis accomplish?
 % \end{itemize}
+% \todoi{Start with future work: things we wish we got to;
+%   summary of work; final thoughts}
 
 In this thesis, we explore the research question of how to create a reliable and easy to use general purpose distributed framework.
 This thesis proposes the Shard distributed framework, which provides a solution that satisfies the three goals of being distributed, reliable, and easy to use, which we deem as the three core pillars of Shard.
@@ -2793,8 +2806,9 @@ This thesis describes a specific implementation of Shard using the OCaml program
 Shard is evaluated by running experiments to demonstrate that the design and implementation satisfy the core pillars. The experiments show that, with the programs being tested, Shard does an excellent job in functioning as a general purpose reliable distributed shell programming language, while still maintaining the ease of use in setting up Shard, writing Shard code, and running Shard programs.
 
 There are many possible directions to extend this work.
-Some of them include peer-to-peer communication between remote machines in a cluster, compatibility on different architectures, performance improvements, alternative language features, and additional application classes.
+Some future directions to explore include peer-to-peer communication between remote machines in a cluster, compatibility on different architectures, performance improvements, alternative language features, and additional application classes.
 Many of these directions can be investigated by extending the existing implementation of Shard as provided by this thesis, but it is also viable to create an alternative implementation with different trade-offs.
+In addition, the evaluation of Shard can be expanded by running the experiments in the cloud, using real-world workloads, or conducting user studies to determine Shard's ease of use.
 
 % \todoi{Future: Lesson learned}
 
