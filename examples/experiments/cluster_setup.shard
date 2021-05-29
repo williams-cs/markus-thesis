@@ -2,5 +2,5 @@ cluster -s testcluster
 cluster -c
 cluster -a "21myf1@devon.cs.williams.edu"
 cluster -a "21myf1@brava.cs.williams.edu"
-cluster -a "21myf1@rathi.cs.williams.edu"
+cluster -a "21myf1@sykia.cs.williams.edu"
 cluster -a "21myf1@guernsey.cs.williams.edu"

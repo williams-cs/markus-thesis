@@ -21,7 +21,7 @@ def test():
     times = logreader.load(run, latest, 'time', 'No forced failures')
     times.plot('time', ['No forced failures'])
     # plt.title('Tasks completed over time for word_count.shard')
-    plt.xlabel('Time passed (seconds)')
+    plt.xlabel('Time elapsed (seconds)')
     plt.ylabel('Tasks completed')
     plt.savefig('out/{id}.png'.format(id=run))
 
@@ -155,9 +155,10 @@ def e7(e7=None):
     write_meta("e7", start_timestamp,
         [("e7", re7)])
 
-# Word length, fixed fail chance, 0-80 (9 times)
+# Word length, fixed fail chance, 0-80 (5 times)
 def e8(e8=None):
-    chances = [0,10,20,30,40,50,60,70,80]
+    # chances = [0,10,20,30,40,50,60,70,80]
+    chances = [0,20,40,60,80]
     res = []
     es = []
     for i in range(len(chances)):
@@ -202,7 +203,7 @@ def e10(e10=None):
         # oamt = e11s[i].tail(1)[legends[i]]
         # e11s[i].append({"time": mt, legends[i]: oamt}, ignore_index=True)
         plt.plot("time", legends[i], data=e10s[i])
-    plt.xlabel("Time passed (seconds)")
+    plt.xlabel("Time elapsed (seconds)")
     plt.ylabel("Tasks completed")
     plt.legend(title="Packet loss probability")
     plt.savefig('out/{ts}/e10_{ts}.png'.format(ts=start_timestamp))
@@ -219,7 +220,7 @@ def e11(e11=None):
         # oamt = e11s[i].tail(1)[legends[i]]
         # e11s[i].append({"time": mt, legends[i]: oamt}, ignore_index=True)
         plt.plot("time", legends[i], data=e11s[i])
-    plt.xlabel("Time passed (seconds)")
+    plt.xlabel("Time elapsed (seconds)")
     plt.ylabel("Tasks completed")
     plt.legend()
     plt.savefig('out/{ts}/e11_{ts}.png'.format(ts=start_timestamp))
@@ -265,7 +266,7 @@ if __name__ == "__main__":
     e9(e9=1620956765048516288)
     e10(e10=1620959834725407126)
     e11(e11=1620959869052132943)
-    e12(e12a=1620960543995083444, e12b=None)
+    e12(e12a=1620960543995083444, e12b=True)
 
 
     # Bad runs:
@@ -285,6 +286,6 @@ if __name__ == "__main__":
 
 # times = pd.read_csv('times.csv.output')
 # times.plot('time', ['amount'])
-# plt.xlabel('Time passed (seconds)')
+# plt.xlabel('Time elapsed (seconds)')
 # plt.ylabel('Tasks completed')
 # plt.savefig('out.png')

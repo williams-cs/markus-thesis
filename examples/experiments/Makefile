@@ -5,7 +5,7 @@ all: setup
 setup: local
 	- ssh 21myf1@devon.cs.williams.edu $(command)
 	- ssh 21myf1@brava.cs.williams.edu $(command)
-	- ssh 21myf1@rathi.cs.williams.edu $(command)
+	- ssh 21myf1@sykia.cs.williams.edu $(command)
 	- ssh 21myf1@guernsey.cs.williams.edu $(command)
 
 local:

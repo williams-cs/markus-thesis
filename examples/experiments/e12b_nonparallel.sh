@@ -2,7 +2,7 @@
 # Define hosts of machine in cluster
 m1=21myf1@devon.cs.williams.edu
 m2=21myf1@brava.cs.williams.edu
-m3=21myf1@rathi.cs.williams.edu
+m3=21myf1@sykia.cs.williams.edu
 m4=21myf1@guernsey.cs.williams.edu
 
 # Cleanup from prior runs
